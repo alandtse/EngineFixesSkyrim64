@@ -11,7 +11,11 @@ namespace Fixes::BSLightingAmbientSpecular
                 Xbyak::Label jmpOut;
                 // hook: 0x130AB2D (in middle of SetupGeometry, right before if (rawTechnique & RAW_FLAG_SPECULAR), just picked a random place tbh
                 // test
+#ifdef SKYRIMVR
+                test(dword[rbx + 0x94], 0x20000);  // RawTechnique & RAW_FLAG_AMBIENT_SPECULAR (VR uses RBX)
+#else
                 test(dword[r13 + 0x94], 0x20000);  // RawTechnique & RAW_FLAG_AMBIENT_SPECULAR
+#endif
                 jz(jmpOut);
                 // ambient specular
                 push(rax);
@@ -24,17 +28,21 @@ namespace Fixes::BSLightingAmbientSpecular
                 mov(rax, qword[rsp + 0x170 - 0x120 + 0x10]);
 #endif
                 movzx(edx, byte[rax + 0x46]);  // m_ConstantOffsets 0x6 (AmbientSpecularTintAndFresnelPower)
-#ifdef SKYRIM_AE
-                mov(rax, ptr[rdi + 8]);  // m_PerGeometry buffer (copied from SetupGeometry)
+#if defined(SKYRIM_AE) || defined(SKYRIMVR)
+                mov(rax, ptr[rdi + 8]);  // m_PerGeometry buffer (copied from SetupGeometry) - VR and AE use RDI
 #else
-                mov(rax, ptr[r15 + 8]);
+                mov(rax, ptr[r15 + 8]);  // SSE uses R15
 #endif
                 movups(ptr[rax + rdx * 4], xmm0);  // m_PerGeometry buffer offset 0x6
                 pop(rdx);
                 pop(rax);
                 // original code
                 L(jmpOut);
-                test(dword[r13 + 0x94], 0x200);
+#ifdef SKYRIMVR
+                test(dword[rbx + 0x94], 0x200);  // VR uses RBX
+#else
+                test(dword[r13 + 0x94], 0x200);  // SSE/AE use R13
+#endif
                 jmp(ptr[rip]);
                 dq(a_addAmbientSpecularToSetupGeometry + 0xB);
             }
@@ -44,11 +52,11 @@ namespace Fixes::BSLightingAmbientSpecular
     inline void Install()
     {
         // remove invalid code from BSLightingShader::SetupMaterial
-        REL::Relocation materialTarget{ RELOCATION_ID(100563, 107298), VAR_NUM(0x713, 0x8CF) };
+        REL::Relocation materialTarget{ RELOCATION_ID(100563, 107298), VAR_NUM(0x713, 0x8CF, 0x713) };
         materialTarget.write_fill(REL::NOP, 0x20);
 
         // add new code to BSLightingShader::SetupGeometry
-        const REL::Relocation geometryTarget{ RELOCATION_ID(100565, 107300), VAR_NUM(0xBAD, 0x1271) };
+        const REL::Relocation geometryTarget{ RELOCATION_ID(100565, 107300), VAR_NUM(0xBAD, 0x1271, 0xC59) };
         const REL::Relocation constant{ RELOCATION_ID(513256, 390997) };
 
         detail::Patch p(constant.address(), geometryTarget.address());

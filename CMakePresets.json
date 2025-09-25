@@ -52,6 +52,13 @@
       }
     },
     {
+      "name": "vr",
+      "hidden": true,
+      "cacheVariables": {
+        "BUILD_SKYRIMVR": true
+      }
+    },
+    {
       "name": "vs2022-windows-vcpkg-release-se",
       "binaryDir": "${sourceDir}/buildse/release",
       "inherits": [
@@ -92,6 +99,28 @@
         "vs2022",
         "ae"
       ]
+    },
+    {
+      "name": "vs2022-windows-vcpkg-release-vr",
+      "binaryDir": "${sourceDir}/buildvr/release",
+      "inherits": [
+        "cmake-dev",
+        "vcpkg",
+        "windows",
+        "vs2022",
+        "vr"
+      ]
+    },
+    {
+      "name": "vs2022-windows-vcpkg-debug-vr",
+      "binaryDir": "${sourceDir}/buildvr/debug",
+      "inherits": [
+        "cmake-dev",
+        "vcpkg",
+        "windows",
+        "vs2022",
+        "vr"
+      ]
     }
   ],
   "buildPresets": [
@@ -113,6 +142,16 @@
     {
       "name": "debug-ae",
       "configurePreset": "vs2022-windows-vcpkg-debug-ae",
+      "configuration": "Debug"
+    },
+    {
+      "name": "release-vr",
+      "configurePreset": "vs2022-windows-vcpkg-release-vr",
+      "configuration": "Release"
+    },
+    {
+      "name": "debug-vr",
+      "configurePreset": "vs2022-windows-vcpkg-debug-vr",
       "configuration": "Debug"
     }
   ]

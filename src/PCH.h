@@ -67,8 +67,10 @@ using namespace std::literals;
 
 #include "Version.h"
 
-#ifdef SKYRIM_AE
-#    define VAR_NUM(se, ae) ae
+#ifdef SKYRIMVR
+#    define VAR_NUM(se, ae, vr) vr
+#elif defined(SKYRIM_AE)
+#    define VAR_NUM(se, ae, vr) ae
 #else
-#    define VAR_NUM(se, ae) se
+#    define VAR_NUM(se, ae, vr) se
 #endif

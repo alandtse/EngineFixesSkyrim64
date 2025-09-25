@@ -35,7 +35,7 @@ namespace Fixes::NiTimeControllerNoTarget
 #endif
                 jz(jmpNone);
                 jmp(ptr[rip]);
-                dq(a_target + VAR_NUM(0x13, 0x12));
+                dq(a_target + VAR_NUM(0x13, 0x12, 0x13));
 
                 L(jmpOverSet);
 #ifdef SKYRIM_AE
@@ -49,11 +49,11 @@ namespace Fixes::NiTimeControllerNoTarget
 #endif
                 jz(jmpNone);
                 jmp(ptr[rip]);
-                dq(a_target + VAR_NUM(0x61, 0x5B));
+                dq(a_target + VAR_NUM(0x61, 0x5B, 0x61));
 
                 L(jmpNone);
                 jmp(ptr[rip]);
-                dq(a_target + VAR_NUM(0x177, 0x150));
+                dq(a_target + VAR_NUM(0x177, 0x150, 0x177));
             }
         };
 
@@ -77,7 +77,7 @@ namespace Fixes::NiTimeControllerNoTarget
             REL::Relocation timeControllerLinkObject { RELOCATION_ID(69434, 70811) };
             orig_LinkObject = safetyhook::create_inline(timeControllerLinkObject.address(), LinkObject);
 
-            REL::Relocation target{ RELOCATION_ID(70880, 72461), VAR_NUM(0x2F0, 0x2E0) };
+            REL::Relocation target{ RELOCATION_ID(70880, 72461), VAR_NUM(0x2F0, 0x2E0, 0x2F0) };
             auto&           trampoline = SKSE::GetTrampoline();
 
             Patch p(target.address(), SKSE::stl::unrestricted_cast<std::uintptr_t>(ShouldProcess));

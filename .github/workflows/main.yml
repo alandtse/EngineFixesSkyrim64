@@ -19,8 +19,9 @@ jobs:
       CMAKE_SE_BUILD_PRESET: 'release-se'
       CMAKE_SE_CONFIG_PRESET: 'vs2022-windows-vcpkg-release-se'
       CMAKE_SE_BINARY_DIR: 'buildse/release'
-      CMAKE_VR_CONFIG_PRESET: ''
-      CMAKE_VR_BUILD_PRESET: ''
+      CMAKE_VR_CONFIG_PRESET: 'vs2022-windows-vcpkg-release-vr'
+      CMAKE_VR_BUILD_PRESET: 'release-vr'
+      CMAKE_VR_BINARY_DIR: 'buildvr/release'
       FOMOD_INCLUDE_PDB: true
       FOMOD_MOD_NAME: "EngineFixes"
       FOMOD_MOD_AUTHOR: "aers"

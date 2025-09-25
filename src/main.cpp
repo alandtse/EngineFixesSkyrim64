@@ -92,10 +92,17 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     logger::info("EngineFixes v{}.{}.{} PreLoad"sv, Version::MAJOR, Version::MINOR, Version::PATCH);
 
     const auto ver = REL::Module::get().version();
-    if (ver < VAR_NUM(SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170)) {
+#ifdef SKYRIMVR
+    if (ver < SKSE::RUNTIME_VR_1_4_15) {
         logger::error("Unsupported runtime version {}"sv, ver);
         return;
     }
+#else
+    if (ver < VAR_NUM(SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170, SKSE::RUNTIME_VR_1_4_15)) {
+        logger::error("Unsupported runtime version {}"sv, ver);
+        return;
+    }
+#endif
 
     auto& trampoline = SKSE::GetTrampoline();
     trampoline.create(1 << 11);
@@ -116,7 +123,7 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     g_isPreloaded = true;
 }
 
-#ifdef SKYRIM_AE
+#if defined(SKYRIM_AE) || defined(SKYRIMVR)
 extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
     SKSE::PluginVersionData v;
     v.PluginVersion(Version::MAJOR);
@@ -124,7 +131,11 @@ extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
     v.AuthorName("aers");
     v.UsesAddressLibrary();
     v.UsesUpdatedStructs();
+#ifdef SKYRIMVR
+    v.CompatibleVersions({ SKSE::RUNTIME_VR_1_4_15 });
+#else
     v.CompatibleVersions({ SKSE::RUNTIME_SSE_1_6_1170 });
+#endif
 
     return v;
 }();

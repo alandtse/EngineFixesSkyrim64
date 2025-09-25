@@ -1,10 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 set(NAME "EngineFixes" CACHE STRING "")
 set(VERSION 7.0.19 CACHE STRING "")
+set(VR_VERSION 1 CACHE STRING "")
 
 # ---- Options ----
 option(COPY_BUILD "Copy the build output to the Skyrim directory." TRUE)
 option(BUILD_SKYRIMAE "Build for Skyrim AE" OFF)
+option(BUILD_SKYRIMVR "Build for Skyrim VR" OFF)
 
 # ---- Cache build vars ----
 macro(set_from_environment VARIABLE)
@@ -31,17 +33,26 @@ endmacro()
 
 set_from_environment(VCPKG_ROOT)
 
-if(BUILD_SKYRIMAE)
+if(BUILD_SKYRIMVR)
+    add_compile_definitions(SKYRIMVR)
+    add_compile_definitions(ENABLE_SKYRIM_VR)
+    set(CommonLibName "CommonLibVR")
+    set_from_environment(SkyrimVRPath)
+    set(SkyrimPath ${SkyrimVRPath})
+    set(SkyrimVersion "Skyrim VR")
+elseif(BUILD_SKYRIMAE)
     add_compile_definitions(SKYRIM_AE)
     add_compile_definitions(SKYRIM_SUPPORT_AE)
+    set(CommonLibName "CommonLibSSE")
+    set_from_environment(Skyrim64Path)
+    set(SkyrimPath ${Skyrim64Path})
     set(SkyrimVersion "Skyrim AE")
 else()
+    set(CommonLibName "CommonLibSSE")
+    set_from_environment(Skyrim64Path)
+    set(SkyrimPath ${Skyrim64Path})
     set(SkyrimVersion "Skyrim SSE")
 endif()
-
-set(CommonLibName "CommonLibSSE")
-set_from_environment(Skyrim64Path)
-set(SkyrimPath ${Skyrim64Path})
 
 set(VERSION ${VERSION})
 

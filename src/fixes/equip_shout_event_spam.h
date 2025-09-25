@@ -14,16 +14,16 @@ namespace Fixes::EquipShoutEventSpam
 
                 // rbp = Actor*
                 // rdi = TESShout*
-#ifdef SKYRIM_AE
-                cmp(ptr[rbp + 0x1E8], rdi);
+#if defined(SKYRIM_AE) || defined(SKYRIMVR)
+                cmp(ptr[rbp + 0x1E8], rdi);  // AE and VR use RBP
 #else
-                cmp(ptr[r14 + 0x1E0], rdi);
+                cmp(ptr[r14 + 0x1E0], rdi);  // SSE uses R14
 #endif
                 je(exitLbl);
-#ifdef SKYRIM_AE
-                mov(ptr[rbp + 0x1E8], rdi);  // actor->equippedShout = shout;
+#if defined(SKYRIM_AE) || defined(SKYRIMVR)
+                mov(ptr[rbp + 0x1E8], rdi);  // actor->equippedShout = shout; AE and VR use RBP
 #else
-                mov(ptr[r14 + 0x1E0], rdi);
+                mov(ptr[r14 + 0x1E0], rdi);  // SSE uses R14
 #endif
                 test(rdi, rdi);  // if (shout)
                 jz(exitLbl);
