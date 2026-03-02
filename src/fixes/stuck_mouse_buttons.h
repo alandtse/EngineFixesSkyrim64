@@ -47,9 +47,14 @@ namespace Fixes::StuckMouseButtons
                     if (!ui)
                         return;
 
+                    RE::IMenu* openedMenu = nullptr;
+                    auto       it = ui->menuMap.find(menuName.c_str());
+                    if (it != ui->menuMap.end())
+                        openedMenu = it->second.menu.get();
+
                     for (auto& menuPtr : ui->menuStack) {
                         auto* menu = menuPtr.get();
-                        if (!menu || !menu->uiMovie || !menu->UsesCursor())
+                        if (!menu || !menu->uiMovie || !menu->UsesCursor() || menu == openedMenu)
                             continue;
 
                         float         fx = 0.0f, fy = 0.0f;
@@ -58,11 +63,6 @@ namespace Fixes::StuckMouseButtons
 
                         if (fButtons == 0)
                             continue;
-
-                        for (auto& entry : ui->menuMap) {
-                            if (entry.second.menu.get() == menu && entry.first == menuName.c_str())
-                                return;
-                        }
 
                         TrySendMouseUp(menu);
                         return;
