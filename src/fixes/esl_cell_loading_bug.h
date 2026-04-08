@@ -17,8 +17,8 @@ namespace Fixes::ESLCELLLoadingBugs
                     return (a_this->GetFormID() & 0xFFFFFF) % 0xA;
             }
 
-            if (a_this->cellData.exterior) {
-                return (a_this->cellData.exterior->cellY >> 5) & 0x0000FFFF | (((a_this->cellData.exterior->cellX >> 5) << 16) & 0xFFFF0000);
+            if (a_this->GetRuntimeData().cellData.exterior) {
+                return (a_this->GetRuntimeData().cellData.exterior->cellY >> 5) & 0x0000FFFF | (((a_this->GetRuntimeData().cellData.exterior->cellX >> 5) << 16) & 0xFFFF0000);
             }
 
             return 0;
@@ -36,8 +36,8 @@ namespace Fixes::ESLCELLLoadingBugs
                     return ((a_this->GetFormID() & 0xFFFFFF) % 0x64) / 0xA;
             }
 
-            if (a_this->cellData.exterior) {
-                return (a_this->cellData.exterior->cellY >> 3) & 0x0000FFFF | (((a_this->cellData.exterior->cellX >> 3) << 16) & 0xFFFF0000);
+            if (a_this->GetRuntimeData().cellData.exterior) {
+                return (a_this->GetRuntimeData().cellData.exterior->cellY >> 3) & 0x0000FFFF | (((a_this->GetRuntimeData().cellData.exterior->cellX >> 3) << 16) & 0xFFFF0000);
             }
 
             return 0;

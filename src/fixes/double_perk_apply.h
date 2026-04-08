@@ -22,7 +22,7 @@ namespace Fixes::DoublePerkApply
         {
             RemoveBasePerks(a_actor);
 
-            auto* currentProcess = a_actor->currentProcess;
+            auto* currentProcess = a_actor->GetActorRuntimeData().currentProcess;
             if (!currentProcess) {
                 return;
             }
@@ -69,7 +69,10 @@ namespace Fixes::DoublePerkApply
         {
             ApplyBasePerksActorImplementation(a_player);
 
-            for (auto* addedPerkRank : a_player->addedPerks) {
+            const auto* addedPerks = REL::Module::IsVR()
+                ? &a_player->GetVRPlayerRuntimeData().addedPerks
+                : &a_player->GetPlayerRuntimeData().addedPerks;
+            for (auto* addedPerkRank : *addedPerks) {
                 auto* perk = addedPerkRank->perk;
 
                 if (!perk) {
@@ -103,9 +106,12 @@ namespace Fixes::DoublePerkApply
         REL::Relocation characterVtbl{ RE::Character::VTABLE[0] };
         REL::Relocation playerCharacterVtbl{ RE::PlayerCharacter::VTABLE[0] };
 
-        actorVtbl.write_vfunc(0x101, detail::ApplyBasePerksActor);
-        characterVtbl.write_vfunc(0x101, detail::ApplyBasePerksActor);
-        playerCharacterVtbl.write_vfunc(0x101, detail::ApplyBasePerksPlayerCharacter);
+        // VR has 2 extra vtable entries before this block, shifting ApplyPerksFromBase
+        const auto slot = REL::Module::IsVR() ? 0x103 : 0x101;
+
+        actorVtbl.write_vfunc(slot, detail::ApplyBasePerksActor);
+        characterVtbl.write_vfunc(slot, detail::ApplyBasePerksActor);
+        playerCharacterVtbl.write_vfunc(slot, detail::ApplyBasePerksPlayerCharacter);
 
         logger::info("installed double perk apply fix"sv);
     }

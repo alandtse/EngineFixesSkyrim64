@@ -22,7 +22,6 @@ namespace Memory::RenderPassCache
                 a_renderPass->sceneLights[i] = a_lights[i];
         }
 
-#ifndef SKYRIM_AE
         inline void Set(RE::BSRenderPass* a_renderPass, RE::BSShader* a_shader, RE::BSShaderProperty* a_property, RE::BSGeometry* a_geometry, uint32_t a_passEnum, uint8_t a_numLights, RE::BSLight** a_lights)
         {
             a_renderPass->shader = a_shader;
@@ -32,7 +31,6 @@ namespace Memory::RenderPassCache
             a_renderPass->accumulationHint = 0;
             SetLights(a_renderPass, a_numLights, a_lights);
         }
-#endif
 
         inline RE::BSRenderPass* Allocate(RE::BSShader* a_shader, RE::BSShaderProperty* a_property, RE::BSGeometry* a_geometry, uint32_t a_passEnum, uint8_t a_numLights, RE::BSLight** a_lights)
         {
@@ -50,7 +48,7 @@ namespace Memory::RenderPassCache
             renderPass->extraParam = 0;
             renderPass->LODMode.index = 3;
             renderPass->LODMode.singleLevel = false;
-            renderPass->unk20 = 0;
+            renderPass->numShadowLights = 0;
             renderPass->next = nullptr;
             renderPass->passGroupNext = nullptr;
             renderPass->cachePoolId = 0xFEFEDEAD;
@@ -72,25 +70,22 @@ namespace Memory::RenderPassCache
             REL::Relocation allocate{ RELOCATION_ID(100717, 107497) };
             REL::Relocation deallocate{ RELOCATION_ID(100718, 107498) };
             REL::Relocation setlights{ RELOCATION_ID(100711, 107490) };
-#ifndef SKYRIM_AE
-            REL::Relocation set{ REL::ID(100710) };
-#endif
             REL::Relocation init{ RELOCATION_ID(100720, 107500) };
             REL::Relocation kill{ RELOCATION_ID(100721, 107501) };
-            REL::Relocation clear{ RELOCATION_ID(100722, 107502) };
-
             allocate.replace_func(VAR_NUM(0x9A, 0xF9), Allocate);
             deallocate.replace_func(VAR_NUM(0x60, 0x68), Deallocate);
             setlights.replace_func(0x69, SetLights);
-#ifndef SKYRIM_AE
-            set.replace_func(0x90, Set);
-#endif
+            if (!REL::Module::IsAE()) {
+                REL::Relocation set{ REL::ID(100710) };
+                set.replace_func(0x90, Set);
+            }
 
             init.write_fill(REL::INT3, VAR_NUM(0x1BD, 0x1BF));
             init.write(REL::RET);
             kill.write_fill(REL::INT3, 0xAB);
             kill.write(REL::RET);
-            clear.write_fill(REL::INT3, VAR_NUM(0xE7, 0x16B));
+            REL::Relocation clear{ RELOCATION_ID(100722, 107502) };
+            clear.write_fill(REL::INT3, VAR_NUM(0xE7, 0x16B, 0xB7));
             clear.write(REL::RET);
         }
     }

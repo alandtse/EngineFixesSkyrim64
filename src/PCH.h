@@ -67,8 +67,9 @@ using namespace std::literals;
 
 #include "Version.h"
 
-#ifdef SKYRIM_AE
-#    define VAR_NUM(se, ae) ae
-#else
-#    define VAR_NUM(se, ae) se
-#endif
+// VAR_NUM(se, ae)       → VR uses SE value (REL::Relocate 2-arg: se/vr vs ae)
+// VAR_NUM(se, ae, vr)   → explicit VR offset (REL::Relocate 3-arg)
+#define VAR_NUM_2(se, ae)      REL::Relocate((se), (ae))
+#define VAR_NUM_3(se, ae, vr)  REL::Relocate((se), (ae), (vr))
+#define VAR_NUM_PICK(_1, _2, _3, NAME, ...) NAME
+#define VAR_NUM(...) VAR_NUM_PICK(__VA_ARGS__, VAR_NUM_3, VAR_NUM_2, ~)(__VA_ARGS__)

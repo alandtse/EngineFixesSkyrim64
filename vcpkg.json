@@ -1,7 +1,7 @@
 {
   "name": "enginefixes",
   "version-string": "7.0.20",
-  "description": "Engine Fixes for Skyrim SE (1.5.97, 1.6.1170)",
+  "description": "Engine Fixes for Skyrim SE/AE/VR",
   "homepage": "https://github.com/aers/EngineFixesSkyrim64/",
   "license": "MIT",
   "dependencies": [
@@ -12,7 +12,19 @@
     "toml11",
     "safetyhook",
     "boost-regex",
-    "tbb"
+    "tbb",
+    {
+      "name": "directxmath",
+      "version>=": "2025-04-03"
+    },
+    {
+      "name": "directxtk",
+      "version>=": "2025-10-27"
+    },
+    {
+      "name": "rapidcsv",
+      "version>=": "8.90"
+    }
   ],
-  "builtin-baseline": "4bb07a326d9b9bce3703272a509e5bc25dd9cfd5"
+  "builtin-baseline": "62159a45e18f3a9ac0548628dcaf74fcb60c6ff9"
 }

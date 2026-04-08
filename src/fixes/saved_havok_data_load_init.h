@@ -9,13 +9,13 @@ namespace Fixes::SavedHavokDataLoadInit
         inline void FlagForPrevWorldResetDownwards(RE::NiAVObject* a_self)
         {
             if (RE::NiNode* node = a_self->AsNode()) {
-                for (auto& child : node->children) {
+                for (auto& child : node->GetChildren()) {
                     RE::NiAVObject* childPtr = child.get();
                     if (childPtr != nullptr)
                         FlagForPrevWorldResetDownwards(childPtr);
                 }
             }
-            a_self->flags02 |= 0x40;
+            REL::RelocateMember<std::uint8_t>(a_self, 0x109, 0x120) |= 0x40;
         }
 
         inline void NiAVObject_Update(RE::NiAVObject* a_self, RE::NiUpdateData* a_data)

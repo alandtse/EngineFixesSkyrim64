@@ -9,34 +9,49 @@ namespace Fixes::BSLightingAmbientSpecular
             Patch(std::uintptr_t a_ambientSpecularAndFresnel, std::uintptr_t a_addAmbientSpecularToSetupGeometry)
             {
                 Xbyak::Label jmpOut;
-                // hook: 0x130AB2D (in middle of SetupGeometry, right before if (rawTechnique & RAW_FLAG_SPECULAR), just picked a random place tbh
-                // test
-                test(dword[r13 + 0x94], 0x20000);  // RawTechnique & RAW_FLAG_AMBIENT_SPECULAR
+                // hook: in middle of SetupGeometry, right before if (rawTechnique & RAW_FLAG_SPECULAR)
+                // register layout differs: VR uses rbx for rawTechnique (SE/AE use r13),
+                //   VR/AE use rdi for m_PerGeometry (SE uses r15),
+                //   PixelShader stack offset differs per runtime
+                const bool isVR = REL::Module::IsVR();
+                const bool isAE = REL::Module::IsAE();
+
+                // rawTechnique register: r13 (SE/AE), rbx (VR)
+                if (isVR)
+                    test(dword[rbx + 0x94], 0x20000);
+                else
+                    test(dword[r13 + 0x94], 0x20000);
                 jz(jmpOut);
-                // ambient specular
                 push(rax);
                 push(rdx);
-                mov(rax, a_ambientSpecularAndFresnel);  // xmmword_1E3403C
+                mov(rax, a_ambientSpecularAndFresnel);
                 movups(xmm0, ptr[rax]);
-#ifdef SKYRIM_AE
-                mov(rax, qword[rsp + 0x2D0 - 0x260 + 0x10]);  // PixelShader
-#else
-                mov(rax, qword[rsp + 0x170 - 0x120 + 0x10]);
-#endif
-                movzx(edx, byte[rax + 0x46]);  // m_ConstantOffsets 0x6 (AmbientSpecularTintAndFresnelPower)
-#ifdef SKYRIM_AE
-                mov(rax, ptr[rdi + 8]);  // m_PerGeometry buffer (copied from SetupGeometry)
-#else
-                mov(rax, ptr[r15 + 8]);
-#endif
-                movups(ptr[rax + rdx * 4], xmm0);  // m_PerGeometry buffer offset 0x6
+                // PixelShader ptr: AE rsp+0x70, VR rsp+0x58, SE rsp+0x60
+                if (isAE)
+                    mov(rax, qword[rsp + 0x2D0 - 0x260 + 0x10]);
+                else if (isVR)
+                    mov(rax, qword[rsp + 0x170 - 0x120 + 0x8]);
+                else
+                    mov(rax, qword[rsp + 0x170 - 0x120 + 0x10]);
+                movzx(edx, byte[rax + 0x46]);  // m_ConstantOffsets[6] (AmbientSpecularTintAndFresnelPower)
+                // m_PerGeometry buffer: rdi (AE/VR), r15 (SE)
+                if (isAE || isVR)
+                    mov(rax, ptr[rdi + 8]);
+                else
+                    mov(rax, ptr[r15 + 8]);
+                movups(ptr[rax + rdx * 4], xmm0);
                 pop(rdx);
                 pop(rax);
-                // original code
+                // original code continues with rawTechnique check
                 L(jmpOut);
-                test(dword[r13 + 0x94], 0x200);
+                if (isVR)
+                    test(dword[rbx + 0x94], 0x200);
+                else
+                    test(dword[r13 + 0x94], 0x200);
                 jmp(ptr[rip]);
-                dq(a_addAmbientSpecularToSetupGeometry + 0xB);
+                // test [r13+0x94], imm32 = 11 bytes (SE/AE: REX.B + F7 + ModRM + disp32 + imm32)
+                // test [rbx+0x94], imm32 = 10 bytes (VR: no REX prefix needed for rbx)
+                dq(a_addAmbientSpecularToSetupGeometry + (isVR ? 0xA : 0xB));
             }
         };
     }

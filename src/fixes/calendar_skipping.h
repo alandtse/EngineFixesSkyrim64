@@ -28,26 +28,17 @@ namespace Fixes::CalendarSkipping
     inline void Install()
     {
         // these are all the callsites for ID 36291
-#ifdef SKYRIM_AE
-        constexpr std::array todo = {
-            std::make_pair(13328, 0xE2),
-            std::make_pair(36564, 0x266),
-            std::make_pair(36566, 0x3A),
-            std::make_pair(40445, 0x282),
-            std::make_pair(40485, 0x78),
+        using PairT = std::pair<REL::RelocationID, std::ptrdiff_t>;
+        const std::array<PairT, 5> todo = {
+            PairT{ RELOCATION_ID(13183, 13328), 0xE2 },
+            PairT{ RELOCATION_ID(35565, 36564), VAR_NUM(0x24D, 0x266) },
+            PairT{ RELOCATION_ID(35567, 36566), 0x3A },
+            PairT{ RELOCATION_ID(39373, 40445), VAR_NUM(0x2B1, 0x282) },
+            PairT{ RELOCATION_ID(39410, 40485), 0x78 },
         };
-#else
-        constexpr std::array todo = {
-            std::make_pair(13183, 0xE2),
-            std::make_pair(35565, 0x24D),
-            std::make_pair(35567, 0x3A),
-            std::make_pair(39373, 0x2B1),
-            std::make_pair(39410, 0x78),
-        };
-#endif
 
         for (const auto& [id, offset] : todo) {
-            REL::Relocation target{ REL::ID(id), offset };
+            REL::Relocation target{ id, offset };
             detail::Calendar::_Update = target.write_call<5>(detail::Calendar::Update);
         }
 

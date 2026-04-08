@@ -60,13 +60,13 @@ namespace Patches::WaterflowAnimation::detail
                     // .text:000000014141CE5C                 movss   xmm0, cs:dword_141EA2E40
                     // .text:000000014141CE64                 movss   dword ptr [r10+rax*4+0Ch], xmm0
                     mov(r9, ptr[rip + timerLabel]);  // r9 is safe to use, unused again until .text:000000014130E13C                 mov     r9, r12
-#ifdef SKYRIM_AE
-                    movss(xmm0, dword[r9]);
-                    movss(dword[r10 + rax * 4 + 0xC], xmm0);
-#else
-                    movss(xmm1, dword[r9]);
-                    movss(dword[rdx + rax * 4 + 0xC], xmm1);
-#endif
+                    if (REL::Module::IsAE()) {
+                        movss(xmm0, dword[r9]);
+                        movss(dword[r10 + rax * 4 + 0xC], xmm0);
+                    } else {
+                        movss(xmm1, dword[r9]);
+                        movss(dword[rdx + rax * 4 + 0xC], xmm1);
+                    }
                     // exit 14E168B
                     jmp(ptr[rip + retnLabel]);
 

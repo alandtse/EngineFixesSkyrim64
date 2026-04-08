@@ -1,9 +1,11 @@
 set(headers ${headers}
 	src/PCH.h
 	src/clean_cosaves.h
+	src/fixes/ability_condition_bug.h
 	src/fixes/animation_load_signed_crash.h
 	src/fixes/archery_downward_aiming.h
 	src/fixes/bethesda_net_crash.h
+	src/fixes/buy_sell_stack_speech_gain.h
 	src/fixes/bgskeywordform_load_crash.h
 	src/fixes/bslightingambientspecular.h
 	src/fixes/bslightingshader_force_alpha_test.h
@@ -35,6 +37,7 @@ set(headers ${headers}
 	src/fixes/removed_spellbook.h
 	src/fixes/save_screenshots.h
 	src/fixes/saved_havok_data_load_init.h
+	src/fixes/shadow_scene_crash.h
 	src/fixes/shadowscenenode_nullptr_crash.h
 	src/fixes/texture_load_crash.h
 	src/fixes/torch_landscape.h

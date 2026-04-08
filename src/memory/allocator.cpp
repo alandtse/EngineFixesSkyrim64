@@ -29,10 +29,14 @@ namespace Memory::Allocator
         }
         void Deallocate(void* a_mem) override
         {
+            if (!a_mem && REL::Module::IsVR())
+                return;
             free(a_mem);
         }
         void DeallocateAligned(void* a_mem) override
         {
+            if (!a_mem && REL::Module::IsVR())
+                return;
             _aligned_free(a_mem);
         }
         void ReplaceImports() override
@@ -66,10 +70,14 @@ namespace Memory::Allocator
         }
         void Deallocate(void* a_mem) override
         {
+            if (!a_mem && REL::Module::IsVR())
+                return;
             return scalable_free(a_mem);
         }
         void DeallocateAligned(void* a_mem) override
         {
+            if (!a_mem && REL::Module::IsVR())
+                return;
             return scalable_aligned_free(a_mem);
         }
         void ReplaceImports() override

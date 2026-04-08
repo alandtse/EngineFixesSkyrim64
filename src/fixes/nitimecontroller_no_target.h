@@ -11,42 +11,42 @@ namespace Fixes::NiTimeControllerNoTarget
                 Xbyak::Label jmpOverSet;
                 Xbyak::Label jmpNone;
 
-#ifdef SKYRIM_AE
-                mov(rcx, r15);  // NiObjectNET*
-                mov(rdx, rbp);  // NiControllerSequence::IDTag*
-#else
-                mov(rcx, r13);
-                mov(rdx, r15);
-#endif
+                if (REL::Module::IsAE()) {
+                    mov(rcx, r15);  // NiObjectNET*
+                    mov(rdx, rbp);  // NiControllerSequence::IDTag*
+                } else {
+                    mov(rcx, r13);
+                    mov(rdx, r15);
+                }
                 mov(rax, a_function);
                 sub(rsp, 0x20);
                 call(rax);
                 add(rsp, 0x20);
                 test(rax, rax);
                 jz(jmpOverSet);
-#ifdef SKYRIM_AE
-                mov(rax, ptr[r13 + 0x20]);
-                mov(rdi, ptr[r12 + rax + 0x8]);
-                test(rdi, rdi);
-#else
-                mov(rax, ptr[r12 + 0x20]);
-                mov(rbx, ptr[rax + rbp + 0x8]);
-                test(rbx, rbx);
-#endif
+                if (REL::Module::IsAE()) {
+                    mov(rax, ptr[r13 + 0x20]);
+                    mov(rdi, ptr[r12 + rax + 0x8]);
+                    test(rdi, rdi);
+                } else {
+                    mov(rax, ptr[r12 + 0x20]);
+                    mov(rbx, ptr[rax + rbp + 0x8]);
+                    test(rbx, rbx);
+                }
                 jz(jmpNone);
                 jmp(ptr[rip]);
                 dq(a_target + VAR_NUM(0x13, 0x12));
 
                 L(jmpOverSet);
-#ifdef SKYRIM_AE
-                mov(rax, ptr[r13 + 0x20]);
-                mov(rdi, ptr[r12 + rax + 0x8]);
-                test(rdi, rdi);
-#else
-                mov(rax, ptr[r12 + 0x20]);
-                mov(rbx, ptr[rax + rbp + 0x8]);
-                test(rbx, rbx);
-#endif
+                if (REL::Module::IsAE()) {
+                    mov(rax, ptr[r13 + 0x20]);
+                    mov(rdi, ptr[r12 + rax + 0x8]);
+                    test(rdi, rdi);
+                } else {
+                    mov(rax, ptr[r12 + 0x20]);
+                    mov(rbx, ptr[rax + rbp + 0x8]);
+                    test(rbx, rbx);
+                }
                 jz(jmpNone);
                 jmp(ptr[rip]);
                 dq(a_target + VAR_NUM(0x61, 0x5B));

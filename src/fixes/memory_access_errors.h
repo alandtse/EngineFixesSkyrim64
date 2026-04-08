@@ -62,10 +62,17 @@ namespace Fixes::MemoryAccessErrors
             const bool retVal = origLoad(a_this, a_file);
 
             // the game doesn't allow more than 10 here
-            if (a_this->data.size() >= 12) {
-                const auto particleDensity = a_this->data[11];
-                if (particleDensity.f > 10.0)
-                    a_this->data[11].f = 10.0f;
+            const bool hasData = REL::Module::IsVR()
+                ? a_this->GetVRRuntimeData().data.size() >= 12
+                : a_this->GetRuntimeData().data.size() >= 12;
+            if (hasData) {
+                const auto particleDensity = a_this->GetSettingValue(RE::BGSShaderParticleGeometryData::DataID::kParticleDensity);
+                if (particleDensity.f > 10.0f) {
+                    if (REL::Module::IsVR())
+                        a_this->GetVRRuntimeData().data[11].value.f = 10.0f;
+                    else
+                        a_this->GetRuntimeData().data[11].f = 10.0f;
+                }
             }
 
             return retVal;
@@ -94,7 +101,7 @@ namespace Fixes::MemoryAccessErrors
             Patch patch;
             patch.ready();
 
-            REL::Relocation target{ RELOCATION_ID(101499, 108496), VAR_NUM(0x1AFD, 0x1BED) };
+            REL::Relocation target{ RELOCATION_ID(101499, 108496), VAR_NUM(0x1AFD, 0x1BED, 0x1C6D) };
             target.write(std::span{ patch.getCode<const std::byte*>(), patch.getSize() });
         }
     }

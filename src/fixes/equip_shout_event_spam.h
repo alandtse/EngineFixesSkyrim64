@@ -12,19 +12,17 @@ namespace Fixes::EquipShoutEventSpam
                 Xbyak::Label exitIP;
                 Xbyak::Label sendEvent;
 
-                // rbp = Actor*
+                // rbp = Actor* (AE), r14 = Actor* (SE/VR)
                 // rdi = TESShout*
-#ifdef SKYRIM_AE
-                cmp(ptr[rbp + 0x1E8], rdi);
-#else
-                cmp(ptr[r14 + 0x1E0], rdi);
-#endif
+                if (REL::Module::IsAE())
+                    cmp(ptr[rbp + 0x1E8], rdi);
+                else
+                    cmp(ptr[r14 + 0x1E0], rdi);
                 je(exitLbl);
-#ifdef SKYRIM_AE
-                mov(ptr[rbp + 0x1E8], rdi);  // actor->equippedShout = shout;
-#else
-                mov(ptr[r14 + 0x1E0], rdi);
-#endif
+                if (REL::Module::IsAE())
+                    mov(ptr[rbp + 0x1E8], rdi);  // actor->equippedShout = shout;
+                else
+                    mov(ptr[r14 + 0x1E0], rdi);
                 test(rdi, rdi);  // if (shout)
                 jz(exitLbl);
                 jmp(ptr[rip + sendEvent]);
@@ -51,7 +49,7 @@ namespace Fixes::EquipShoutEventSpam
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        REL::safe_fill(target.address() + 5, REL::NOP, 7);
+        REL::Relocation<std::uintptr_t>{ target.address() + 5 }.write_fill(REL::NOP, 7);
 
         logger::info("installed equip shout event spam fix"sv);
     }

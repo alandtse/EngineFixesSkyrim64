@@ -29,34 +29,25 @@ namespace Memory::ScrapHeap
 
         inline void Deallocate(RE::ScrapHeap*, void* a_mem)
         {
+            if (!a_mem && REL::Module::IsVR())
+                return;
             Allocator::GetAllocator()->DeallocateAligned(a_mem);
         }
 
         inline void WriteStubs()
         {
-            using tuple_t = std::tuple<REL::ID, std::size_t>;
-#ifdef SKYRIM_AE
-            constexpr std::array todo{
-                tuple_t{ REL::ID(68152), 0xBA },   // Clean
-                tuple_t{ REL::ID(68151), 0x8 },    // ClearKeepPages
-                tuple_t{ REL::ID(68155), 0xF6 },   // InsertFreeBlock
-                tuple_t{ REL::ID(68156), 0x185 },  // RemoveFreeBlock
-                tuple_t{ REL::ID(68150), 0x4 },    // SetKeepPages
-                tuple_t{ REL::ID(68143), 0x32 },   // dtor
+            using tuple_t = std::tuple<REL::RelocationID, std::size_t>;
+            const std::array todo{
+                tuple_t{ RELOCATION_ID(66891, 68152), VAR_NUM(0xC3, 0xBA) },   // Clean
+                tuple_t{ RELOCATION_ID(66890, 68151), std::size_t(0x8) },      // ClearKeepPages
+                tuple_t{ RELOCATION_ID(66894, 68155), std::size_t(0xF6) },     // InsertFreeBlock
+                tuple_t{ RELOCATION_ID(66895, 68156), VAR_NUM(0x183, 0x185) }, // RemoveFreeBlock
+                tuple_t{ RELOCATION_ID(66889, 68150), std::size_t(0x4) },      // SetKeepPages
+                tuple_t{ RELOCATION_ID(66883, 68143), std::size_t(0x32) },     // dtor
             };
-#else
-            constexpr std::array todo{
-                tuple_t{ REL::ID(66891), 0xC3 },   // Clean
-                tuple_t{ REL::ID(66890), 0x8 },    // ClearKeepPages
-                tuple_t{ REL::ID(66894), 0xF6 },   // InsertFreeBlock
-                tuple_t{ REL::ID(66895), 0x183 },  // RemoveFreeBlock
-                tuple_t{ REL::ID(66889), 0x4 },    // SetKeepPages
-                tuple_t{ REL::ID(66883), 0x32 },   // dtor
-            };
-#endif
 
-            for (const auto& [offset, size] : todo) {
-                REL::Relocation target{ offset };
+            for (const auto& [id, size] : todo) {
+                REL::Relocation<std::uintptr_t> target{ id };
                 target.write_fill(REL::INT3, size);
                 target.write(REL::RET);
             }
@@ -64,23 +55,15 @@ namespace Memory::ScrapHeap
 
         inline void WriteHooks()
         {
-            using tuple_t = std::tuple<REL::ID, std::size_t, void*>;
-#ifdef SKYRIM_AE
-            constexpr std::array todo{
-                tuple_t{ REL::ID(68144), 0x5E7, &Allocate },
-                tuple_t{ REL::ID(68146), 0x13E, &Deallocate },
-                tuple_t{ REL::ID(68142), 0x13A, &Ctor },
+            using tuple_t = std::tuple<REL::RelocationID, std::size_t, void*>;
+            const std::array todo{
+                tuple_t{ RELOCATION_ID(66884, 68144), VAR_NUM(0x607, 0x5E7), (void*)&Allocate },
+                tuple_t{ RELOCATION_ID(66885, 68146), VAR_NUM(0x143, 0x13E), (void*)&Deallocate },
+                tuple_t{ RELOCATION_ID(66882, 68142), VAR_NUM(0x12B, 0x13A), (void*)&Ctor }, // SE/VR is 299, not 296
             };
-#else
-            constexpr std::array todo{
-                tuple_t{ REL::ID(66884), 0x607, &Allocate },
-                tuple_t{ REL::ID(66885), 0x143, &Deallocate },
-                tuple_t{ REL::ID(66882), 0x128, &Ctor },
-            };
-#endif
 
-            for (const auto& [offset, size, func] : todo) {
-                REL::Relocation target{ offset };
+            for (const auto& [id, size, func] : todo) {
+                REL::Relocation<std::uintptr_t> target{ id };
                 target.replace_func(size, func);
             }
         }

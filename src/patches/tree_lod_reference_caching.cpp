@@ -14,9 +14,8 @@ namespace Patches::TreeLodReferenceCaching
 
                     RE::TESObjectREFR* objectReference = nullptr;
 
-#ifdef SKYRIM_AE
                     // new flag in later AE versions that indicates to not scan all files, hidden is no longer a bool
-                    if ((static_cast<std::uint8_t>(instance.hidden) & 2) != 0) {
+                    if (REL::Module::IsAE() && (static_cast<std::uint8_t>(instance.hidden) & 2) != 0) {
                         if (RE::TESForm* form = FormCaching::detail::TESForm_GetFormByNumericId(instance.id))
                             objectReference = form->AsReference();
                         if (objectReference) {
@@ -29,7 +28,6 @@ namespace Patches::TreeLodReferenceCaching
                     }
                     // otherwise try cache then scan all files
                     else {
-#endif
                         bool found = false;
 
                         {
@@ -44,7 +42,9 @@ namespace Patches::TreeLodReferenceCaching
                         if (!found) {
                             // Find first valid tree object by ESP/ESM load order
                             const auto dataHandler = RE::TESDataHandler::GetSingleton();
-                            for (std::uint32_t i = 0; i < dataHandler->compiledFileCollection.files.size(); i++) {
+                            if (!dataHandler)
+                            logger::warn("Datahandler missing!");
+                            for (std::uint32_t i = 0; i < dataHandler->GetLoadedModCount(); i++) {
                                 if (RE::TESForm* form = FormCaching::detail::TESForm_GetFormByNumericId(i << 24 | baseId))
                                     objectReference = form->AsReference();
                                 if (objectReference) {
@@ -61,9 +61,7 @@ namespace Patches::TreeLodReferenceCaching
                             // Insert even if it's a null pointer
                             g_treeReferenceCache.emplace(baseId, objectReference);
                         }
-#ifdef SKYRIM_AE
                     }
-#endif
 
                     // update visibility
                     bool  fullyHidden = false;
@@ -77,7 +75,7 @@ namespace Patches::TreeLodReferenceCaching
                             if (bEnableStippleFade->GetBool()) {
                                 const auto objectFadeNode = object3D->AsFadeNode();
                                 if (objectFadeNode) {
-                                    alpha = 1.0f - objectFadeNode->currentFade;
+                                    alpha = 1.0f - objectFadeNode->GetRuntimeData().currentFade;
                                     if (alpha <= 0.0f)
                                         fullyHidden = true;
                                 }

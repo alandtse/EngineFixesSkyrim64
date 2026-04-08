@@ -56,87 +56,86 @@ namespace Patches::FormCaching
             return formPointer;
         }
 
-#ifdef SKYRIM_AE
+        // Shared cache helpers — called by both AE and SE/VR hook variants
+
+        inline void OnFormRemoved(RE::FormID* a_formIdPtr, bool a_removed)
+        {
+            if (a_removed) {
+                const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
+                const std::uint32_t baseId   = (*a_formIdPtr & 0x00FFFFFF);
+                g_formCache[masterId].erase(baseId);
+                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
+            }
+        }
+
+        // the functor stores the TESForm to set as the first field
+        inline void OnFormSet(RE::FormID* a_formIdPtr, RE::TESForm* a_form)
+        {
+            if (a_form) {
+                const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
+                const std::uint32_t baseId   = (*a_formIdPtr & 0x00FFFFFF);
+                HashMap::accessor a;
+                if (!g_formCache[masterId].emplace(a, baseId, a_form)) {
+                    logger::trace("replacing an existing form in form cache"sv);
+                    a->second = a_form;
+                }
+                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
+            }
+        }
+
         inline SafetyHookInline g_hk_RemoveAt{};
 
-        inline std::uint64_t FormMap_RemoveAt(RE::BSTHashMap<RE::FormID, RE::TESForm*>* a_self, RE::FormID* a_formIdPtr, void* a_prevValueFunctor)
+        // AE: RemoveAt(BSTHashMap*, FormID*, functor*) -> uint64
+        inline std::uint64_t FormMap_RemoveAt_AE(
+            RE::BSTHashMap<RE::FormID, RE::TESForm*>* a_self,
+            RE::FormID*                               a_formIdPtr,
+            void*                                     a_prevValueFunctor)
         {
             const auto result = g_hk_RemoveAt.call<std::uint64_t>(a_self, a_formIdPtr, a_prevValueFunctor);
-
-            const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-            const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
-
-            if (result == 1) {
-                g_formCache[masterId].erase(baseId);
-                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
-            }
-
+            OnFormRemoved(a_formIdPtr, result == 1);
             return result;
         }
 
-        static inline REL::Relocation<bool(std::uintptr_t a_self, RE::FormID* a_formIdPtr, RE::TESForm** a_valueFunctor, void* a_unk)> orig_FormScatterTable_SetAt;
-
-        // the functor stores the TESForm to set as the first field
-        inline bool FormScatterTable_SetAt(std::uintptr_t a_self, RE::FormID* a_formIdPtr, RE::TESForm** a_valueFunctor, void* a_unk)
-        {
-            const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-            const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
-
-            RE::TESForm* formPointer = *a_valueFunctor;
-
-            if (formPointer != nullptr) {
-                HashMap::accessor a;
-                if (!g_formCache[masterId].emplace(a, baseId, formPointer)) {
-                    logger::trace("replacing an existing form in form cache"sv);
-                    a->second = formPointer;
-                }
-
-                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
-            }
-
-            return orig_FormScatterTable_SetAt(a_self, a_formIdPtr, a_valueFunctor, a_unk);
-        }
-#else
-        inline SafetyHookInline g_hk_RemoveAt{};
-
-        inline std::uint32_t FormMap_RemoveAt(std::uintptr_t a_self, std::uintptr_t a_arg2, std::uint32_t a_crc, RE::FormID* a_formIdPtr, void* a_prevValueFunctor)
+        // SE/VR: RemoveAt(self, arg2, crc, FormID*, functor*) -> uint32
+        inline std::uint32_t FormMap_RemoveAt_SE(
+            std::uintptr_t a_self,
+            std::uintptr_t a_arg2,
+            std::uint32_t  a_crc,
+            RE::FormID*    a_formIdPtr,
+            void*          a_prevValueFunctor)
         {
             const auto result = g_hk_RemoveAt.call<std::uint32_t>(a_self, a_arg2, a_crc, a_formIdPtr, a_prevValueFunctor);
-
-            const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-            const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
-
-            if (result == 1) {
-                g_formCache[masterId].erase(baseId);
-                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
-            }
-
+            OnFormRemoved(a_formIdPtr, result == 1);
             return result;
         }
 
-        static inline REL::Relocation<bool(std::uintptr_t a_self, std::uintptr_t a_arg2, std::uint32_t a_crc, RE::FormID* a_formIdPtr, RE::TESForm** a_valueFunctor, void* a_unk)> orig_FormScatterTable_SetAt;
+        // AE: SetAt(self, FormID*, TESForm**, unk*) -> bool
+        static inline REL::Relocation<bool(std::uintptr_t, RE::FormID*, RE::TESForm**, void*)> orig_FormScatterTable_SetAt_AE;
 
-        // the functor stores the TESForm to set as the first field
-        inline bool FormScatterTable_SetAt(std::uintptr_t a_self, std::uintptr_t a_arg2, std::uint32_t a_crc, RE::FormID* a_formIdPtr, RE::TESForm** a_valueFunctor, void* a_unk)
+        inline bool FormScatterTable_SetAt_AE(
+            std::uintptr_t a_self,
+            RE::FormID*    a_formIdPtr,
+            RE::TESForm**  a_valueFunctor,
+            void*          a_unk)
         {
-            const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-            const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
-
-            RE::TESForm* formPointer = *a_valueFunctor;
-
-            if (formPointer != nullptr) {
-                HashMap::accessor a;
-                if (!g_formCache[masterId].emplace(a, baseId, formPointer)) {
-                    logger::trace("replacing an existing form in form cache"sv);
-                    a->second = formPointer;
-                }
-
-                TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
-            }
-
-            return orig_FormScatterTable_SetAt(a_self, a_arg2, a_crc, a_formIdPtr, a_valueFunctor, a_unk);
+            OnFormSet(a_formIdPtr, *a_valueFunctor);
+            return orig_FormScatterTable_SetAt_AE(a_self, a_formIdPtr, a_valueFunctor, a_unk);
         }
-#endif
+
+        // SE/VR: SetAt(self, arg2, crc, FormID*, TESForm**, unk*) -> bool
+        static inline REL::Relocation<bool(std::uintptr_t, std::uintptr_t, std::uint32_t, RE::FormID*, RE::TESForm**, void*)> orig_FormScatterTable_SetAt_SE;
+
+        inline bool FormScatterTable_SetAt_SE(
+            std::uintptr_t a_self,
+            std::uintptr_t a_arg2,
+            std::uint32_t  a_crc,
+            RE::FormID*    a_formIdPtr,
+            RE::TESForm**  a_valueFunctor,
+            void*          a_unk)
+        {
+            OnFormSet(a_formIdPtr, *a_valueFunctor);
+            return orig_FormScatterTable_SetAt_SE(a_self, a_arg2, a_crc, a_formIdPtr, a_valueFunctor, a_unk);
+        }
 
         inline SafetyHookInline g_hk_ClearData;
 
@@ -170,27 +169,35 @@ namespace Patches::FormCaching
             getForm.replace_func(0x9E, TESForm_GetFormByNumericId);
 
             const REL::Relocation RemoveAt{ RELOCATION_ID(14514, 14710) };
-            g_hk_RemoveAt = safetyhook::create_inline(RemoveAt.address(), FormMap_RemoveAt);
 
-            // there is one call that is not the form table so we will callsite hook
-#ifdef SKYRIM_AE
-            constexpr std::array todoSetAt = {
-                std::pair(14593, 0x2B0),
-                std::pair(14593, 0x301),
-                std::pair(14666, 0xFE)
-            };
-#else
-            constexpr std::array todoSetAt = {
-                std::pair(14438, 0x1DE),
-                std::pair(14438, 0x214),
-                std::pair(14508, 0x16C),
-                std::pair(14508, 0x1A2)
-            };
-#endif
+            // AE and SE/VR have different calling conventions for RemoveAt and SetAt.
+            // AE dropped the hash/crc params from the scatter table API.
+            if (REL::Module::IsAE()) {
+                g_hk_RemoveAt = safetyhook::create_inline(RemoveAt.address(), FormMap_RemoveAt_AE);
 
-            for (auto& [id, offset] : todoSetAt) {
-                REL::Relocation target{ REL::ID(id), offset };
-                orig_FormScatterTable_SetAt = target.write_call<5>(FormScatterTable_SetAt);
+                // there is one call that is not the form table so we will callsite hook
+                constexpr std::array todoSetAt = {
+                    std::pair(14593, 0x2B0),
+                    std::pair(14593, 0x301),
+                    std::pair(14666, 0xFE),
+                };
+                for (auto& [id, offset] : todoSetAt) {
+                    REL::Relocation target{ REL::ID(id), offset };
+                    orig_FormScatterTable_SetAt_AE = target.write_call<5>(FormScatterTable_SetAt_AE);
+                }
+            } else {
+                g_hk_RemoveAt = safetyhook::create_inline(RemoveAt.address(), FormMap_RemoveAt_SE);
+
+                constexpr std::array todoSetAt = {
+                    std::pair(14438, 0x1DE),
+                    std::pair(14438, 0x214),
+                    std::pair(14508, 0x16C),
+                    std::pair(14508, 0x1A2),
+                };
+                for (auto& [id, offset] : todoSetAt) {
+                    REL::Relocation target{ REL::ID(id), offset };
+                    orig_FormScatterTable_SetAt_SE = target.write_call<5>(FormScatterTable_SetAt_SE);
+                }
             }
 
             const REL::Relocation ClearData{ RELOCATION_ID(13646, 13754) };
