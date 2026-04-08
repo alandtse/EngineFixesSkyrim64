@@ -60,7 +60,7 @@ namespace Memory::MemoryManager
 
         inline void Deallocate(RE::MemoryManager*, void* a_mem, const bool a_alignmentRequired)
         {
-            if (a_mem != g_ZeroAddress) {
+            if (a_mem != g_ZeroAddress && (a_mem != nullptr || !REL::Module::IsVR())) {
                 if (a_alignmentRequired)
                     Allocator::GetAllocator()->DeallocateAligned(a_mem);
                 else
@@ -105,6 +105,19 @@ namespace Memory::MemoryManager
             g_ZeroAddress = new std::byte[1u << 10]{ static_cast<std::byte>(0) };
 
             StubInit();
+
+            // VR: MemoryManager::Initialize (called during game startup) invokes an OS
+            // allocator init routine at raw offset 0x5A2CB0. Without this patch that
+            // routine runs AFTER our TBB hooks are installed and re-initialises the
+            // original allocator, causing later frees to arrive at TBB with pointers it
+            // never allocated → crash.  Make it return immediately.
+            // Ported from EngineFixesVR memorymanager.cpp patchInit().
+            if (REL::Module::IsVR()) {
+                REL::Relocation<std::uintptr_t> allocatorInit{ REL::Offset{ 0x5A2CB0 } };
+                allocatorInit.write(REL::RET);
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x5A2CB1 } }.write(REL::NOP);
+            }
+
             ReplaceAllocRoutines();
             RE::MemoryManager::GetSingleton()->RegisterMemoryManager();
             RE::BSThreadEvent::InitSDM();

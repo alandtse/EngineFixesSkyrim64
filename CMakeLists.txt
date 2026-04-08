@@ -4,7 +4,6 @@ set(VERSION 7.0.20 CACHE STRING "")
 
 # ---- Options ----
 option(COPY_BUILD "Copy the build output to the Skyrim directory." TRUE)
-option(BUILD_SKYRIMAE "Build for Skyrim AE" OFF)
 
 # ---- Cache build vars ----
 macro(set_from_environment VARIABLE)
@@ -31,24 +30,37 @@ endmacro()
 
 set_from_environment(VCPKG_ROOT)
 
-if(BUILD_SKYRIMAE)
-    add_compile_definitions(SKYRIM_AE)
-    add_compile_definitions(SKYRIM_SUPPORT_AE)
-    set(SkyrimVersion "Skyrim AE")
+set(CommonLibName "CommonLibSSE")
+# Use CommonLibVR for all builds — it supports unified SE/AE/VR detection.
+# Setting this before find_commonlib_path() prevents it from picking up external/CommonLibSSE.
+set(CommonLibPath "${CMAKE_CURRENT_SOURCE_DIR}/extern/CommonLibSSE" CACHE PATH "")
+
+
+# Support multiple plugin targets via environment variable
+set_from_environment(Skyrim64Path)
+set_from_environment(SkyrimVRPath)
+set_from_environment(SkyrimPluginTargets)
+
+# Backward compatibility: if SkyrimPluginTargets is not set, use SkyrimPath as before
+if(DEFINED SkyrimPluginTargets)
+    string(REPLACE ";" ";" SkyrimPluginTargets "${SkyrimPluginTargets}")
 else()
-    set(SkyrimVersion "Skyrim SSE")
+    if(DEFINED Skyrim64Path)
+        set(SkyrimPluginTargets "${Skyrim64Path}/SKSE/Plugins")
+    endif()
+    if(DEFINED SkyrimVRPath)
+        set(SkyrimPluginTargets "${SkyrimPluginTargets};${SkyrimVRPath}/SKSE/Plugins")
+    endif()
 endif()
 
-set(CommonLibName "CommonLibSSE")
-set_from_environment(Skyrim64Path)
-set(SkyrimPath ${Skyrim64Path})
+set(SkyrimPath ${Skyrim64Path}) # For legacy compatibility
 
 set(VERSION ${VERSION})
 
 find_commonlib_path()
 message(
     STATUS
-    "Building ${NAME} ${VERSION} for ${SkyrimVersion} at ${SkyrimPath} with ${CommonLibName} at ${CommonLibPath}."
+    "Building ${NAME} ${VERSION} for Skyrim SE/AE/VR at ${SkyrimPath} with ${CommonLibName} at ${CommonLibPath}."
 )
 
 if(DEFINED VCPKG_ROOT)
@@ -113,6 +125,7 @@ set(Boost_USE_STATIC_LIBS ON)
 
 # ---- Dependencies ----
 if(DEFINED CommonLibPath AND NOT ${CommonLibPath} STREQUAL "" AND IS_DIRECTORY ${CommonLibPath})
+    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
     add_subdirectory(${CommonLibPath} ${CommonLibName})
 else()
     message(
@@ -223,18 +236,24 @@ if(MSVC)
 endif()
 
 # ---- Post build ----
+
 if(COPY_BUILD)
-    if(DEFINED SkyrimPath)
-        add_custom_command(
-            TARGET ${PROJECT_NAME}
-            POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> ${SkyrimPath}/${NAME}/SKSE/Plugins/
-                COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_PDB_FILE:${PROJECT_NAME}> ${SkyrimPath}/${NAME}/SKSE/Plugins/
-        )
+    if(DEFINED SkyrimPluginTargets)
+        foreach(target_dir IN LISTS SkyrimPluginTargets)
+            if(NOT target_dir STREQUAL "")
+                add_custom_command(
+                    TARGET ${PROJECT_NAME}
+                    POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E make_directory "${target_dir}"
+                        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> "${target_dir}"
+                        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_PDB_FILE:${PROJECT_NAME}> "${target_dir}"
+                )
+            endif()
+        endforeach()
     else()
         message(
             WARNING
-            "Variable ${SkyrimPath} is not defined. Skipping post-build copy command."
+            "No SkyrimPluginTargets defined. Skipping post-build copy command."
         )
     endif()
 endif()

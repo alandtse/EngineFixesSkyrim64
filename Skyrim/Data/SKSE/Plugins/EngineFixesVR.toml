@@ -1,4 +1,3 @@
-# Engine Fixes 7.0 for SSE 1.5.97/1.6.1170
 [General]
 bVerboseLogging = false                         # enable extra log levels
 bCleanSKSECoSaves = false                       # delete SKSE cosaves with no matching saves
@@ -19,9 +18,9 @@ bCellInit = true                                # fixes a rare crash where a for
 bClimateLoad = true                             # fixes a bug where the game fails to properly apply sunrise and sunset data from Climate records if you load a saved game in an interior
 bConjurationEnchantAbsorbs = true               # fixes a bug where spell absorption triggers on enchanted items using conjuration summons
 bCreateArmorNodeNullPtrCrash = true             # fixes typo that may cause a crash somewhere in CreateArmorNode
-bDoublePerkApply = true                         # fixes NPC perks applying twice when you load a game
-bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
+bDoublePerkApply = true                         # fixes NPC perks applying twice when you load a game; VR uses vtable slot 0x102 (shifted by HasPerkEntries insertion)
 bEquipShoutEventSpam = true                     # fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip
+bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bFaceGenMorphDataHeadNullPtrCrash = true        # fixes a crash in face morphing, possibly related to decapitations
 bGetKeywordItemCount = true                     # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
 bGHeapLeakDetectionCrash = true                 # fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build
@@ -40,27 +39,31 @@ bSaveScreenshots = true                         # fixes save screenshots being b
 bSavedHavokDataLoadInit = true                  # fixes motion vectors for objects with saved havok data that differs significantly from their base state
 bShadowSceneNodeNullPtrCrash = true             # fixes a crash in shadowscenenode
 bStuckMouseButtons = true                       # fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp
-bTextureLoadCrash = true                        # fixes a crash in 1.5.97 when a texture load fails (D6DDDA), this behavior is built-in to 1.6.1170; also logs texture load errors
+bTextureLoadCrash = true                        # fixes a crash in 1.5.97 when a texture load fails
 bTorchLandscape = true                          # fixes a bug where torches sometimes don't light the landscape
 bTreeReflections = true                         # fixes tree LOD reflection alpha
 bVerticalLookSensitivity = true                 # fixes vertical look sensitivity being tied to framerate
 bWeaponBlockScaling = true                      # fixes weapon blocking so it correctly scales off of the blocking actor's weapon
+# VR-only fixes (only run when Skyrim VR is detected)
+bAbilityConditionBug = true                     # throttles ability condition evaluation to reduce performance impact
+bBuySellStackSpeechGain = true                  # fixes speech XP gained when buying/selling a stack of items
+bShadowSceneCrash = true                        # fixes a crash in shadow scene processing
 
 # contains optional game patches
 [Patches]
 bDisableChargenPrecache = false                 # disables pre-caching of chargen, unnecessary with RaceMenu installed
-bDisableSnowFlag = false                        # forcably removes snow flags from loaded LTEX, MATO, and STAT forms
+bDisableSnowFlag = false                        # forcibly removes snow flags from loaded LTEX, MATO, and STAT forms
 bEnableAchievementsWithMods = true              # enables achievements with mods active
 bFormCaching = true                             # attempts to speedup form lookups
 bINISettingCollection = true                    # slightly speeds up startup time for lists with a large number of plugins
-bMaxStdIO = true                                # sets the maximum number of open file handles to the maximum available on your system (8192 in most cases, 2048 for older versions of windows)
+bMaxStdIO = true                                # sets the maximum number of open file handles to the maximum available on your system
 bRegularQuicksaves = false                      # makes quicksaves into regular saves
 bSafeExit = true                                # prevent the game from hanging when shutting down
 bSaveAddedSoundCategories = true                # save the volume of sound categories added by mods
-iSaveGameMaxSize = 128                          # expands the maximum uncompressed size of a save game from 64 MB to a configurable size (MB), game default = 64 MB, only go as high as you need!
+iSaveGameMaxSize = 128                          # expands the maximum uncompressed size of a save game from 64 MB to a configurable size (MB)
 bScrollingDoesntSwitchPOV = false               # disables swapping between 1st/3rd person when using mousewheel scroll to zoom
 fSleepWaitTimeModifier = 1.0                    # modifies your sleep/wait time, 1.0 = default, smaller = faster, larger = slower
-bTreeLodReferenceCaching = true                 # requires form caching to be enabled. speeds up a tree LOD function that slows down proportionate to the number of plugins loaded
+bTreeLodReferenceCaching = true                 # speeds up a tree LOD function that slows down proportionate to the number of plugins loaded
 bWaterflowAnimation = true                      # decouple waterflow speed from in-game timescale
 fWaterflowSpeed = 20.0                          # 20.0 = default, smaller = slower, larger = faster
 
@@ -74,12 +77,12 @@ bOverrideHavokMemorySystem = true               # overrides Havok's memory manag
 bReplaceImports = true                          # replace imported CRT memory functions with selected allocator
 
 [Warnings]
-bDupeAddonNodes = true                          # Warns when duplicate ADDN (Addon Node) form indices are found in your load order; pops up a message box and logs to the Engine Fixes log
 bTextureLoadFailed = true                       # On exit, pops up a message box telling you one or more textures failed to load and have been logged
 bPrecomputedPathHasErrors = false               # On exit, pops up a message box telling you a precomputed path had an error
 bRefHandleLimit = true                          # Warns when you are close to the reference handle limit at main menu and after loading a save
 uRefrMainMenuLimit = 800000                     # Handle count to warn at on main menu
 uRefrLoadedGameLimit = 1000000                  # Handle count to warn at after loading a save game
+bDupeAddonNodes = false                         # Warns in the log when duplicate BGSAddonNode records are detected during loading (useful for diagnosing mod conflicts)
 
 [Debug]
 bPrintDetailedPrecomputedPathInfo = false       # disables the precomputed path crash fix and prints detailed information about broken paths

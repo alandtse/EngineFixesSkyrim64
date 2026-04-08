@@ -1,6 +1,8 @@
 #pragma once
 #include "memory/allocator.h"
 
+#include <cstddef>
+
 namespace BSLightingShaderPropertyShadowMap
 {
     namespace detail
@@ -28,16 +30,24 @@ namespace BSLightingShaderPropertyShadowMap
         inline REL::Relocation<RE::BSRenderPass*(RE::BSShader*, RE::BSShaderProperty*, RE::BSGeometry*, std::uint32_t, std::uint8_t, RE::BSLight**)> BSRenderPass_Allocate{ RELOCATION_ID(100717, 107497) };
         inline REL::Relocation<void(RE::BSRenderPass*)>                                                                                              BSRenderPass_Deallocate{ RELOCATION_ID(100718, 107498) };
 
+        inline std::uint32_t GetShadowmapIndex(const void* a_data)
+        {
+            const auto* bytes = static_cast<const std::byte*>(a_data);
+            const auto  offset = REL::Module::IsVR() ? offsetof(RE::BSShadowLight::ShadowmapDescriptorVR, shadowmapIndex) :
+                                                       offsetof(RE::BSShadowLight::ShadowmapDescriptor, shadowmapIndex);
+            return *reinterpret_cast<const std::uint32_t*>(bytes + offset);
+        }
+
         inline RE::BSRenderPass** BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
         {
             // create our storage, 4 max
             // re-use the RenderPassArray space here
-            if (a_property->unk0D8.unk08 != 0xDEADBEEF) {
-                a_property->unk0D8.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * 4, 8));
-                memset(a_property->unk0D8.head, 0, sizeof(RE::BSRenderPass*) * 4);
-                a_property->unk0D8.unk08 = 0xDEADBEEF;
+            if (a_property->volumetricShadowUtilityPasses.unk08 != 0xDEADBEEF) {
+                a_property->volumetricShadowUtilityPasses.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * 4, 8));
+                memset(a_property->volumetricShadowUtilityPasses.head, 0, sizeof(RE::BSRenderPass*) * 4);
+                a_property->volumetricShadowUtilityPasses.unk08 = 0xDEADBEEF;
             }
-            auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_property->unk0D8.head);
+            auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_property->volumetricShadowUtilityPasses.head);
             // clear last frame's render pass
             if (passArray[g_currentIndex] != nullptr) {
                 BSRenderPass_Deallocate(passArray[g_currentIndex]);
@@ -46,7 +56,7 @@ namespace BSLightingShaderPropertyShadowMap
 
             // create new one
             std::uint32_t technique = a_property->DetermineUtilityShaderDecl() | 0xC000;
-            const auto*   alphaProperty = reinterpret_cast<RE::NiAlphaProperty*>(a_geometry->properties[0].get());
+            const auto*   alphaProperty = reinterpret_cast<RE::NiAlphaProperty*>(a_geometry->GetGeometryRuntimeData().alphaProperty.get());
             if (alphaProperty && (alphaProperty->alphaFlags & 0x200) != 0) {
                 technique |= 0x80;
             }
@@ -55,8 +65,8 @@ namespace BSLightingShaderPropertyShadowMap
 
             RE::BSRenderPass* pass = BSRenderPass_Allocate(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B, 0, nullptr);
             pass->accumulationHint = 8;
-            if ((a_geometry->flags.underlying() & 0x8000000) != 0) {
-                pass->LODMode.index = a_property->fadeNode->unk152 & 0xF;
+            if ((a_geometry->GetFlags().underlying() & 0x8000000) != 0) {
+                pass->LODMode.index = a_property->fadeNode->GetRuntimeData().unk152 & 0xF;
             } else {
                 pass->LODMode.index = 3;
             }
@@ -67,18 +77,17 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline SafetyHookInline orig_BSShadowLight_AccumulateShadowMap;
 
-        inline void BSShadowLight_AccumulateShadowMap(RE::BSShadowLight* a_self, RE::BSShadowLight::ShadowMapData* a_data, std::uint32_t* a_pShadowMaskChannel, RE::BSTArray<RE::BSCullingProcess*>* a_cullingProcessArray, const std::uint32_t a_jobIndex)
+        inline void BSShadowLight_AccumulateShadowMap(RE::BSShadowLight* a_self, void* a_data, std::uint32_t* a_pShadowMaskChannel, RE::BSTArray<RE::BSCullingProcess*>* a_cullingProcessArray, const std::uint32_t a_jobIndex)
         {
-            // store the currently being processed light's shadowmap index
-            // this is singlethreaded so it is safe
-            g_currentIndex = a_data->shadowMapIndex;
+            // VR uses a different shadow descriptor layout, so read the index by runtime offset.
+            g_currentIndex = GetShadowmapIndex(a_data);
             orig_BSShadowLight_AccumulateShadowMap.call(a_self, a_data, a_pShadowMaskChannel, a_cullingProcessArray, a_jobIndex);
         }
 
         inline void CleanAllocatedArrays(RE::BSLightingShaderProperty* a_self)
         {
-            if (a_self->unk0D8.unk08 == 0xDEADBEEF) {
-                auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_self->unk0D8.head);
+            if (a_self->volumetricShadowUtilityPasses.unk08 == 0xDEADBEEF) {
+                auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_self->volumetricShadowUtilityPasses.head);
                 for (int i = 0; i < 4; i++) {
                     if (passArray[i] != nullptr) {
                         BSRenderPass_Deallocate(passArray[i]);
@@ -86,8 +95,8 @@ namespace BSLightingShaderPropertyShadowMap
                     }
                 }
                 Memory::Allocator::GetAllocator()->DeallocateAligned(passArray);
-                a_self->unk0D8.head = nullptr;
-                a_self->unk0D8.unk08 = 0x0;
+                a_self->volumetricShadowUtilityPasses.head = nullptr;
+                a_self->volumetricShadowUtilityPasses.unk08 = 0x0;
             }
         }
 
@@ -107,15 +116,13 @@ namespace BSLightingShaderPropertyShadowMap
             orig_BSLightingShaderProperty_dtor.call(a_self);
         }
 
-#ifdef SKYRIM_AE
         inline SafetyHookInline orig_BSLightingShaderProperty_deleting_dtor;
 
-        inline void BSLightingShaderProperty_Deleting_Dtor(RE::BSLightingShaderProperty* a_self, byte a_flags)
+        inline void BSLightingShaderProperty_Deleting_Dtor(RE::BSLightingShaderProperty* a_self, std::uint8_t a_flags)
         {
             CleanAllocatedArrays(a_self);
             orig_BSLightingShaderProperty_deleting_dtor.call(a_self, a_flags);
         }
-#endif
 
         inline void Install()
         {
@@ -134,10 +141,10 @@ namespace BSLightingShaderPropertyShadowMap
             const REL::Relocation dtor{ RELOCATION_ID(99855, 106500) };
             orig_BSLightingShaderProperty_dtor = safetyhook::create_inline(dtor.address(), BSLightingShaderProperty_Dtor);
 
-#ifdef SKYRIM_AE
-            const REL::Relocation deleting_dtor{ REL::ID(106534) };
-            orig_BSLightingShaderProperty_deleting_dtor = safetyhook::create_inline(deleting_dtor.address(), BSLightingShaderProperty_Deleting_Dtor);
-#endif
+            if (REL::Module::IsAE()) {
+                const REL::Relocation deleting_dtor{ REL::ID(106534) };
+                orig_BSLightingShaderProperty_deleting_dtor = safetyhook::create_inline(deleting_dtor.address(), BSLightingShaderProperty_Deleting_Dtor);
+            }
         }
     }
 

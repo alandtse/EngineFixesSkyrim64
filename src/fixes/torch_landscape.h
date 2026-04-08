@@ -9,11 +9,10 @@ namespace Fixes::TorchLandscape
             explicit Patch(std::uintptr_t a_func)
             {
                 Xbyak::Label f;
-#ifdef SKYRIM_AE
-                mov(r9, rsi);
-#else
-                mov(r9, rdi);
-#endif
+                if (REL::Module::IsAE())
+                    mov(r9, rsi);
+                else
+                    mov(r9, rdi);
                 jmp(ptr[rip + f]);
 
                 L(f);

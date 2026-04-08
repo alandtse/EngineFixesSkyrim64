@@ -8,7 +8,7 @@ namespace Fixes::ArcheryDownwardAiming
         {
             static void Move(RE::Projectile* a_self, RE::NiPoint3& a_from, const RE::NiPoint3& a_to)
             {
-                const auto refShooter = a_self->shooter.get();
+                const auto refShooter = a_self->GetProjectileRuntimeData().shooter.get();
                 if (refShooter && refShooter->Is(RE::FormType::ActorCharacter)) {
                     const auto                    akShooter = static_cast<RE::Actor*>(refShooter.get());  // NOLINT(*-pro-type-static-cast-downcast)
                     [[maybe_unused]] RE::NiPoint3 direction;

@@ -13,11 +13,10 @@ namespace Fixes::WeaponBlockScaling
                 mov(rcx, rbx);
                 mov(rdx, a_target);
                 call(rdx);
-#ifdef SKYRIM_AE
-                movaps(xmm7, xmm0);
-#else
-                movaps(xmm8, xmm0);
-#endif
+                if (REL::Module::IsAE())
+                    movaps(xmm7, xmm0);
+                else
+                    movaps(xmm8, xmm0);
             }
         };
 
@@ -34,7 +33,7 @@ namespace Fixes::WeaponBlockScaling
 
             static RE::TESObjectWEAP* GetWeaponData(RE::Actor* a_actor)
             {
-                const auto proc = a_actor->currentProcess;
+                const auto proc = a_actor->GetActorRuntimeData().currentProcess;
                 if (!proc || !proc->middleHigh) {
                     return nullptr;
                 }
@@ -48,7 +47,7 @@ namespace Fixes::WeaponBlockScaling
 
                 for (const auto& entry : entries) {
                     if (entry) {
-                        const auto obj = entry->GetObject();
+                        const auto obj = entry->object;
                         if (obj && obj->Is(RE::FormType::Weapon)) {
                             return static_cast<RE::TESObjectWEAP*>(obj);
                         }
@@ -67,9 +66,12 @@ namespace Fixes::WeaponBlockScaling
         detail::Patch p(SKSE::stl::unrestricted_cast<std::uintptr_t>(detail::Actor::CalcWeaponDamage));
         p.ready();
 
-        target.write(std::span{ p.getCode<const std::byte*>(), p.getSize() });
-
-        REL::safe_fill(target.address() + p.getSize(), REL::NOP, VAR_NUM(0x19, 0x17) - p.getSize());
+        // Write patch bytes followed by NOPs to fill the code cave
+        std::array<std::byte, 0x19> buf{};
+        buf.fill(static_cast<std::byte>(0x90));
+        const auto patchSize = p.getSize();
+        std::copy_n(p.getCode<const std::byte*>(), patchSize, buf.begin());
+        target.write(std::span{ buf.data(), VAR_NUM(0x19u, 0x17u) });
 
         logger::info("installed weapon block scaling fix"sv);
     }

@@ -5,7 +5,7 @@ namespace Settings
     namespace General
     {
         static REX::TOML::Bool bVerboseLogging("General", "bVerboseLogging", false);
-        static REX::TOML::Bool bCleanSKSECoSaves("General", "bCleanSKSECoSaves", false);
+        static REX::TOML::Bool bCleanSKSECoSaves("General", "bCleanSKSECoSaves", true);
     }
 
     namespace Fixes
@@ -50,6 +50,10 @@ namespace Settings
         static REX::TOML::Bool bTreeReflections("Fixes", "bTreeReflections", true);
         static REX::TOML::Bool bVerticalLookSensitivity("Fixes", "bVerticalLookSensitivity", true);
         static REX::TOML::Bool bWeaponBlockScaling("Fixes", "bWeaponBlockScaling", true);
+        // VR-only fixes (runtime-gated; always declared so the TOML key is always present)
+        static REX::TOML::Bool bAbilityConditionBug("Fixes", "bAbilityConditionBug", true);
+        static REX::TOML::Bool bBuySellStackSpeechGain("Fixes", "bBuySellStackSpeechGain", true);
+        static REX::TOML::Bool bShadowSceneCrash("Fixes", "bShadowSceneCrash", true);
     }
 
     namespace Patches
@@ -88,6 +92,7 @@ namespace Settings
         static REX::TOML::Bool bRefHandleLimit("Warnings", "bRefHandleLimit", true);
         static REX::TOML::U32  uRefrMainMenuLimit("Warnings", "bRefrMainMenuLimit", 800000);
         static REX::TOML::U32  uRefrLoadedGameLimit("Warnings", "bRefrLoadedGameLimit", 1000000);
+        static REX::TOML::Bool bDupeAddonNodes("Warnings", "bDupeAddonNodes", true);
     }
 
     namespace Debug

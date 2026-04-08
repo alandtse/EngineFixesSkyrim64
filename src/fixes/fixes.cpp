@@ -1,8 +1,10 @@
 #include "fixes.h"
 
+#include "ability_condition_bug.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "bethesda_net_crash.h"
+#include "buy_sell_stack_speech_gain.h"
 #include "bgskeywordform_load_crash.h"
 #include "bslightingambientspecular.h"
 #include "bslightingshader_force_alpha_test.h"
@@ -31,6 +33,7 @@
 #include "precomputed_paths.h"
 #include "removed_spellbook.h"
 #include "saved_havok_data_load_init.h"
+#include "shadow_scene_crash.h"
 #include "shadowscenenode_nullptr_crash.h"
 #include "stuck_mouse_buttons.h"
 #include "texture_load_crash.h"
@@ -149,5 +152,15 @@ namespace Fixes
 
         if (Settings::Fixes::bWeaponBlockScaling.GetValue())
             WeaponBlockScaling::Install();
+
+        // VR-only fixes (runtime-gated inside each Install())
+        if (Settings::Fixes::bAbilityConditionBug.GetValue())
+            AbilityConditionBug::Install();
+
+        if (Settings::Fixes::bBuySellStackSpeechGain.GetValue())
+            BuySellStackSpeechGain::Install();
+
+        if (Settings::Fixes::bShadowSceneCrash.GetValue())
+            ShadowSceneCrash::Install();
     }
 }

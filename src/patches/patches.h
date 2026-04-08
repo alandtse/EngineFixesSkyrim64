@@ -3,4 +3,5 @@
 namespace Patches
 {
     void Install();
+    void InstallDelayed();
 }

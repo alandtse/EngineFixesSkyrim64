@@ -1,5 +1,6 @@
 # dot folders
 .cache/
+.claude/
 .idea/
 .vs/
 .vscode/
@@ -7,10 +8,12 @@
 
 # folders
 build/
+external/
 vs*/
-
+x64/
 # files
 *.zip
+CMakeUserPresets.json
 compile_commands.json
 buildse/
 buildae/

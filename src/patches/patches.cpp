@@ -17,6 +17,14 @@
 
 namespace Patches
 {
+    namespace
+    {
+        bool ShouldInstallTreeLodReferenceCaching()
+        {
+            return Settings::Patches::bFormCaching.GetValue() && Settings::Patches::bTreeLodReferenceCaching.GetValue();
+        }
+    }
+
     void Install()
     {
         if (Settings::Patches::bDisableChargenPrecache.GetValue())
@@ -55,10 +63,16 @@ namespace Patches
         if (Settings::Patches::fSleepWaitTimeModifier.GetValue() != 1.0f)
             SleepWaitTime::Install();
 
-        if (Settings::Patches::bFormCaching.GetValue() && Settings::Patches::bTreeLodReferenceCaching.GetValue())
+        if (ShouldInstallTreeLodReferenceCaching() && !REL::Module::IsVR()) // VR needs to delay for ESL support
             TreeLodReferenceCaching::Install();
 
         if (Settings::Patches::bWaterflowAnimation.GetValue())
             WaterflowAnimation::Install();
+    }
+
+    void InstallDelayed()
+    {
+        if (ShouldInstallTreeLodReferenceCaching() && REL::Module::IsVR())
+            TreeLodReferenceCaching::Install();
     }
 }

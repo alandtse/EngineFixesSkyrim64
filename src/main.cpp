@@ -42,6 +42,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
             if (Settings::Warnings::bRefHandleLimit.GetValue()) {
                 Warnings::WarnActiveRefrHandleCount(Settings::Warnings::uRefrMainMenuLimit.GetValue());
             }
+            Patches::InstallDelayed();
 
             auto timeElapsed = std::chrono::high_resolution_clock::now() - start;
             logger::info("time to main menu {}"sv, std::chrono::duration_cast<std::chrono::milliseconds>(timeElapsed).count());
@@ -95,7 +96,10 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     logger::info("EngineFixes v{}.{}.{} PreLoad"sv, Version::MAJOR, Version::MINOR, Version::PATCH);
 
     const auto ver = REL::Module::get().version();
-    if (ver < VAR_NUM(SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170)) {
+    const auto minVer = REL::Module::IsVR()  ? SKSE::RUNTIME_VR_1_4_15 :
+                        REL::Module::IsAE()  ? SKSE::RUNTIME_SSE_1_6_1170 :
+                                               SKSE::RUNTIME_SSE_1_5_97;
+    if (ver < minVer) {
         logger::error("Unsupported runtime version {}"sv, ver);
         return;
     }
@@ -116,10 +120,12 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     Patches::Install();
     Fixes::Install();
 
+    if (Settings::Warnings::bDupeAddonNodes.GetValue())
+        Warnings::WarnDupeAddonNodes::Install();
+
     g_isPreloaded = true;
 }
 
-#ifdef SKYRIM_AE
 extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
     SKSE::PluginVersionData v;
     v.PluginVersion(Version::MAJOR);
@@ -127,11 +133,12 @@ extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
     v.AuthorName("aers");
     v.UsesAddressLibrary();
     v.UsesUpdatedStructs();
-    v.CompatibleVersions({ SKSE::RUNTIME_SSE_1_6_1170 });
+    v.CompatibleVersions({ SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170, SKSE::RUNTIME_VR_1_4_15 });
 
     return v;
 }();
-#else
+
+// SE 1.5.97 still requires SKSEPlugin_Query for the preloader path
 extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface*, SKSE::PluginInfo* a_info)
 {
     if (!g_isPreloaded) {
@@ -155,7 +162,6 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(const SKSE::Query
 
     return true;
 }
-#endif
 
 extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
@@ -178,7 +184,7 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadIn
 
     SKSE::Init(a_skse, false);
 
-    logger::info("EngineFixes SKSE Load"sv, Version::PROJECT);
+    logger::info("EngineFixes v{}.{}.{} SKSE Load"sv, Version::MAJOR, Version::MINOR, Version::PATCH);
 
     const auto messaging = SKSE::GetMessagingInterface();
     if (!messaging->RegisterListener("SKSE", MessageHandler)) {

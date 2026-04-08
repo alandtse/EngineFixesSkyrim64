@@ -12,20 +12,18 @@ namespace Fixes::InitializeHitDataNullPtrCrash
                 // At the point where this is injected we're still moving function parameters into the correct registers.
                 // The function uses weapon as rdi, but it's passed to the function in r9.
                 // So we clear rdi and only move r9 there if it's safe to do so.
-#ifdef SKYRIM_AE
-                xor_(rdi, rdi);
-#else
-                xor_(r15, r15);
-#endif
+                if (REL::Module::IsAE())
+                    xor_(rdi, rdi);
+                else
+                    xor_(r15, r15);
                 test(r9, r9);
                 jz(out);
                 mov(rbx, qword[r9]);  // rbx is free to clobber at this point
                 test(rbx, rbx);
-#ifdef SKYRIM_AE
-                cmovnz(rdi, r9);  // keep weapon only if weapon->object != NULL
-#else
-                cmovnz(r15, r9);
-#endif
+                if (REL::Module::IsAE())
+                    cmovnz(rdi, r9);  // keep weapon only if weapon->object != NULL
+                else
+                    cmovnz(r15, r9);
                 L(out);
                 mov(rbp, r8);  // Restore this from where the trampoline jump was placed
                 jmp(ptr[rip]);

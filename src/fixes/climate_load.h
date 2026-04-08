@@ -20,20 +20,14 @@ namespace Fixes::ClimateLoad
 
     inline void Install()
     {
-#ifdef SKYRIM_AE
-        constexpr auto todo = std::array{
-            std::make_pair(26218, 0x1A0),
-            std::make_pair(35642, 0x241)
+        using PairT = std::pair<REL::RelocationID, std::ptrdiff_t>;
+        const std::array<PairT, 2> todo = {
+            PairT{ RELOCATION_ID(25675, 26218), VAR_NUM(0x124, 0x1A0) },
+            PairT{ RELOCATION_ID(34736, 35642), VAR_NUM(0x100, 0x241) },
         };
-#else
-        constexpr auto todo = std::array{
-            std::make_pair(25675, 0x124),
-            std::make_pair(34736, 0x100)
-        };
-#endif
 
         for (const auto& [id, offset] : todo) {
-            REL::Relocation target{ REL::ID(id), offset };
+            REL::Relocation target{ id, offset };
             detail::Sky::_LoadGame = target.write_call<5>(detail::Sky::LoadGame);
         }
 

@@ -52,7 +52,8 @@ namespace Fixes::FaceGenMorphDataHeadNullPtrCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        REL::safe_fill(target.address() + 0x5, REL::NOP, 0x5);
+        REL::Relocation<std::uintptr_t> nopTarget{ RELOCATION_ID(26343, 26918), 0x51 };
+        nopTarget.write_fill(REL::NOP, 0x5);
 
         // fix clearing rbx
         REL::Relocation       targetRbx{ RELOCATION_ID(26343, 26918), 0x49 };
