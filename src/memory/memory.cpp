@@ -18,11 +18,12 @@ namespace Memory
             logger::info("set allocator to TBB"sv);
         }
 
-        if (Settings::MemoryManager::bOverrideMemoryManager.GetValue())
+        if (Settings::MemoryManager::bOverrideMemoryManager.GetValue()) {
             MemoryManager::Install();
-
-        if (Settings::MemoryManager::bOverrideScrapHeap.GetValue())
+            // ScrapHeap must always be installed alongside MemoryManager: both redirect
+            // to TBB, and mixing the two allocators causes alloc/free mismatches → crash.
             ScrapHeap::Install();
+        }
 
         if (Settings::MemoryManager::bOverrideScaleformAllocator.GetValue())
             ScaleformAllocator::Install();
