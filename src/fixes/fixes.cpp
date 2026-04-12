@@ -23,6 +23,7 @@
 #include "gheap_leak_detection_crash.h"
 #include "global_time.h"
 #include "initialize_hit_data_nullptr_crash.h"
+#include "is_player_in_region_parent_cell_check.h"
 #include "lip_sync.h"
 #include "memory_access_errors.h"
 #include "mo5s_typo.h"
@@ -107,6 +108,9 @@ namespace Fixes
 
         if (Settings::Fixes::bInitializeHitDataNullPtrCrash.GetValue())
             InitializeHitDataNullPtrCrash::Install();
+
+        if (Settings::Fixes::bIsPlayerInRegionParentCellCheck.GetValue())
+            IsPlayerInRegionParentCellCheck::Install();
 
         if (Settings::Fixes::bLipSync.GetValue())
             LipSync::Install();
