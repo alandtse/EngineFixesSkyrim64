@@ -5,8 +5,8 @@ namespace Patches::SaveGameMaxSize
 {
     inline void Install()
     {
-        if (!Settings::MemoryManager::bOverrideScrapHeap.GetValue()) {
-            logger::info("skipping save game max size patch as it requires scrap heap override patch"sv);
+        if (!Settings::MemoryManager::bOverrideMemoryManager.GetValue()) {
+            logger::info("skipping save game max size patch as it requires memory manager override patch"sv);
             return;
         }
 

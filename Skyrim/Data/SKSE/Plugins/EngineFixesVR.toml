@@ -69,8 +69,7 @@ fWaterflowSpeed = 20.0                          # 20.0 = default, smaller = slow
 
 # patches to replace Skyrim's allocators with tbbmalloc
 [MemoryManager]
-bOverrideMemoryManager = true                   # overrides Skyrim's memory manager with direct malloc/free calls
-bOverrideScrapHeap = true                       # overrides Skyrim's scrap heap with direct malloc/free calls
+bOverrideMemoryManager = true                   # overrides Skyrim's memory manager and scrap heap with direct malloc/free calls (both always enabled together)
 bOverrideScaleformAllocator = true              # overrides Skyrim's scaleform allocator with calls to the global memory manager
 bOverrideRenderPassCache = true                 # overrides Skyrim's render pass cache with direct malloc/free calls
 bOverrideHavokMemorySystem = true               # overrides Havok's memory manager with direct malloc/free calls
