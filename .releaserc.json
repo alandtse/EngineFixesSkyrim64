@@ -1,0 +1,64 @@
+{
+  "branches": ["main"],
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          { "breaking": true, "release": "major" },
+          { "type": "feat", "release": "minor" },
+          { "type": "feat", "scope": "sync", "release": "minor" },
+          { "type": "fix", "release": "patch" },
+          { "type": "fix", "scope": "sync", "release": "patch" },
+          { "type": "refactor", "release": "patch" },
+          { "type": "chore", "scope": "sync", "release": "patch" }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            { "type": "feat", "section": "Features" },
+            { "type": "fix", "section": "Bug Fixes" },
+            { "type": "refactor", "section": "Refactors" },
+            { "type": "chore", "scope": "sync", "section": "Upstream Sync" }
+          ]
+        }
+      }
+    ],
+    [
+      "@google/semantic-release-replace-plugin",
+      {
+        "replacements": [
+          {
+            "files": ["CMakeLists.txt"],
+            "from": "set\\(VERSION [0-9]+\\.[0-9]+\\.[0-9]+ CACHE STRING \"\"\\)",
+            "to": "set(VERSION ${nextRelease.version} CACHE STRING \"\")",
+            "results": [
+              {
+                "file": "CMakeLists.txt",
+                "hasChanged": true,
+                "numReplacements": 1,
+                "numMatches": 1
+              }
+            ],
+            "countMatches": true
+          }
+        ]
+      }
+    ],
+    "@semantic-release/changelog",
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["CHANGELOG.md", "CMakeLists.txt"],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    "@semantic-release/github"
+  ]
+}

@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release and upload to Nexus (leave empty for latest release)'
+        type: string
+        required: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  semantic-release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'alandtse'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        id: semantic
+        with:
+          extra_plugins: |
+            @semantic-release/changelog
+            @semantic-release/git
+            @semantic-release/github
+            @google/semantic-release-replace-plugin
+            conventional-changelog-conventionalcommits
+          semantic_version: 24
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
+      new_release_notes: ${{ steps.semantic.outputs.new_release_notes }}
+
+  build:
+    name: Build Release
+    needs: semantic-release
+    if: |
+      always() &&
+      (needs.semantic-release.result == 'success' || needs.semantic-release.result == 'skipped') &&
+      (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+    uses: ./.github/workflows/build-reusable.yml
+    with:
+      version: ${{ needs.semantic-release.outputs.new_release_version || inputs.version }}
+      upload-artifact: true
+      ref: main
+
+  upload-github-release:
+    name: Upload to GitHub Release
+    needs: [semantic-release, build]
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+
+      - name: Upload to GitHub release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file_glob: true
+          file: "*.7z"
+          tag: ${{ needs.semantic-release.outputs.new_release_git_tag || format('v{0}', inputs.version) }}
+          overwrite: true
+
+  upload-nexus:
+    name: Upload to Nexus Mods
+    needs: [semantic-release, build, upload-github-release]
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      needs.upload-github-release.result == 'success' &&
+      (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+    uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@main
+    with:
+      nexus_game_id: skyrimspecialedition
+      nexus_mod_id: 62089
+      artifact_name: ${{ needs.build.outputs.artifact-name }}
+      tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || '' }}
+      mod_version: ${{ needs.semantic-release.outputs.new_release_version || inputs.version }}
+      mod_filename: EngineFixes
+      changelog: ${{ needs.semantic-release.outputs.new_release_notes }}
+      file_description: |
+        Unified build for Skyrim SE 1.5.97, AE 1.6.1170, and VR 1.4.15.
+        PDB is included for crash log debugging and can be removed.
+      previous_file: auto
+    secrets:
+      UNEX_NEXUSMODS_SESSION_COOKIE: ${{ secrets.UNEX_NEXUSMODS_SESSION_COOKIE }}
+      UNEX_APIKEY: ${{ secrets.UNEX_APIKEY }}

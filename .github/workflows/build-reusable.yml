@@ -1,0 +1,103 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version string to validate against the built binary (optional)'
+        type: string
+        required: false
+        default: ''
+      upload-artifact:
+        description: 'Whether to upload the packaged artifact'
+        type: boolean
+        required: false
+        default: false
+      ref:
+        description: 'Git ref to checkout'
+        type: string
+        required: false
+        default: ''
+    outputs:
+      artifact-name:
+        description: 'Name of the uploaded artifact'
+        value: ${{ jobs.build.outputs.artifact-name }}
+
+jobs:
+  build:
+    name: Build on Windows
+    runs-on: windows-latest
+    if: github.repository_owner == 'alandtse'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          ref: ${{ inputs.ref || github.sha }}
+
+      - name: Extract vcpkg baseline from vcpkg.json
+        id: vcpkg_baseline
+        shell: pwsh
+        run: |
+          $vcpkgJson = Get-Content vcpkg.json | ConvertFrom-Json
+          $baseline = $vcpkgJson.'builtin-baseline'
+          echo "baseline=$baseline" >> $env:GITHUB_OUTPUT
+          echo "Using vcpkg baseline: $baseline"
+
+      - uses: lukka/get-cmake@latest
+
+      - name: Restore vcpkg artifacts
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgDirectory: "${{ github.workspace }}/b/vcpkg"
+          vcpkgGitCommitId: "${{ steps.vcpkg_baseline.outputs.baseline }}"
+          vcpkgJsonGlob: "vcpkg.json"
+
+      - name: Build
+        uses: lukka/run-cmake@v10
+        with:
+          cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
+          configurePreset: vs2022-windows-vcpkg
+          buildPreset: release
+
+      - name: Extract and validate version
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content CMakeLists.txt -Raw
+          if ($content -match 'set\(VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)') {
+            $built = $matches[1]
+          } else {
+            Write-Error "VERSION not found in CMakeLists.txt"
+            exit 1
+          }
+          $input_ver = "${{ inputs.version }}"
+          if ($input_ver -ne "" -and $input_ver -ne $built) {
+            Write-Error "Input version $input_ver does not match built version $built"
+            exit 1
+          }
+          echo "version=$built" >> $env:GITHUB_OUTPUT
+          echo "Built version: $built"
+
+      - name: Package artifact
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $artifactName = "EngineFixes_$version"
+          New-Item -ItemType Directory -Path "package" -Force
+          Copy-Item "build/Release/EngineFixes.dll" "package/"
+          Copy-Item "build/Release/EngineFixes.pdb" "package/"
+          7z a "$artifactName.7z" ".\package\*"
+          echo "artifact-name=$artifactName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        if: inputs.upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.artifact-name }}
+          path: ${{ steps.package.outputs.artifact-name }}.7z
+          if-no-files-found: error
+
+    outputs:
+      artifact-name: ${{ steps.package.outputs.artifact-name }}

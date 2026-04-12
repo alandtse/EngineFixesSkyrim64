@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   run:
+    if: github.repository == 'aers/EngineFixesSkyrim64'
     uses: adya/pack-skse-mod/.github/workflows/pack.yml@main
     with:
       CMAKE_AE_BUILD_PRESET: 'release-ae'
