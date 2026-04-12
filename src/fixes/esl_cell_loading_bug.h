@@ -11,10 +11,9 @@ namespace Fixes::ESLCELLLoadingBugs
         {
             if (a_this->IsInteriorCell()) {
                 const RE::TESFile* file = a_this->GetFile(0);
-                if (file && file->IsLight())
-                    return (a_this->GetFormID() & 0xFFF) % 0xA;
-                else
-                    return (a_this->GetFormID() & 0xFFFFFF) % 0xA;
+                // GetLocalFormID masks 0xFFF for ESL, 0xFFFFFF for regular — requires non-null file
+                const auto localFormID = file ? a_this->GetLocalFormID() : (a_this->GetFormID() & 0xFFFFFF);
+                return localFormID % 0xA;
             }
 
             if (a_this->GetRuntimeData().cellData.exterior) {
@@ -30,10 +29,9 @@ namespace Fixes::ESLCELLLoadingBugs
         {
             if (a_this->IsInteriorCell()) {
                 const RE::TESFile* file = a_this->GetFile(0);
-                if (file && file->IsLight())
-                    return ((a_this->GetFormID() & 0xFFF) % 0x64) / 0xA;
-                else
-                    return ((a_this->GetFormID() & 0xFFFFFF) % 0x64) / 0xA;
+                // GetLocalFormID masks 0xFFF for ESL, 0xFFFFFF for regular — requires non-null file
+                const auto localFormID = file ? a_this->GetLocalFormID() : (a_this->GetFormID() & 0xFFFFFF);
+                return (localFormID % 0x64) / 0xA;
             }
 
             if (a_this->GetRuntimeData().cellData.exterior) {

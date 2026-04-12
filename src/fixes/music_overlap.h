@@ -13,8 +13,8 @@ namespace Fixes::MusicOverlap
 
     inline void Install()
     {
-        // BSIMusicType interface, second vtbl
-        REL::Relocation vtbl{ RE::BGSMusicType::VTABLE[1] };
+        // BSIMusicType interface vtable (slot 3 = DoFinish)
+        REL::Relocation vtbl{ RE::BSIMusicType::VTABLE[0] };
         vtbl.write_vfunc(0x3, detail::DoFinish);
 
         logger::info("installed music overlap fix"sv);
