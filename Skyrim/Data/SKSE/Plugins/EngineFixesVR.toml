@@ -1,6 +1,6 @@
 [General]
 bVerboseLogging = false                         # enable extra log levels
-bCleanSKSECoSaves = false                       # delete SKSE cosaves with no matching saves
+bCleanSKSECoSaves = true                        # delete SKSE cosaves with no matching saves
 
 # contains bug fixes
 [Fixes]
@@ -22,7 +22,7 @@ bDoublePerkApply = true                         # fixes NPC perks applying twice
 bEquipShoutEventSpam = true                     # fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip
 bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bFaceGenMorphDataHeadNullPtrCrash = true        # fixes a crash in face morphing, possibly related to decapitations
-bGetKeywordItemCount = true                     # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
+bGetKeywordItemCount = false                    # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
 bGHeapLeakDetectionCrash = true                 # fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build
 bGlobalTime = true                              # fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix
 bInitializeHitDataNullPtrCrash = true           # fixes a crash on melee hit that unequipped the weapon at the same time
@@ -82,7 +82,7 @@ bPrecomputedPathHasErrors = false               # On exit, pops up a message box
 bRefHandleLimit = true                          # Warns when you are close to the reference handle limit at main menu and after loading a save
 uRefrMainMenuLimit = 800000                     # Handle count to warn at on main menu
 uRefrLoadedGameLimit = 1000000                  # Handle count to warn at after loading a save game
-bDupeAddonNodes = false                         # Warns in the log when duplicate BGSAddonNode records are detected during loading (useful for diagnosing mod conflicts)
+bDupeAddonNodes = true                          # Warns when duplicate ADDN (Addon Node) form indices are found in your load order; pops up a message box and logs to the Engine Fixes log
 
 [Debug]
 bPrintDetailedPrecomputedPathInfo = false       # disables the precomputed path crash fix and prints detailed information about broken paths

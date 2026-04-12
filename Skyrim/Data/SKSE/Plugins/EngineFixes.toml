@@ -1,7 +1,7 @@
 # Engine Fixes 7.0 for SSE 1.5.97/1.6.1170
 [General]
 bVerboseLogging = false                         # enable extra log levels
-bCleanSKSECoSaves = false                       # delete SKSE cosaves with no matching saves
+bCleanSKSECoSaves = true                        # delete SKSE cosaves with no matching saves
 
 # contains bug fixes
 [Fixes]
@@ -23,7 +23,7 @@ bDoublePerkApply = true                         # fixes NPC perks applying twice
 bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bEquipShoutEventSpam = true                     # fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip
 bFaceGenMorphDataHeadNullPtrCrash = true        # fixes a crash in face morphing, possibly related to decapitations
-bGetKeywordItemCount = true                     # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
+bGetKeywordItemCount = false                    # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
 bGHeapLeakDetectionCrash = true                 # fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build
 bGlobalTime = true                              # fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix
 bInitializeHitDataNullPtrCrash = true           # fixes a crash on melee hit that unequipped the weapon at the same time
