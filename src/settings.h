@@ -28,7 +28,7 @@ namespace Settings
         static REX::TOML::Bool bEquipShoutEventSpam("Fixes", "bEquipShoutEventSpam", true);
         static REX::TOML::Bool bESLCELLLoadBug("Fixes", "bESLCELLLoadBug", true);
         static REX::TOML::Bool bFaceGenMorphDataHeadNullPtrCrash("Fixes", "bFaceGenMorphDataHeadNullPtrCrash", true);
-        static REX::TOML::Bool bGetKeywordItemCount("Fixes", "bGetKeywordItemCount", true);
+        static REX::TOML::Bool bGetKeywordItemCount("Fixes", "bGetKeywordItemCount", false);
         static REX::TOML::Bool bGHeapLeakDetectionCrash("Fixes", "bGHeapLeakDetectionCrash", true);
         static REX::TOML::Bool bGlobalTime("Fixes", "bGlobalTime", true);
         static REX::TOML::Bool bInitializeHitDataNullPtrCrash("Fixes", "bInitializeHitDataNullPtrCrash", true);
