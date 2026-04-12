@@ -61,17 +61,18 @@ namespace Fixes::MemoryAccessErrors
         {
             const bool retVal = origLoad(a_this, a_file);
 
-            // the game doesn't allow more than 10 here
+            // the game enforces a max particle density value of 10.0f; guard that the array is fully populated (size >= kTotal) before accessing kParticleDensity
+            using DataID = RE::BGSShaderParticleGeometryData::DataID;
             const bool hasData = REL::Module::IsVR()
-                ? a_this->GetVRRuntimeData().data.size() >= 12
-                : a_this->GetRuntimeData().data.size() >= 12;
+                ? a_this->GetVRRuntimeData().data.size() >= static_cast<std::uint32_t>(DataID::kTotal)
+                : a_this->GetRuntimeData().data.size() >= static_cast<std::uint32_t>(DataID::kTotal);
             if (hasData) {
-                const auto particleDensity = a_this->GetSettingValue(RE::BGSShaderParticleGeometryData::DataID::kParticleDensity);
+                const auto particleDensity = a_this->GetSettingValue(DataID::kParticleDensity);
                 if (particleDensity.f > 10.0f) {
                     if (REL::Module::IsVR())
-                        a_this->GetVRRuntimeData().data[11].value.f = 10.0f;
+                        a_this->GetVRRuntimeData().data[static_cast<std::uint32_t>(DataID::kParticleDensity)].value.f = 10.0f;
                     else
-                        a_this->GetRuntimeData().data[11].f = 10.0f;
+                        a_this->GetRuntimeData().data[static_cast<std::uint32_t>(DataID::kParticleDensity)].f = 10.0f;
                 }
             }
 

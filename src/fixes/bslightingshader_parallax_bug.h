@@ -14,7 +14,7 @@ namespace Fixes::BSLightingShaderParallaxBug
                     cmovnz(ecx, r9d);
 
                     // new code
-                    cmp(dword[rbp + 0x1D0 - 0x210], 0x3);  // technique ID = PARALLAX
+                    cmp(dword[rbp + 0x1D0 - 0x210], static_cast<std::uint32_t>(RE::BSShaderMaterial::Feature::kParallax));
                     cmovz(ecx, r9d);                       // set eye update true
 
                     // jmp out
@@ -27,9 +27,9 @@ namespace Fixes::BSLightingShaderParallaxBug
 
                     // new code: technique register differs — r14d in VR, ebx in SE
                     if (REL::Module::IsVR())
-                        cmp(r14d, 0x3);   // VR: technique ID in r14d
+                        cmp(r14d, static_cast<std::uint32_t>(RE::BSShaderMaterial::Feature::kParallax));  // VR: technique ID in r14d
                     else
-                        cmp(ebx, 0x3);    // SE: technique ID = PARALLAX
+                        cmp(ebx, static_cast<std::uint32_t>(RE::BSShaderMaterial::Feature::kParallax));   // SE: technique ID in ebx
                     cmovz(edx, r8d);  // set eye update true
 
                     // jmp out

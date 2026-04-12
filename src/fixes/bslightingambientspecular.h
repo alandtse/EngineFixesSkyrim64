@@ -18,9 +18,9 @@ namespace Fixes::BSLightingAmbientSpecular
 
                 // rawTechnique register: r13 (SE/AE), rbx (VR)
                 if (isVR)
-                    test(dword[rbx + 0x94], 0x20000);
+                    test(dword[rbx + 0x94], static_cast<std::uint32_t>(RE::BSLightingShader::TechniqueFlag::kAmbientSpecular));
                 else
-                    test(dword[r13 + 0x94], 0x20000);
+                    test(dword[r13 + 0x94], static_cast<std::uint32_t>(RE::BSLightingShader::TechniqueFlag::kAmbientSpecular));
                 jz(jmpOut);
                 push(rax);
                 push(rdx);
@@ -45,9 +45,9 @@ namespace Fixes::BSLightingAmbientSpecular
                 // original code continues with rawTechnique check
                 L(jmpOut);
                 if (isVR)
-                    test(dword[rbx + 0x94], 0x200);
+                    test(dword[rbx + 0x94], static_cast<std::uint32_t>(RE::BSLightingShader::TechniqueFlag::kSpecular));
                 else
-                    test(dword[r13 + 0x94], 0x200);
+                    test(dword[r13 + 0x94], static_cast<std::uint32_t>(RE::BSLightingShader::TechniqueFlag::kSpecular));
                 jmp(ptr[rip]);
                 // test [r13+0x94], imm32 = 11 bytes (SE/AE: REX.B + F7 + ModRM + disp32 + imm32)
                 // test [rbx+0x94], imm32 = 10 bytes (VR: no REX prefix needed for rbx)
