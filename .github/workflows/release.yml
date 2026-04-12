@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release and upload to Nexus (leave empty for latest release)'
+        description: 'Version to release and upload to Nexus (leave empty to use current CMakeLists.txt version)'
         type: string
         required: false
 
@@ -26,7 +26,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-          persist-credentials: false
+          fetch-tags: true
 
       - name: Setup node
         uses: actions/setup-node@v4
@@ -53,27 +53,66 @@ jobs:
       new_release_git_tag: ${{ steps.semantic.outputs.new_release_git_tag }}
       new_release_notes: ${{ steps.semantic.outputs.new_release_notes }}
 
-  build:
-    name: Build Release
+  resolve-version:
+    name: Resolve Version
     needs: semantic-release
+    runs-on: ubuntu-latest
     if: |
       always() &&
       (needs.semantic-release.result == 'success' || needs.semantic-release.result == 'skipped') &&
       (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve version and tag
+        id: resolve
+        shell: bash
+        run: |
+          # Priority: semantic-release > workflow_dispatch input > CMakeLists.txt
+          SR_VERSION="${{ needs.semantic-release.outputs.new_release_version }}"
+          INPUT_VERSION="${{ inputs.version }}"
+
+          if [ -n "$SR_VERSION" ]; then
+            VERSION="$SR_VERSION"
+            TAG="${{ needs.semantic-release.outputs.new_release_git_tag }}"
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="$INPUT_VERSION"
+            TAG="v$INPUT_VERSION"
+          else
+            VERSION=$(grep -oP 'set\(VERSION \K[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+            TAG="v$VERSION"
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Resolved version: $VERSION (tag: $TAG)"
+
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+
+  build:
+    name: Build Release
+    needs: [semantic-release, resolve-version]
+    if: |
+      always() &&
+      needs.resolve-version.result == 'success'
     uses: ./.github/workflows/build-reusable.yml
     with:
-      version: ${{ needs.semantic-release.outputs.new_release_version || inputs.version }}
+      version: ${{ needs.resolve-version.outputs.version }}
       upload-artifact: true
       ref: main
 
   upload-github-release:
     name: Upload to GitHub Release
-    needs: [semantic-release, build]
+    needs: [resolve-version, build]
     runs-on: ubuntu-latest
     if: |
       always() &&
-      needs.build.result == 'success' &&
-      (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+      needs.build.result == 'success'
 
     steps:
       - name: Download artifact
@@ -87,24 +126,23 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
           file: "*.7z"
-          tag: ${{ needs.semantic-release.outputs.new_release_git_tag || format('v{0}', inputs.version) }}
+          tag: ${{ needs.resolve-version.outputs.tag }}
           overwrite: true
 
   upload-nexus:
     name: Upload to Nexus Mods
-    needs: [semantic-release, build, upload-github-release]
+    needs: [semantic-release, resolve-version, build, upload-github-release]
     if: |
       always() &&
       needs.build.result == 'success' &&
-      needs.upload-github-release.result == 'success' &&
-      (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
+      needs.upload-github-release.result == 'success'
     uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@main
     with:
       nexus_game_id: skyrimspecialedition
       nexus_mod_id: 62089
       artifact_name: ${{ needs.build.outputs.artifact-name }}
-      tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.version != '' && format('v{0}', inputs.version) || '' }}
-      mod_version: ${{ needs.semantic-release.outputs.new_release_version || inputs.version }}
+      tag_name: ${{ needs.resolve-version.outputs.tag }}
+      mod_version: ${{ needs.resolve-version.outputs.version }}
       mod_filename: EngineFixes
       changelog: ${{ needs.semantic-release.outputs.new_release_notes }}
       file_description: |
