@@ -90,8 +90,8 @@ namespace Settings
         static REX::TOML::Bool bTextureLoadFailed("Warnings", "bTextureLoadFailed", true);
         static REX::TOML::Bool bPrecomputedPathHasErrors("Warnings", "bPrecomputedPathHasErrors", true);
         static REX::TOML::Bool bRefHandleLimit("Warnings", "bRefHandleLimit", true);
-        static REX::TOML::U32  uRefrMainMenuLimit("Warnings", "bRefrMainMenuLimit", 800000);
-        static REX::TOML::U32  uRefrLoadedGameLimit("Warnings", "bRefrLoadedGameLimit", 1000000);
+        static REX::TOML::U32  uRefrMainMenuLimit("Warnings", "uRefrMainMenuLimit", 800000);
+        static REX::TOML::U32  uRefrLoadedGameLimit("Warnings", "uRefrLoadedGameLimit", 1000000);
         static REX::TOML::Bool bDupeAddonNodes("Warnings", "bDupeAddonNodes", true);
     }
 
