@@ -143,11 +143,11 @@ jobs:
       artifact_name: ${{ needs.build.outputs.artifact-name }}
       tag_name: ${{ needs.resolve-version.outputs.tag }}
       mod_version: ${{ needs.resolve-version.outputs.version }}
-      mod_filename: EngineFixes
+      mod_filename: Engine Fixes VR
       changelog: ${{ needs.semantic-release.outputs.new_release_notes }}
       file_description: |
-        Unified build for Skyrim SE 1.5.97, AE 1.6.1170, and VR 1.4.15.
         PDB is included for crash log debugging and can be removed.
+        Requires Part 2 Engine Fixes VR v.1.26
       previous_file: auto
     secrets:
       UNEX_NEXUSMODS_SESSION_COOKIE: ${{ secrets.UNEX_NEXUSMODS_SESSION_COOKIE }}
