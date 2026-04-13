@@ -63,7 +63,7 @@ namespace Fixes::BSLightingAmbientSpecular
         materialTarget.write_fill(REL::NOP, 0x20);
 
         // add new code to BSLightingShader::SetupGeometry
-        const REL::Relocation geometryTarget{ RELOCATION_ID(100565, 107300), VAR_NUM(0xBAD, 0x1271) };
+        const REL::Relocation geometryTarget{ RELOCATION_ID(100565, 107300), VAR_NUM(0xBAD, 0x1271, 0xC59) };
         const REL::Relocation constant{ RELOCATION_ID(513256, 390997) };
 
         detail::Patch p(constant.address(), geometryTarget.address());
