@@ -1,3 +1,9 @@
+## [7.1.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.0...v7.1.1) (2026-04-13)
+
+### Bug Fixes
+
+* **settings:** correct TOML key names for uRefrMainMenuLimit and uRefrLoadedGameLimit ([4adb1c5](https://github.com/alandtse/EngineFixesSkyrim64/commit/4adb1c5576b04f5a7adf1ba6f5d343c775082817))
+
 ## [7.1.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.0.20...v7.1.0) (2026-04-12)
 
 ### Features
