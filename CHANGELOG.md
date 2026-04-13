@@ -1,3 +1,9 @@
+## [7.1.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.1...v7.1.2) (2026-04-13)
+
+### Bug Fixes
+
+* **VR:** map crash due to Ambient Specular fix ([40ad37a](https://github.com/alandtse/EngineFixesSkyrim64/commit/40ad37aa6108a7daa6c7dd2387598be05f76efe2))
+
 ## [7.1.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.0...v7.1.1) (2026-04-13)
 
 ### Bug Fixes
