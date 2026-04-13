@@ -1,4 +1,6 @@
-# Engine Fixes 7.0 for SSE 1.5.97/1.6.1170
+# Engine Fixes - unified build for Skyrim SE 1.5.97, AE 1.6.1170, and VR 1.4.15
+# Settings marked (VR-only) are ignored on SE/AE; all others apply to all three runtimes.
+# User overrides go in EngineFixes_Custom.toml (created alongside this file).
 [General]
 bVerboseLogging = false                         # enable extra log levels
 bCleanSKSECoSaves = true                        # delete SKSE cosaves with no matching saves
@@ -27,6 +29,7 @@ bGetKeywordItemCount = false                    # fixes the condition function "
 bGHeapLeakDetectionCrash = true                 # fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build
 bGlobalTime = true                              # fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix
 bInitializeHitDataNullPtrCrash = true           # fixes a crash on melee hit that unequipped the weapon at the same time
+bIsPlayerInRegionParentCellCheck = true         # (VR-only) fixes a crash in IsPlayerInRegion caused by missing parent-cell null checks that SE added but VR lacks
 bLipSync = true                                 # fixes a bug causing lip sync to desync
 bMemoryAccessErrors = true                      # fixes miscellaneous errors that are obscured by Skyrim's default allocator
 bMO5STypo = true                                # fixes a typo preventing the game from loading MO5S entries in ARMA forms
@@ -45,6 +48,10 @@ bTorchLandscape = true                          # fixes a bug where torches some
 bTreeReflections = true                         # fixes tree LOD reflection alpha
 bVerticalLookSensitivity = true                 # fixes vertical look sensitivity being tied to framerate
 bWeaponBlockScaling = true                      # fixes weapon blocking so it correctly scales off of the blocking actor's weapon
+# VR-only fixes
+bAbilityConditionBug = true                     # (VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation to at most once per ~0.1 in-game seconds per ActiveEffect
+bBuySellStackSpeechGain = true                  # (VR-only) fixes buying/selling a stack of items only granting speech XP for a single item
+bShadowSceneCrash = true                        # (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix
 
 # contains optional game patches
 [Patches]

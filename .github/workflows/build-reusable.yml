@@ -85,10 +85,14 @@ jobs:
         run: |
           $version = "${{ steps.version.outputs.version }}"
           $artifactName = "EngineFixes_$version"
-          New-Item -ItemType Directory -Path "package" -Force
-          Copy-Item "build/Release/EngineFixes.dll" "package/"
-          Copy-Item "build/Release/EngineFixes.pdb" "package/"
-          7z a "$artifactName.7z" ".\package\*"
+          $pluginsDir = "package/SKSE/Plugins"
+          New-Item -ItemType Directory -Path $pluginsDir -Force
+          Copy-Item "build/Release/EngineFixes.dll" "$pluginsDir/"
+          Copy-Item "build/Release/EngineFixes.pdb" "$pluginsDir/"
+          Copy-Item "Skyrim/Data/SKSE/Plugins/EngineFixes.toml" "$pluginsDir/"
+          Copy-Item "Skyrim/Data/SKSE/Plugins/EngineFixes_SNCT.ini" "$pluginsDir/"
+          Copy-Item "Skyrim/Data/SKSE/Plugins/EngineFixes_preload.txt" "$pluginsDir/"
+          7z a "$artifactName.7z" ".\package\SKSE"
           echo "artifact-name=$artifactName" >> $env:GITHUB_OUTPUT
 
       - name: Upload artifact
