@@ -1,3 +1,9 @@
+## [7.1.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.2...v7.1.3) (2026-04-14)
+
+### Bug Fixes
+
+* **VR:** skip/sleep crashes ([3acc7e7](https://github.com/alandtse/EngineFixesSkyrim64/commit/3acc7e7b15a9850749cf61b65a6ecfdb51011b42))
+
 ## [7.1.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.1...v7.1.2) (2026-04-13)
 
 ### Bug Fixes
