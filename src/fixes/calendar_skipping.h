@@ -31,10 +31,10 @@ namespace Fixes::CalendarSkipping
         using PairT = std::pair<REL::RelocationID, std::ptrdiff_t>;
         const std::array<PairT, 5> todo = {
             PairT{ RELOCATION_ID(13183, 13328), 0xE2 },
-            PairT{ RELOCATION_ID(35565, 36564), VAR_NUM(0x24D, 0x266) },
+            PairT{ RELOCATION_ID(35565, 36564), VAR_NUM(0x24D, 0x266, 0x2bf) },
             PairT{ RELOCATION_ID(35567, 36566), 0x3A },
-            PairT{ RELOCATION_ID(39373, 40445), VAR_NUM(0x2B1, 0x282) },
-            PairT{ RELOCATION_ID(39410, 40485), 0x78 },
+            PairT{ RELOCATION_ID(39373, 40445), VAR_NUM(0x2B1, 0x282, 0x29f) },
+            PairT{ RELOCATION_ID(39410, 40485), VAR_NUM(0x78, 0x78, 0x86) },
         };
 
         for (const auto& [id, offset] : todo) {
