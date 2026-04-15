@@ -1,3 +1,9 @@
+## [7.2.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.3...v7.2.0) (2026-04-15)
+
+### Features
+
+* add BSTaskPool null vtable crash fix ([3d545ee](https://github.com/alandtse/EngineFixesSkyrim64/commit/3d545ee893e276714829c6edc979f777342f2b4b))
+
 ## [7.1.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.2...v7.1.3) (2026-04-14)
 
 ### Bug Fixes
