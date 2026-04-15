@@ -15,6 +15,7 @@ bBSLightingAmbientSpecular = true               # fixes bug where light template
 bBSLightingShaderForceAlphaTest = true          # fixes object LOD reflections by forcing alpha test flag on when NiAlphaProperty/AlphaTest is true
 bBSLightingShaderParallaxBug = true             # fixes a bug causing the parallax technique to break if specular is not also set
 bBSLightingShaderPropertyShadowMap = true       # fixes re-use of render passes when a light has multiple shadow map passes
+bBSTaskPoolNullVtableCrash = true               # fixes a crash in BSTaskPool when an actor is freed while a pathfinding task is still pending
 bBSTempEffectNiRTTI = true                      # fixes a bug where the NiRTTI for this object is not set properly
 bCalendarSkipping = true                        # fixes a bug where the game calendar effectively skips a year if you fast travel too far between 20:00 and 23:99 in-game
 bCellInit = true                                # fixes a rare crash where a form field does not get converted from an id to a pointer

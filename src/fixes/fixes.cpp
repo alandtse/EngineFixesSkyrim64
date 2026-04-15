@@ -4,12 +4,13 @@
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "bethesda_net_crash.h"
-#include "buy_sell_stack_speech_gain.h"
 #include "bgskeywordform_load_crash.h"
 #include "bslightingambientspecular.h"
 #include "bslightingshader_force_alpha_test.h"
 #include "bslightingshaderproperty_shadowmap.h"
+#include "bstaskpool_null_vtable.h"
 #include "bstempeffect_nirtti.h"
+#include "buy_sell_stack_speech_gain.h"
 #include "calendar_skipping.h"
 #include "cell_init.h"
 #include "climate_load.h"
@@ -66,6 +67,9 @@ namespace Fixes
 
         if (Settings::Fixes::bBSLightingShaderPropertyShadowMap.GetValue())
             BSLightingShaderPropertyShadowMap::Install();
+
+        if (Settings::Fixes::bBSTaskPoolNullVtableCrash.GetValue())
+            BSTaskPoolNullVtableCrash::Install();
 
         if (Settings::Fixes::bBSTempEffectNiRTTI.GetValue())
             BSTempEffectNiRTTI::Install();
