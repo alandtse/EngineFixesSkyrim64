@@ -1,3 +1,9 @@
+## [7.2.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.2.0...v7.2.1) (2026-04-23)
+
+### Bug Fixes
+
+* **VR:** bWaterflowAnimation addresses ([f6e38fb](https://github.com/alandtse/EngineFixesSkyrim64/commit/f6e38fb7db45055f27586ad05386a91d4623c5d1))
+
 ## [7.2.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.1.3...v7.2.0) (2026-04-15)
 
 ### Features
