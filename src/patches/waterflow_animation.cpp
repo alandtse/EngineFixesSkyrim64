@@ -6,7 +6,7 @@ namespace Patches::WaterflowAnimation::detail
     {
         // patch the main game loop to also update our timer
         {
-            REL::Relocation mainLoopTarget{ RELOCATION_ID(35565, 36564), VAR_NUM(0x252, 0x26B) };
+            REL::Relocation mainLoopTarget{ RELOCATION_ID(35565, 36564), VAR_NUM(0x252, 0x26B, 0x2c4) };
 
             struct MainUpdateCode : Xbyak::CodeGenerator
             {
@@ -47,7 +47,7 @@ namespace Patches::WaterflowAnimation::detail
         // patch the water shader to use our timer
         // 107363
         {
-            REL::Relocation waterShaderSetupMaterialTarget{ RELOCATION_ID(100602, 107363), VAR_NUM(0x4A9, 0x4BC) };
+            REL::Relocation waterShaderSetupMaterialTarget{ RELOCATION_ID(100602, 107363), VAR_NUM(0x4A9, 0x4BC, 0x4bb) };
 
             struct WaterShaderCode : Xbyak::CodeGenerator
             {
