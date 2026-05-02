@@ -26,7 +26,7 @@ namespace Fixes::AbilityConditionBug
         using TimerMap = tbb::concurrent_hash_map<void*, TimerData, PtrHash>;
         inline TimerMap g_timers;
 
-        // Hook function. rcx = ActiveEffect* at the VR call site (verify against binary).
+        // Hook function. rdi = ActiveEffect* at the VR call site (saved from rcx at prologue +0x25).
         inline bool Hook(RE::ActiveEffect* a_effect)
         {
             if (!a_effect)
@@ -59,7 +59,12 @@ namespace Fixes::AbilityConditionBug
                 // mid-function state). sub 0x28 (40 = 8 mod 16) would leave RSP at 8 mod 16
                 // before the call, causing Hook's movaps prologue saves to fault on the
                 // misaligned address. Use 0x30 (48 = 0 mod 16) to keep RSP at 0 mod 16.
+                //
+                // RDI holds the ActiveEffect* (saved from RCX in the function prologue at
+                // +0x25: MOV RDI,RCX). RCX is clobbered by the preceding CALL at +0x74.
+                // We must pass RDI as the first argument (RCX) to Hook.
                 sub(rsp, 0x30);
+                mov(rcx, rdi);  // ActiveEffect* is in RDI, not RCX, at this call site
                 mov(rax, reinterpret_cast<std::uintptr_t>(Hook));
                 call(rax);
                 add(rsp, 0x30);
@@ -89,8 +94,8 @@ namespace Fixes::AbilityConditionBug
         // VR raw offset for the problematic ability-condition evaluation block.
         // The block is 0x79 bytes long; we patch the entry point (first 5 bytes)
         // with a JMP to our throttling thunk.
-        //   returnFalse (target+0x79  = 0x5412B6): skip — condition evaluation throttled
-        //   returnTrue  (target+0x100 = 0x54133D): run — condition evaluation proceeds
+        //   returnFalse (target+0x79  = 0x5412B6): run  — condition evaluation proceeds
+        //   returnTrue  (target+0x100 = 0x54133D): skip — condition evaluation throttled
         REL::Relocation<std::uintptr_t> target{ REL::Offset{ 0x54123D } };
         const auto returnFalse = target.address() + 0x79;
         const auto returnTrue  = target.address() + 0x100;
