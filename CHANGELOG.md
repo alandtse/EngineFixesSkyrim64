@@ -1,3 +1,13 @@
+## [7.3.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.2.1...v7.3.0) (2026-05-02)
+
+### Features
+
+* add BSGraphics::TriShape::Release buffer guard fix ([ed4988b](https://github.com/alandtse/EngineFixesSkyrim64/commit/ed4988ba88d845f7677b0edce45aeb1356031f5c))
+
+### Bug Fixes
+
+* **VR:** pass correct register to AbilityConditionBug hook ([d783600](https://github.com/alandtse/EngineFixesSkyrim64/commit/d783600a65f132a42e9e7d88403b95feed7a9116))
+
 ## [7.2.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.2.0...v7.2.1) (2026-04-23)
 
 ### Bug Fixes
