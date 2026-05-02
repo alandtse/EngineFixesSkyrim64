@@ -48,6 +48,7 @@ namespace Settings
         static REX::TOML::Bool bShadowSceneNodeNullPtrCrash("Fixes", "bShadowSceneNodeNullPtrCrash", true);
         static REX::TOML::Bool bStuckMouseButtons("Fixes", "bStuckMouseButtons", true);
         static REX::TOML::Bool bTextureLoadCrash("Fixes", "bTextureLoadCrash", true);
+        static REX::TOML::Bool bTriShapeReleaseBufferGuard("Fixes", "bTriShapeReleaseBufferGuard", true);
         static REX::TOML::Bool bTorchLandscape("Fixes", "bTorchLandscape", true);
         static REX::TOML::Bool bTreeReflections("Fixes", "bTreeReflections", true);
         static REX::TOML::Bool bVerticalLookSensitivity("Fixes", "bVerticalLookSensitivity", true);

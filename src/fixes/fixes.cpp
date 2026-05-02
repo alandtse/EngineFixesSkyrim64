@@ -40,6 +40,7 @@
 #include "stuck_mouse_buttons.h"
 #include "texture_load_crash.h"
 #include "torch_landscape.h"
+#include "trishape_release_buffer_guard.h"
 #include "vertical_look_sensitivity.h"
 #include "weapon_block_scaling.h"
 
@@ -151,6 +152,9 @@ namespace Fixes
 
         if (Settings::Fixes::bTextureLoadCrash.GetValue())
             TextureLoadCrash::Install();
+
+        if (Settings::Fixes::bTriShapeReleaseBufferGuard.GetValue())
+            TriShapeReleaseBufferGuard::Install();
 
         if (Settings::Fixes::bTorchLandscape.GetValue())
             TorchLandscape::Install();
