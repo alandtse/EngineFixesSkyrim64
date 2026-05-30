@@ -21,6 +21,7 @@
 #include "esl_cell_loading_bug.h"
 #include "facegen_morphdatahead_nullptr_crash.h"
 #include "get_keyword_item_count.h"
+#include "getgamesetting_not_found_crash.h"
 #include "gheap_leak_detection_crash.h"
 #include "global_time.h"
 #include "initialize_hit_data_nullptr_crash.h"
@@ -101,6 +102,9 @@ namespace Fixes
 
         if (Settings::Fixes::bFaceGenMorphDataHeadNullPtrCrash.GetValue())
             FaceGenMorphDataHeadNullPtrCrash::Install();
+
+        if (Settings::Fixes::bGetGameSettingNotFoundCrash.GetValue())
+            GetGameSettingNotFoundCrash::Install();
 
         if (Settings::Fixes::bGetKeywordItemCount.GetValue())
             GetKeywordItemCount::Install();
