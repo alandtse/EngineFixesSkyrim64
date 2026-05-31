@@ -25,12 +25,12 @@ namespace Fixes::CopyBoneTransformNullCrash
             explicit Patch(std::uintptr_t a_resume)
             {
                 Xbyak::Label earlyReturn;
-                test(rax, rax);  // rax = LookupBoneNodeByName result
-                jz(earlyReturn); // bone not found -> early-return (skip this bone's update)
-                xor_(edx, edx);  // re-run original overwritten bytes...
-                mov(rbx, rax);   // ...
+                test(rax, rax);   // rax = LookupBoneNodeByName result
+                jz(earlyReturn);  // bone not found -> early-return (skip this bone's update)
+                xor_(edx, edx);   // re-run original overwritten bytes...
+                mov(rbx, rax);    // ...
                 jmp(ptr[rip]);
-                dq(a_resume);    // resume at func+0x25 (mov ecx,edx); the +0x30 deref now only runs when non-null
+                dq(a_resume);  // resume at func+0x25 (mov ecx,edx); the +0x30 deref now only runs when non-null
                 L(earlyReturn);
                 // clean epilogue (mirrors the function's own): restore frame and return (void fn)
                 mov(rbx, ptr[rsp + 0x30]);
