@@ -58,7 +58,7 @@ namespace Memory::HavokMemorySystem
                     });
             }
 
-            void         GetMemoryStatistics([[maybe_unused]] MemoryStatistics& a_usage ) override {}
+            void         GetMemoryStatistics([[maybe_unused]] MemoryStatistics& a_usage) override {}
             std::int32_t GetAllocatedSize([[maybe_unused]] const void* a_obj, std::int32_t a_numBytes) override { return a_numBytes; };
             void         ResetPeakMemoryStatistics() override {}
         };
@@ -121,7 +121,7 @@ namespace Memory::HavokMemorySystem
 
             RE::hkMemoryAllocator* GetUncachedLockedHeapAllocator() override { return std::addressof(_allocator); }
             void                   PrintStatistics([[maybe_unused]] RE::hkOstream& a_ostream) override {}
-            void                   GetHeapStatistics([[maybe_unused]] RE::hkMemoryAllocator::MemoryStatistics&  a_stats) override {}
+            void                   GetHeapStatistics([[maybe_unused]] RE::hkMemoryAllocator::MemoryStatistics& a_stats) override {}
             RE::hkResult           WalkMemory([[maybe_unused]] MemoryWalkCallback a_callback, [[maybe_unused]] void* a_param) override { return RE::hkResult::kFailure; }
 
         private:
@@ -135,15 +135,15 @@ namespace Memory::HavokMemorySystem
             hkMemorySystem& operator=(hkMemorySystem&&) = delete;
 
             // padding forces 10 alignment
-            std::uint64_t pad8;
-            hkMemoryAllocator _allocator;
-            std::uint64_t pad18;
+            std::uint64_t      pad8;
+            hkMemoryAllocator  _allocator;
+            std::uint64_t      pad18;
             RE::hkMemoryRouter _router;
         };
 
         inline void Install()
         {
-            REL::Relocation target { RELOCATION_ID(76023, 77856), VAR_NUM(0x66, 0x61) };
+            REL::Relocation target{ RELOCATION_ID(76023, 77856), VAR_NUM(0x66, 0x61) };
             target.write_call<5>(hkMemorySystem::GetSingleton);
         }
     }
