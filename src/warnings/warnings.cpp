@@ -15,13 +15,13 @@ namespace Warnings
     {
         namespace detail
         {
-            using Load_t    = bool(RE::BGSAddonNode*, RE::TESFile*);
-            using Reload_t  = void(void*);
+            using Load_t = bool(RE::BGSAddonNode*, RE::TESFile*);
+            using Reload_t = void(void*);
 
             // Map from node index → the first form that claimed it
             inline std::unordered_map<std::uint32_t, RE::BGSAddonNode*> g_nodeMap;
-            inline Load_t*   _original   = nullptr;
-            inline Reload_t* _origReload = nullptr;
+            inline Load_t*                                              _original = nullptr;
+            inline Reload_t*                                            _origReload = nullptr;
 
             inline bool Load_Hook(RE::BGSAddonNode* a_this, RE::TESFile* a_mod)
             {
@@ -78,7 +78,7 @@ namespace Warnings
 
                 REL::Relocation<std::uintptr_t> call1{ RELOCATION_ID(35551, 36550), 0x163 };
                 REL::Relocation<std::uintptr_t> call2{ RELOCATION_ID(35589, 416418), VAR_NUM(0x0D, 0x12) };
-                auto& trampoline = SKSE::GetTrampoline();
+                auto&                           trampoline = SKSE::GetTrampoline();
                 trampoline.write_call<5>(call1.address(), detail::Reload_Hook);
                 trampoline.write_call<5>(call2.address(), detail::Reload_Hook);
             }

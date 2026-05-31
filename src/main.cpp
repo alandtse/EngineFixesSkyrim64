@@ -96,9 +96,9 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     logger::info("EngineFixes v{}.{}.{} PreLoad"sv, Version::MAJOR, Version::MINOR, Version::PATCH);
 
     const auto ver = REL::Module::get().version();
-    const auto minVer = REL::Module::IsVR()  ? SKSE::RUNTIME_VR_1_4_15 :
-                        REL::Module::IsAE()  ? SKSE::RUNTIME_SSE_1_6_1170 :
-                                               SKSE::RUNTIME_SSE_1_5_97;
+    const auto minVer = REL::Module::IsVR() ? SKSE::RUNTIME_VR_1_4_15 :
+                        REL::Module::IsAE() ? SKSE::RUNTIME_SSE_1_6_1170 :
+                                              SKSE::RUNTIME_SSE_1_5_97;
     if (ver < minVer) {
         logger::error("Unsupported runtime version {}"sv, ver);
         return;
