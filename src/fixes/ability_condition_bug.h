@@ -40,10 +40,10 @@ namespace Fixes::AbilityConditionBug
             auto& data = acc->second;
 
             if (now - data.lastChecked < 0.1f)
-                return true;   // throttled → Thunk jumps to returnTrue = epilogue (skip)
+                return true;  // throttled → Thunk jumps to returnTrue = epilogue (skip)
 
             data.lastChecked = now;
-            return false;      // due for evaluation → Thunk jumps to returnFalse = condition block (run)
+            return false;  // due for evaluation → Thunk jumps to returnFalse = condition block (run)
         }
 
         // Xbyak thunk: set up shadow space, call Hook, branch on return value.
@@ -97,8 +97,8 @@ namespace Fixes::AbilityConditionBug
         //   returnFalse (target+0x79  = 0x5412B6): run  — condition evaluation proceeds
         //   returnTrue  (target+0x100 = 0x54133D): skip — condition evaluation throttled
         REL::Relocation<std::uintptr_t> target{ REL::Offset{ 0x54123D } };
-        const auto returnFalse = target.address() + 0x79;
-        const auto returnTrue  = target.address() + 0x100;
+        const auto                      returnFalse = target.address() + 0x79;
+        const auto                      returnTrue = target.address() + 0x100;
 
         detail::Thunk thunk{ returnFalse, returnTrue };
         thunk.ready();

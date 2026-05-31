@@ -43,7 +43,7 @@ namespace Patches::TreeLodReferenceCaching
                             // Find first valid tree object by ESP/ESM load order
                             const auto dataHandler = RE::TESDataHandler::GetSingleton();
                             if (!dataHandler)
-                            logger::warn("Datahandler missing!");
+                                logger::warn("Datahandler missing!");
                             for (std::uint32_t i = 0; i < dataHandler->GetLoadedModCount(); i++) {
                                 if (RE::TESForm* form = FormCaching::detail::TESForm_GetFormByNumericId(i << 24 | baseId))
                                     objectReference = form->AsReference();

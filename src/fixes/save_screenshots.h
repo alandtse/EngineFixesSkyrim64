@@ -141,7 +141,7 @@ namespace Fixes::SaveScreenshots
                             mov(rcx, ptr[rbx + 0x1F0]);
                             mov(esi, 0x2A);
                             cmp(byte[rcx + 0x18], dil);
-                        } else if (REL::Module::IsVR()){
+                        } else if (REL::Module::IsVR()) {
                             mov(esi, 0x2A);
                             mov(rax, ptr[rbp + 0x218]);
                             cmp(byte[rax + 0x18], dil);
@@ -163,7 +163,7 @@ namespace Fixes::SaveScreenshots
                             mov(rcx, ptr[rbx + 0x1F0]);
                             mov(esi, 0x2A);  // menu version of fix
                             cmp(byte[rbx + 0x211], 0);
-                        } else if (REL::Module::IsVR()){
+                        } else if (REL::Module::IsVR()) {
                             mov(esi, 0x2A);  // menu version of fix
                             cmp(byte[rbp + 0x239], 0);
                         } else {
@@ -206,7 +206,7 @@ namespace Fixes::SaveScreenshots
                         if (REL::Module::IsAE()) {
                             mov(dword[rax], esi);
                             mov(esi, 1);
-                        } else if (REL::Module::IsVR()){
+                        } else if (REL::Module::IsVR()) {
                             mov(dword[rax], esi);
                             mov(esi, 1);
                         } else {
@@ -219,7 +219,7 @@ namespace Fixes::SaveScreenshots
                         if (REL::Module::IsAE()) {
                             mov(r8d, esi);
                             mov(rcx, rbx);
-                        } else if (REL::Module::IsVR()){
+                        } else if (REL::Module::IsVR()) {
                             mov(r9d, 0x4B);
                             mov(r8d, esi);
                         } else {

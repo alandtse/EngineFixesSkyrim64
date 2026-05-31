@@ -63,7 +63,7 @@ namespace Patches
         if (Settings::Patches::fSleepWaitTimeModifier.GetValue() != 1.0f)
             SleepWaitTime::Install();
 
-        if (ShouldInstallTreeLodReferenceCaching() && !REL::Module::IsVR()) // VR needs to delay for ESL support
+        if (ShouldInstallTreeLodReferenceCaching() && !REL::Module::IsVR())  // VR needs to delay for ESL support
             TreeLodReferenceCaching::Install();
 
         if (Settings::Patches::bWaterflowAnimation.GetValue())

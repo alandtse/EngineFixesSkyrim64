@@ -8,7 +8,7 @@ namespace Fixes::GlobalTime
 
         auto patch = [&](const REL::RelocationID& a_id, std::ptrdiff_t a_offset) {
             REL::Relocation<> target{ a_id, a_offset };
-            const auto timerOffset = static_cast<std::int32_t>(
+            const auto        timerOffset = static_cast<std::int32_t>(
                 secondsSinceLastFrameRealTime.address() - target.address() - 0x4);
             target.write(timerOffset);
         };

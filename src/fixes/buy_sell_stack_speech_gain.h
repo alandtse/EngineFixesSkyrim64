@@ -54,13 +54,13 @@ namespace Fixes::BuySellStackSpeechGain
         if (!REL::Module::IsVR())
             return;
 
-        const auto base   = REL::Module::get().base();
-        auto&      tramp  = SKSE::GetTrampoline();
+        const auto base = REL::Module::get().base();
+        auto&      tramp = SKSE::GetTrampoline();
         const auto gainXP = base + 0x1E7200;
 
         // Buy path
         {
-            const auto target = base + 0x87CE5E;
+            const auto   target = base + 0x87CE5E;
             detail::Cave cave{ gainXP, target + 5 };
             cave.ready();
             tramp.write_branch<5>(target, tramp.allocate(cave));
@@ -68,7 +68,7 @@ namespace Fixes::BuySellStackSpeechGain
 
         // Sell path
         {
-            const auto target = base + 0x87CD71;
+            const auto   target = base + 0x87CD71;
             detail::Cave cave{ gainXP, target + 5 };
             cave.ready();
             tramp.write_branch<5>(target, tramp.allocate(cave));
