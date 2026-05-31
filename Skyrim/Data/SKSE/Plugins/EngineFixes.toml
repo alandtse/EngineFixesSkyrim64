@@ -52,6 +52,7 @@ bWeaponBlockScaling = true                      # fixes weapon blocking so it co
 # VR-only fixes
 bAbilityConditionBug = true                     # (VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation to at most once per ~0.1 in-game seconds per ActiveEffect
 bBuySellStackSpeechGain = true                  # (VR-only) fixes buying/selling a stack of items only granting speech XP for a single item
+bCopyBoneTransformNullCrash = true              # (VR-only) fixes a null-pointer crash when an actor's animation references a bone name absent from its skeleton (modded/mismatched skeleton)
 bShadowSceneCrash = true                        # (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix
 
 # contains optional game patches

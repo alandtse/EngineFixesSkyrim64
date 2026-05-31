@@ -56,6 +56,7 @@ namespace Settings
         // VR-only fixes (runtime-gated; always declared so the TOML key is always present)
         static REX::TOML::Bool bAbilityConditionBug("Fixes", "bAbilityConditionBug", true);
         static REX::TOML::Bool bBuySellStackSpeechGain("Fixes", "bBuySellStackSpeechGain", true);
+        static REX::TOML::Bool bCopyBoneTransformNullCrash("Fixes", "bCopyBoneTransformNullCrash", true);
         static REX::TOML::Bool bShadowSceneCrash("Fixes", "bShadowSceneCrash", true);
     }
 
