@@ -15,26 +15,34 @@ concurrency:
   group: release
   cancel-in-progress: false
 
+# Least-privilege default token; jobs opt into write scopes only where needed.
+permissions:
+  contents: read
+
 jobs:
   semantic-release:
     name: Semantic Release
     runs-on: ubuntu-latest
     if: github.repository_owner == 'alandtse'
+    permissions:
+      contents: write        # create tags, changelog commits, and the GitHub release
+      issues: write          # semantic-release comments on released issues
+      pull-requests: write   # semantic-release comments on released PRs
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           submodules: recursive
           fetch-depth: 0
           fetch-tags: true
 
       - name: Setup node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
 
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@16ca923e6ccbb50770c415a0ccd43709a8c5f7a4 # v4
         id: semantic
         with:
           extra_plugins: |
@@ -57,13 +65,15 @@ jobs:
     name: Resolve Version
     needs: semantic-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: |
       always() &&
       (needs.semantic-release.result == 'success' || needs.semantic-release.result == 'skipped') &&
       (needs.semantic-release.outputs.new_release_published == 'true' || github.event_name == 'workflow_dispatch')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: main
 
@@ -100,6 +110,8 @@ jobs:
     if: |
       always() &&
       needs.resolve-version.result == 'success'
+    permissions:
+      contents: read
     uses: ./.github/workflows/build-reusable.yml
     with:
       version: ${{ needs.resolve-version.outputs.version }}
@@ -110,18 +122,20 @@ jobs:
     name: Upload to GitHub Release
     needs: [resolve-version, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # upload the release asset
     if: |
       always() &&
       needs.build.result == 'success'
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: ${{ needs.build.outputs.artifact-name }}
 
       - name: Upload to GitHub release
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -136,7 +150,9 @@ jobs:
       always() &&
       needs.build.result == 'success' &&
       needs.upload-github-release.result == 'success'
-    uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@main
+    # Pin the shared reusable to a release tag (not @main) — same supply-chain
+    # reasoning as pinning a third-party action.
+    uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@v1.4.0
     with:
       nexus_game_id: skyrimspecialedition
       nexus_mod_id: 62089
