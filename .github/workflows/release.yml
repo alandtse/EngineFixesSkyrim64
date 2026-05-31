@@ -152,7 +152,7 @@ jobs:
       needs.upload-github-release.result == 'success'
     # Pin the shared reusable to a release tag (not @main) — same supply-chain
     # reasoning as pinning a third-party action.
-    uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@v1.4.0
+    uses: alandtse/nexus-workflows/.github/workflows/upload-nexus.yml@1a631200c4d6d0957ea910383daf0ed4fe2efdcb # v1.4.0
     with:
       nexus_game_id: skyrimspecialedition
       nexus_mod_id: 62089
