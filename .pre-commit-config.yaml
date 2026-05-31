@@ -1,0 +1,32 @@
+# pre-commit.ci config
+ci:
+  autofix_commit_msg: |
+    style: auto fixes from pre-commit hooks
+
+    Applied by pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: 'ci(deps): update pre-commit hooks'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+repos:
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v16.0.6
+    hooks:
+      - id: clang-format
+        types_or: [c++, c]
+        args: [--style=file]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      # Exclude vcpkg port patches/diffs: stripping their trailing whitespace or
+      # final newline corrupts them so `git apply` fails during the vcpkg build.
+      - id: trailing-whitespace
+        exclude: \.(diff|patch)$
+      - id: end-of-file-fixer
+        exclude: \.(diff|patch)$
+      - id: check-yaml
+      - id: check-added-large-files

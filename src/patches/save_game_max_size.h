@@ -14,7 +14,7 @@ namespace Patches::SaveGameMaxSize
         const std::array<PairT, 3> todo = {
             PairT{ RELOCATION_ID(101985, 109378), VAR_NUM(0x11, 0x17) },
             PairT{ RELOCATION_ID(101962, 109355), VAR_NUM(0x14B, 0x20B) },
-            PairT{ RELOCATION_ID(35203, 36095),   0x1 },
+            PairT{ RELOCATION_ID(35203, 36095), 0x1 },
         };
 
         if (Settings::Patches::iSaveGameMaxSize.GetValue() > 4095) {

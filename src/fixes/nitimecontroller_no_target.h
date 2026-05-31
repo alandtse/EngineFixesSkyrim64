@@ -74,7 +74,7 @@ namespace Fixes::NiTimeControllerNoTarget
 
         inline void Install()
         {
-            REL::Relocation timeControllerLinkObject { RELOCATION_ID(69434, 70811) };
+            REL::Relocation timeControllerLinkObject{ RELOCATION_ID(69434, 70811) };
             orig_LinkObject = safetyhook::create_inline(timeControllerLinkObject.address(), LinkObject);
 
             REL::Relocation target{ RELOCATION_ID(70880, 72461), VAR_NUM(0x2F0, 0x2E0) };

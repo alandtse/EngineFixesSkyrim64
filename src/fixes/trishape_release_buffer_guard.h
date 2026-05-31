@@ -79,12 +79,12 @@ namespace Fixes::TriShapeReleaseBufferGuard
                 mov(rcx, ptr[rbx + 0x8]);
                 test(rcx, rcx);
                 jz(idxSkip);
-                test(cl, 0x7);          // 8-byte alignment check (low 3 bits)
+                test(cl, 0x7);  // 8-byte alignment check (low 3 bits)
                 jnz(idxSkip);
-                mov(rax, ptr[rcx]);     // vtable
+                mov(rax, ptr[rcx]);  // vtable
                 test(rax, rax);
                 jz(idxSkip);
-                test(al, 0x7);          // vtable alignment check
+                test(al, 0x7);  // vtable alignment check
                 jnz(idxSkip);
                 call(ptr[rax + 0x10]);  // IUnknown::Release
                 L(idxSkip);

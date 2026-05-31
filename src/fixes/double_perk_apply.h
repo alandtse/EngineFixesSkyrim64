@@ -69,9 +69,7 @@ namespace Fixes::DoublePerkApply
         {
             ApplyBasePerksActorImplementation(a_player);
 
-            const auto* addedPerks = REL::Module::IsVR()
-                ? &a_player->GetVRPlayerRuntimeData().addedPerks
-                : &a_player->GetPlayerRuntimeData().addedPerks;
+            const auto* addedPerks = REL::Module::IsVR() ? &a_player->GetVRPlayerRuntimeData().addedPerks : &a_player->GetPlayerRuntimeData().addedPerks;
             for (auto* addedPerkRank : *addedPerks) {
                 auto* perk = addedPerkRank->perk;
 

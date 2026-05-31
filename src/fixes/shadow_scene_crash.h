@@ -57,7 +57,7 @@ namespace Fixes::ShadowSceneCrash
                 jmp(ptr[rip + skipAddrLbl]);
 
                 L(callAddrLbl);
-                dq(a_target + 0x9);   // CALL qword ptr [RAX+0x18] at 0x1412f86E6
+                dq(a_target + 0x9);  // CALL qword ptr [RAX+0x18] at 0x1412f86E6
 
                 L(skipAddrLbl);
                 dq(a_target + 0xA3);  // function epilogue at 0x1412f8780 (safe return)
