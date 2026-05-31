@@ -46,6 +46,7 @@ namespace Settings
         static REX::TOML::Bool bSaveScreenshots("Fixes", "bSaveScreenshots", true);
         static REX::TOML::Bool bSavedHavokDataLoadInit("Fixes", "bSavedHavokDataLoadInit", true);
         static REX::TOML::Bool bShadowSceneNodeNullPtrCrash("Fixes", "bShadowSceneNodeNullPtrCrash", true);
+        static REX::TOML::Bool bSkyUpdateCloudsNullPtrCrash("Fixes", "bSkyUpdateCloudsNullPtrCrash", true);
         static REX::TOML::Bool bStuckMouseButtons("Fixes", "bStuckMouseButtons", true);
         static REX::TOML::Bool bTextureLoadCrash("Fixes", "bTextureLoadCrash", true);
         static REX::TOML::Bool bTriShapeReleaseBufferGuard("Fixes", "bTriShapeReleaseBufferGuard", true);
