@@ -38,12 +38,12 @@ namespace Memory::ScrapHeap
         {
             using tuple_t = std::tuple<REL::RelocationID, std::size_t>;
             const std::array todo{
-                tuple_t{ RELOCATION_ID(66891, 68152), VAR_NUM(0xC3, 0xBA) },   // Clean
-                tuple_t{ RELOCATION_ID(66890, 68151), std::size_t(0x8) },      // ClearKeepPages
-                tuple_t{ RELOCATION_ID(66894, 68155), std::size_t(0xF6) },     // InsertFreeBlock
-                tuple_t{ RELOCATION_ID(66895, 68156), VAR_NUM(0x183, 0x185) }, // RemoveFreeBlock
-                tuple_t{ RELOCATION_ID(66889, 68150), std::size_t(0x4) },      // SetKeepPages
-                tuple_t{ RELOCATION_ID(66883, 68143), std::size_t(0x32) },     // dtor
+                tuple_t{ RELOCATION_ID(66891, 68152), VAR_NUM(0xC3, 0xBA) },    // Clean
+                tuple_t{ RELOCATION_ID(66890, 68151), std::size_t(0x8) },       // ClearKeepPages
+                tuple_t{ RELOCATION_ID(66894, 68155), std::size_t(0xF6) },      // InsertFreeBlock
+                tuple_t{ RELOCATION_ID(66895, 68156), VAR_NUM(0x183, 0x185) },  // RemoveFreeBlock
+                tuple_t{ RELOCATION_ID(66889, 68150), std::size_t(0x4) },       // SetKeepPages
+                tuple_t{ RELOCATION_ID(66883, 68143), std::size_t(0x32) },      // dtor
             };
 
             for (const auto& [id, size] : todo) {
@@ -59,7 +59,7 @@ namespace Memory::ScrapHeap
             const std::array todo{
                 tuple_t{ RELOCATION_ID(66884, 68144), VAR_NUM(0x607, 0x5E7), (void*)&Allocate },
                 tuple_t{ RELOCATION_ID(66885, 68146), VAR_NUM(0x143, 0x13E), (void*)&Deallocate },
-                tuple_t{ RELOCATION_ID(66882, 68142), VAR_NUM(0x12B, 0x13A), (void*)&Ctor }, // SE/VR is 299, not 296
+                tuple_t{ RELOCATION_ID(66882, 68142), VAR_NUM(0x12B, 0x13A), (void*)&Ctor },  // SE/VR is 299, not 296
             };
 
             for (const auto& [id, size, func] : todo) {

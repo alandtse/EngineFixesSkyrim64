@@ -65,7 +65,7 @@ namespace Fixes::VerticalLookSensitivity
 
         for (auto& [id, offset] : todo) {
             REL::Relocation target{ id, offset };
-            detail::Patch p(target.address(), secondsSinceLastFrameRealTime.address());
+            detail::Patch   p(target.address(), secondsSinceLastFrameRealTime.address());
             p.ready();
 
             target.write_branch<6>(trampoline.allocate(p));

@@ -62,7 +62,7 @@ namespace Patches::FormCaching
         {
             if (a_removed) {
                 const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-                const std::uint32_t baseId   = (*a_formIdPtr & 0x00FFFFFF);
+                const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
                 g_formCache[masterId].erase(baseId);
                 TreeLodReferenceCaching::detail::RemoveCachedForm(baseId);
             }
@@ -73,8 +73,8 @@ namespace Patches::FormCaching
         {
             if (a_form) {
                 const std::uint8_t  masterId = (*a_formIdPtr & 0xFF000000) >> 24;
-                const std::uint32_t baseId   = (*a_formIdPtr & 0x00FFFFFF);
-                HashMap::accessor a;
+                const std::uint32_t baseId = (*a_formIdPtr & 0x00FFFFFF);
+                HashMap::accessor   a;
                 if (!g_formCache[masterId].emplace(a, baseId, a_form)) {
                     logger::trace("replacing an existing form in form cache"sv);
                     a->second = a_form;
