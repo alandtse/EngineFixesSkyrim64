@@ -21,13 +21,10 @@ namespace Fixes::SkyUpdateCloudsNullPtrCrash
                 // Re-emit the displaced prologue, then resume past it. SE/VR push rsi then rdi (5 bytes);
                 // AE pushes rdi then r14 (6 bytes).
                 mov(rax, rsp);  // 48 8B C4 (all runtimes)
-                if (REL::Module::IsAE())
-                {
+                if (REL::Module::IsAE()) {
                     push(rdi);
                     push(r14);
-                }
-                else
-                {
+                } else {
                     push(rsi);
                     push(rdi);
                 }
