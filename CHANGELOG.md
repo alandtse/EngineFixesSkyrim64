@@ -1,3 +1,9 @@
+## [7.4.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.0...v7.4.1) (2026-06-04)
+
+### Bug Fixes
+
+* **vr:** correct cosave save path and enlarge trampoline pool ([#9](https://github.com/alandtse/EngineFixesSkyrim64/issues/9)) ([a0bf6b8](https://github.com/alandtse/EngineFixesSkyrim64/commit/a0bf6b8e7b66e9a669ad5e491036e6ec39962de5))
+
 ## [7.4.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.3.0...v7.4.0) (2026-06-04)
 
 ### Features
