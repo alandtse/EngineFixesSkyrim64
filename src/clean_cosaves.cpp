@@ -14,7 +14,15 @@ namespace Util::CoSaves
 
         std::filesystem::path path = mydocs.get();
         path /= "My Games"sv;
-        path /= "Skyrim Special Edition"sv;
+        // The "My Games" subfolder differs per runtime; mirror CommonLibVR's SKSE::log::log_directory
+        // logic so VR (and GOG) saves are cleaned from the correct location instead of the SE default.
+        if (REL::Module::IsVR()) {
+            path /= "Skyrim VR"sv;
+        } else {
+            path /= std::filesystem::exists("steam_api64.dll") ?
+                        (std::filesystem::exists("openvr_api.dll") ? "Skyrim VR" : "Skyrim Special Edition") :
+                        "Skyrim Special Edition GOG";
+        }
 
         auto sLocalSavePath = RE::GetINISetting("sLocalSavePath:General");
         if (sLocalSavePath)

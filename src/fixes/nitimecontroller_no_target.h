@@ -89,6 +89,6 @@ namespace Fixes::NiTimeControllerNoTarget
     inline void Install()
     {
         detail::Install();
-        logger::info("nstalled NiTimeController with no target crash fix"sv);
+        logger::info("Installed NiTimeController with no target crash fix"sv);
     }
 }
