@@ -26,6 +26,7 @@ bDoublePerkApply = true                         # fixes NPC perks applying twice
 bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bEquipShoutEventSpam = true                     # fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip
 bFaceGenMorphDataHeadNullPtrCrash = true        # fixes a crash in face morphing, possibly related to decapitations
+bGetGameSettingNotFoundCrash = true             # fixes a crash when the "GetGameSetting" (getgs) console command is given a setting name that doesn't exist
 bGetKeywordItemCount = false                    # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
 bGHeapLeakDetectionCrash = true                 # fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build
 bGlobalTime = true                              # fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix
