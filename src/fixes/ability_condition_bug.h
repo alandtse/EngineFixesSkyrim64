@@ -1,70 +1,117 @@
 #pragma once
 
 // VR-only fix for the ability condition evaluation bug.
-// Ported from EngineFixesVR/fixes/miscfixes.cpp FixAbilityConditionBug.
+// Faithful port of EngineFixesVR/fixes/miscfixes.cpp FixAbilityConditionBug.
 //
-// The VR engine re-evaluates ability conditions every frame, causing incorrect
-// behaviour. The fix patches the 0x79-byte block at VR offset 0x54123D and
-// replaces it with a throttled hook that evaluates at most once per ~0.1
-// in-game seconds per ActiveEffect.
+// The VR copy of ValueModifierEffect::UpdateConditions (VR 0x541160, the
+// function containing the patch site) re-evaluates ability conditions far more
+// often than intended. The fix replaces the native throttle gate (the 0x79-byte
+// block at VR offset 0x54123D) with a hook that rate-limits evaluation per
+// ActiveEffect using the engine's own fActiveEffectConditionUpdateInterval
+// game setting, exactly as EngineFixesVR did.
+//
+// This is a 1:1 behavioural port of the known-good EngineFixesVR implementation:
+//   - real-time throttle via GetTickCount64() (NOT game time)
+//   - per-effect TimerData accumulator (lastTick / updateTimer / updateDiff /
+//     lastCounter)
+//   - quantizer derived from the game setting at VR offset 0x1EA23E0
+// The only deliberate deviations from the original are non-behavioural:
+//   - a value-type concurrent_hash_map instead of a leaking heap TimerData*
+//   - the unused third newTimingFunc parameter (elapsedTime) is dropped; the
+//     original never read it and mis-passed it in XMM0 anyway
+//   - proper shadow-space/stack alignment around the call
 
 namespace Fixes::AbilityConditionBug
 {
     namespace detail
     {
+        // Mirrors EngineFixesVR's TimerData (all fields long, same defaults).
         struct TimerData
         {
-            float lastChecked{ 0.0f };
+            long lastCounter{ -1 };
+            long updateDiff{ -1 };
+            long updateTimer{ 0 };
+            long lastTick{ 0 };
         };
 
-        struct PtrHash
+        struct U64Hash
         {
-            static std::size_t hash(const void* p) noexcept { return std::hash<const void*>{}(p); }
-            static bool        equal(const void* a, const void* b) noexcept { return a == b; }
+            static std::size_t hash(std::uint64_t k) noexcept { return std::hash<std::uint64_t>{}(k); }
+            static bool        equal(std::uint64_t a, std::uint64_t b) noexcept { return a == b; }
         };
 
-        using TimerMap = tbb::concurrent_hash_map<void*, TimerData, PtrHash>;
+        using TimerMap = tbb::concurrent_hash_map<std::uint64_t, TimerData, U64Hash>;
         inline TimerMap g_timers;
 
-        // Hook function. rdi = ActiveEffect* at the VR call site (saved from rcx at prologue +0x25).
-        inline bool Hook(RE::ActiveEffect* a_effect)
+        // Faithful port of EngineFixesVR::newTimingFunc.
+        //   a_rid  = ActiveEffect* (RCX) — used as the per-effect timer key
+        //   a_diff = [RDI+0x70]   (XMM1) — the effect's time base; <= 0 means skip
+        // Returns:
+        //   true  → throttle: skip evaluation → Thunk jumps to returnTrue  (epilogue)
+        //   false → due:      run  evaluation → Thunk jumps to returnFalse (condition block)
+        inline bool Hook(std::uint64_t a_rid, float a_diff)
         {
-            if (!a_effect)
-                return false;
+            if (a_diff <= 0.0f)
+                return true;
 
-            const auto cal = RE::Calendar::GetSingleton();
-            const auto now = cal ? cal->GetCurrentGameTime() : 0.0f;
+            const long now = static_cast<long>(GetTickCount64());
 
             TimerMap::accessor acc;
-            g_timers.insert(acc, static_cast<void*>(a_effect));
-            auto& data = acc->second;
+            const bool         inserted = g_timers.insert(acc, a_rid);
+            auto&              td = acc->second;
 
-            if (now - data.lastChecked < 0.1f)
-                return true;  // throttled → Thunk jumps to returnTrue = epilogue (skip)
+            if (!inserted) {
+                const long delta = now - td.lastTick;
+                if (delta == 0)
+                    return true;
+                td.lastTick = now;
+                td.updateTimer += delta;
+            } else {
+                td.lastTick = now;
+            }
 
-            data.lastChecked = now;
-            return false;  // due for evaluation → Thunk jumps to returnFalse = condition block (run)
+            if (td.updateDiff < 0) {
+                // fActiveEffectConditionUpdateInterval (VR 0x1EA23E0, default 1.0).
+                // VR-only code path (Install is IsVR-gated), so a raw VR offset is
+                // safe here and matches the original EngineFixesVR fix.
+                REL::Relocation<float*> intervalSetting{ REL::Offset{ 0x1EA23E0 } };
+                const float             interval = (std::max)(0.001f, *intervalSetting);
+
+                td.updateDiff = static_cast<long>(1000.0f / interval);
+                if (td.updateDiff <= 0)
+                    td.updateDiff = 1;
+            }
+
+            const long cur = td.updateTimer / td.updateDiff;
+            if (cur != td.lastCounter) {
+                td.lastCounter = cur;
+                return true;
+            }
+            return false;
         }
 
-        // Xbyak thunk: set up shadow space, call Hook, branch on return value.
-        //   Hook() returns true  → throttled, skip eval  → epilogue         (target+0x100 = 0x14054133D)
-        //   Hook() returns false → due for eval, run it  → condition block  (target+0x79  = 0x1405412B6)
+        // Xbyak thunk: set up args, call Hook, branch on the bool return value.
+        //   Hook() returns true  → throttled, skip eval → epilogue        (target+0x100 = 0x54133D)
+        //   Hook() returns false → due for eval, run it → condition block (target+0x79  = 0x5412B6)
         struct Thunk : Xbyak::CodeGenerator
         {
             explicit Thunk(std::uintptr_t a_returnFalse, std::uintptr_t a_returnTrue)
             {
                 Xbyak::Label falseLbl, trueAddrLbl, falseAddrLbl;
 
-                // At the patch site (mid-function), RSP is 0 mod 16 (standard Windows x64
-                // mid-function state). sub 0x28 (40 = 8 mod 16) would leave RSP at 8 mod 16
-                // before the call, causing Hook's movaps prologue saves to fault on the
-                // misaligned address. Use 0x30 (48 = 0 mod 16) to keep RSP at 0 mod 16.
+                // At the patch site (mid-function) RSP is 0 mod 16 (PUSH RDI + SUB
+                // RSP,0x40 in the prologue). sub 0x28 would leave RSP 8 mod 16 before
+                // the call, faulting Hook's movaps prologue saves. 0x30 = 32 bytes of
+                // shadow space + keeps RSP 0 mod 16.
                 //
-                // RDI holds the ActiveEffect* (saved from RCX in the function prologue at
-                // +0x25: MOV RDI,RCX). RCX is clobbered by the preceding CALL at +0x74.
-                // We must pass RDI as the first argument (RCX) to Hook.
+                // RDI holds the ActiveEffect* (saved from RCX in the prologue at +0x25:
+                // MOV RDI,RCX). RCX is clobbered by the preceding CALL, so the args are
+                // sourced from RDI:
+                //   arg0 (rid, RCX)  = RDI            — effect pointer, used as timer key
+                //   arg1 (diff, XMM1) = [RDI+0x70]    — the effect's time base
                 sub(rsp, 0x30);
-                mov(rcx, rdi);  // ActiveEffect* is in RDI, not RCX, at this call site
+                movss(xmm1, ptr[rdi + 0x70]);  // arg1: diff
+                mov(rcx, rdi);                 // arg0: ActiveEffect* (RCX clobbered upstream)
                 mov(rax, reinterpret_cast<std::uintptr_t>(Hook));
                 call(rax);
                 add(rsp, 0x30);
@@ -92,8 +139,8 @@ namespace Fixes::AbilityConditionBug
             return;
 
         // VR raw offset for the problematic ability-condition evaluation block.
-        // The block is 0x79 bytes long; we patch the entry point (first 5 bytes)
-        // with a JMP to our throttling thunk.
+        // The block is 0x79 bytes long; we patch the entry point (first 5 bytes,
+        // MOVSS XMM1,[RDI+0x70]) with a JMP to our throttling thunk.
         //   returnFalse (target+0x79  = 0x5412B6): run  — condition evaluation proceeds
         //   returnTrue  (target+0x100 = 0x54133D): skip — condition evaluation throttled
         REL::Relocation<std::uintptr_t> target{ REL::Offset{ 0x54123D } };
