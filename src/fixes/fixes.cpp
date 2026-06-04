@@ -39,6 +39,7 @@
 #include "saved_havok_data_load_init.h"
 #include "shadow_scene_crash.h"
 #include "shadowscenenode_nullptr_crash.h"
+#include "sky_update_clouds_nullptr_crash.h"
 #include "stuck_mouse_buttons.h"
 #include "texture_load_crash.h"
 #include "torch_landscape.h"
@@ -154,6 +155,9 @@ namespace Fixes
 
         if (Settings::Fixes::bShadowSceneNodeNullPtrCrash.GetValue())
             ShadowSceneNodeNullPtrCrash::Install();
+
+        if (Settings::Fixes::bSkyUpdateCloudsNullPtrCrash.GetValue())
+            SkyUpdateCloudsNullPtrCrash::Install();
 
         if (Settings::Fixes::bTextureLoadCrash.GetValue())
             TextureLoadCrash::Install();
