@@ -15,6 +15,7 @@
 #include "cell_init.h"
 #include "climate_load.h"
 #include "conjuration_enchant_absorbs.h"
+#include "copybonetransform_null_crash.h"
 #include "create_armor_node_nullptr_crash.h"
 #include "double_perk_apply.h"
 #include "equip_shout_event_spam.h"
@@ -175,6 +176,9 @@ namespace Fixes
 
         if (Settings::Fixes::bBuySellStackSpeechGain.GetValue())
             BuySellStackSpeechGain::Install();
+
+        if (Settings::Fixes::bCopyBoneTransformNullCrash.GetValue())
+            CopyBoneTransformNullCrash::Install();
 
         if (Settings::Fixes::bShadowSceneCrash.GetValue())
             ShadowSceneCrash::Install();
