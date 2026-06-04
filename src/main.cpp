@@ -105,7 +105,9 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
     }
 
     auto& trampoline = SKSE::GetTrampoline();
-    trampoline.create(1 << 11);
+    // ~50 branch/call hooks + 31 code caves across the SE/AE/VR fixes overflow the old 2 KiB pool
+    // (manifested as "Failed to handle allocation request" on VR). 8 KiB leaves comfortable headroom.
+    trampoline.create(1 << 13);
 
     Settings::Load();
 
