@@ -1,3 +1,15 @@
+## [7.4.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.3.0...v7.4.0) (2026-06-04)
+
+### Features
+
+* guard Sky::UpdateClouds against null cloud object ([#6](https://github.com/alandtse/EngineFixesSkyrim64/issues/6)) ([ae56e78](https://github.com/alandtse/EngineFixesSkyrim64/commit/ae56e782de33e8e3ed959674ac6b985c6d9b987a))
+* **VR:** guard CopyBoneTransform against null-ptr crash on missing bone ([#3](https://github.com/alandtse/EngineFixesSkyrim64/issues/3)) ([08b8d0e](https://github.com/alandtse/EngineFixesSkyrim64/commit/08b8d0ec854c8c3fd027d67674faa62ce482a5f6))
+
+### Bug Fixes
+
+* GetGameSetting NOT FOUND null-deref crash on invalid setting name ([#2](https://github.com/alandtse/EngineFixesSkyrim64/issues/2)) ([f2cadee](https://github.com/alandtse/EngineFixesSkyrim64/commit/f2cadee81a8ce2ebd7692eba54972ea45a723ca3))
+* **VR:** faithfully port AbilityConditionBug throttle from EngineFixesVR ([#8](https://github.com/alandtse/EngineFixesSkyrim64/issues/8)) ([6911d51](https://github.com/alandtse/EngineFixesSkyrim64/commit/6911d51485d5e7216503ea475ccd1e2d09f0bbfb))
+
 ## [7.3.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.2.1...v7.3.0) (2026-05-02)
 
 ### Features
