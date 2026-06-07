@@ -1,3 +1,9 @@
+## [7.4.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.1...v7.4.2) (2026-06-07)
+
+### Bug Fixes
+
+* **renderpass:** defer BSRenderPass free to fix render-thread UAF ([#11](https://github.com/alandtse/EngineFixesSkyrim64/issues/11)) ([211d5f9](https://github.com/alandtse/EngineFixesSkyrim64/commit/211d5f92a5ce7dd2974affb4757c10f632dec3ab)), closes [#1601](https://github.com/alandtse/EngineFixesSkyrim64/issues/1601)
+
 ## [7.4.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.0...v7.4.1) (2026-06-04)
 
 ### Bug Fixes
