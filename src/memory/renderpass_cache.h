@@ -126,13 +126,16 @@ namespace Memory::RenderPassCache
             // Do NOT touch a_renderPass's payload here: a late/concurrent draw may
             // still dereference it. Park it intact; it is physically freed only once
             // kQuarantineFrames frames have elapsed. See the quarantine note above.
-            const auto       now = CurrentFrame();
             std::scoped_lock lock(s_retireMutex);
 
             // Skip a double Deallocate of the same pass (would double-free on drain).
             // Allocate stamps cachePoolId 0xFEFEDEAD; we restamp it on retire below.
             if (a_renderPass->cachePoolId == kRetiredTag)
                 return;
+
+            // Sample the frame under the lock: a pre-lock read could be backdated by
+            // contention, under-quarantining this pass (drained before kQuarantineFrames).
+            const auto now = CurrentFrame();
 
             // Drain everything old enough to be past any in-flight reference.
             while (s_count > 0) {
