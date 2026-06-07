@@ -1,33 +1,33 @@
 #pragma once
 
-// VR-only fix for use-after-free crashes in the cull traversal's per-object
-// OnVisible dispatch, exposed by Community Shaders background shader compilation.
+// Fix for use-after-free crashes in the cull traversal's per-object OnVisible
+// dispatch, exposed by Community Shaders background shader compilation.
 //
 // Background-compile removes the blocking precompile screen, which also gated world
 // rendering/culling during cell streaming. The cull traversal then runs while the
-// cell loader frees scene objects, so it reaches a freed-and-reused NiAVObject and
-// calls object->vftable[0x1A8] (OnVisible) on it -> the vftable is heap garbage
-// (a real vftable is in .rdata) and the slot is null/garbage -> CTD. Debugger-
-// confirmed (dbgeng attach to live VR): object->vftable held a heap pointer ~0x1C0
-// bytes from the object itself, slot null -> RIP=0.
+// cell loader frees scene objects and calls object->OnVisible (NiAVObject vfunc 0x34)
+// on a freed-and-reused NiAVObject -> the vftable is heap garbage (a real vftable is
+// in .rdata) and the slot is null/garbage -> CTD. Debugger-confirmed (dbgeng attach
+// to live VR): object->vftable held a heap pointer ~0x1C0 bytes from the object.
 //
-// The same dispatch is duplicated across several cull processes. All matching sites
-// share the byte signature `CALL [RAX+0x1A8]` (RAX = object->vftable) immediately
-// followed by `CMP byte [reg+0x11D]` (the cull accumulate flag), then a conditional
-// `OR/AND [object+0x10C]` write -- so each is found and patched uniformly:
+// The dispatch is duplicated across the cull processes (BSCullingProcess,
+// NiCullingProcess, BSParabolicCullingProcess). Every site matches CALL [RAX+slot]
+// (RAX = object->vftable) immediately followed by CMP byte [reg+0x11D] (cull flag),
+// then a conditional OR/AND [object+0x10C] write. Each is caved to a guard that
+// validates the vftable lies inside the main module image: valid -> original call +
+// resume; freed -> jump to the converge point (the post-CMP JZ target), skipping both
+// the virtual call AND the [object+0x10C] write (a second UAF).
 //
-//   +XX+0:  CALL [RAX+0x1A8]              ; object->OnVisible(object, ...)   <-- patched
-//   +XX+6:  CMP  byte [a_this+0x11D], 0   ; "post-call" resume for valid objects
-//   ...     OR/AND dword [object+0x10C]   ; writes the OBJECT (2nd UAF if freed)
-//   converge:                            ; rejoin that touches a_this only (safe)
+// Cross-runtime: OnVisible is NiAVObject vfunc 0x34. VR (1.4.15) inserts one extra
+// vfunc before it (SKYRIM_REL_VR_VIRTUAL), so its byte offset is 0x1A8 on VR vs 0x1A0
+// on SE/AE; the site addresses and converge targets were resolved per runtime. VR is
+// where this actually bites (stereo doubles cull traversals -> wider race window); the
+// SE/AE sites are covered for completeness (the renderpass-cache fix already let SE
+// survive the same storm, so the cull crash is rarer there).
 //
-// Each patch caves the 6-byte CALL to a guard: validate RAX (the vftable) lies
-// inside the main module image. Valid -> perform the original call and resume at the
-// post-call instruction. Freed -> jump to the converge point, skipping both the
-// virtual call AND the [object+0x10C] write (the second UAF). The 5-byte branch's
-// trailing byte is dead code (the cave only jumps to absolute targets), so no NOP
-// fill is needed. R10 is volatile and not an argument register (RCX/RDX/R8/R9), so
-// it is safe to clobber for the range check.
+// The 5-byte branch's trailing byte is dead code (the cave only jumps to absolute
+// targets), so no NOP fill is needed. R10 is volatile and not an argument register
+// (RCX/RDX/R8/R9), so it is safe to clobber for the range check.
 
 namespace Fixes::CullingFreedObjectCrash
 {
@@ -35,24 +35,28 @@ namespace Fixes::CullingFreedObjectCrash
     {
         struct Site
         {
-            std::uintptr_t callOffset;      // VR offset of the CALL [RAX+0x1A8]
-            std::uintptr_t convergeOffset;  // VR offset to resume at when the object is freed
+            std::uintptr_t callOffset;       // offset of CALL [RAX+slot]
+            std::uintptr_t convergeOffset;   // resume offset when the object is freed
         };
 
-        // BSCullingProcess / BSParabolicCullingProcess per-object cull + recursion sites.
-        // (callOffset, convergeOffset) — see the table in the investigation notes.
-        inline constexpr std::array<Site, 6> kSites{ {
-            { 0xCBFD24, 0xCBFD52 },
-            { 0xD99D3D, 0xD99D6B },
-            { 0xD99E30, 0xD99E63 },
-            { 0x136F23E, 0x136F26C },
-            { 0x136F2BD, 0x136F2EB },
-            { 0x136F5CA, 0x136F5E3 },
+        // (callOffset, convergeOffset) per runtime. See the investigation notes.
+        inline constexpr std::array<Site, 6> kSitesVR{ {
+            { 0xCBFD24, 0xCBFD52 }, { 0xD99D3D, 0xD99D6B }, { 0xD99E30, 0xD99E63 },
+            { 0x136F23E, 0x136F26C }, { 0x136F2BD, 0x136F2EB }, { 0x136F5CA, 0x136F5E3 },
+        } };
+        inline constexpr std::array<Site, 7> kSitesAE{ {
+            { 0xD3FFDD, 0xD4000B }, { 0xD40151, 0xD40193 }, { 0xE2853C, 0xE2856A },
+            { 0xE2862B, 0xE2865E }, { 0x1519BBE, 0x1519BEC }, { 0x1519C38, 0x1519C66 },
+            { 0x151A01A, 0x151A033 },
+        } };
+        inline constexpr std::array<Site, 6> kSitesSE{ {
+            { 0xC794D4, 0xC79502 }, { 0xD50E37, 0xD50E65 }, { 0xD50F2A, 0xD50F5D },
+            { 0x132C3DE, 0x132C40C }, { 0x132C45D, 0x132C48B }, { 0x132C78A, 0x132C7A3 },
         } };
 
         struct Patch final : Xbyak::CodeGenerator
         {
-            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uint32_t a_slot,
                 std::uintptr_t a_postCall, std::uintptr_t a_converge)
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
@@ -65,7 +69,7 @@ namespace Fixes::CullingFreedObjectCrash
                 jae(skipLbl);
 
                 // Valid vftable: perform the original call, resume after it.
-                call(ptr[rax + 0x1A8]);
+                call(ptr[rax + a_slot]);
                 jmp(ptr[rip + postAddr]);
 
                 // Freed object: skip the call AND the [object+0x10C] write.
@@ -78,27 +82,33 @@ namespace Fixes::CullingFreedObjectCrash
                 dq(a_converge);
             }
         };
+
+        inline void PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
+            std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            auto& trampoline = SKSE::GetTrampoline();
+            for (const auto& site : a_sites) {
+                REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
+                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
+                    REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
+                p.ready();
+                call.write_branch<5>(trampoline.allocate(p));
+            }
+        }
     }
 
     inline void Install()
     {
-        if (!REL::Module::IsVR())
-            return;
+        const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
-        const auto  moduleBase = REL::Module::get().base();
-        const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(moduleBase);
-        const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(moduleBase + dos->e_lfanew);
-        const auto  moduleEnd = moduleBase + nt->OptionalHeader.SizeOfImage;
+        // OnVisible (NiAVObject vfunc 0x34) byte offset differs on VR (+1 vfunc).
+        if (REL::Module::IsVR())
+            detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
+        else if (REL::Module::IsAE())
+            detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+        else
+            detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
-        auto& trampoline = SKSE::GetTrampoline();
-        for (const auto& site : detail::kSites) {
-            REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
-            detail::Patch                   p{ moduleBase, moduleEnd, call.address() + 0x6,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
-            p.ready();
-            call.write_branch<5>(trampoline.allocate(p));
-        }
-
-        logger::info("installed culling freed-object crash fix (VR, {} sites)"sv, detail::kSites.size());
+        logger::info("installed culling freed-object crash fix"sv);
     }
 }

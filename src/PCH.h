@@ -64,6 +64,7 @@ namespace logger = SKSE::log;
 using namespace std::literals;
 
 #include "settings.h"
+#include "util.h"
 
 #include "Version.h"
 

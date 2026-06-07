@@ -57,6 +57,7 @@
     X(Bool, bRemovedSpellBook, true, "fixes a crash where learning a spell from a book that is later removed in another plugin causes a crash in the inventory")                                                    \
     X(Bool, bSaveScreenshots, true, "fixes save screenshots being blank under certain configurations")                                                                                                              \
     X(Bool, bSavedHavokDataLoadInit, true, "fixes motion vectors for objects with saved havok data that differs significantly from their base state")                                                               \
+    X(Bool, bSceneGraphDetachFreedCrash, true, "guards the recursive scene-graph detach traversal (cell teardown) against a use-after-free when a node's vftable was freed/reused during cell streaming")            \
     X(Bool, bShadowSceneNodeNullPtrCrash, true, "fixes a crash in shadowscenenode")                                                                                                                                 \
     X(Bool, bSkyUpdateCloudsNullPtrCrash, true, "fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods)")                  \
     X(Bool, bStuckMouseButtons, true, "fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp")                                                                                   \
