@@ -34,8 +34,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
     {
         struct Site
         {
-            std::uintptr_t entryOffset;   // function entry: TEST RCX,RCX; JZ exit
-            std::uintptr_t exitOffset;    // the JZ target (clean pre-prologue return)
+            std::uintptr_t entryOffset;  // function entry: TEST RCX,RCX; JZ exit
+            std::uintptr_t exitOffset;   // the JZ target (clean pre-prologue return)
         };
 
         // sizeof(TEST RCX,RCX) + sizeof(JZ rel32) = 3 + 6; resume = entry + 9.
@@ -85,7 +85,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-            REL::Module::IsAE()                ? detail::kSiteAE :
+                           REL::Module::IsAE() ? detail::kSiteAE :
                                                  detail::kSiteSE;
 
         REL::Relocation<std::uintptr_t> entry{ REL::Offset{ site.entryOffset } };

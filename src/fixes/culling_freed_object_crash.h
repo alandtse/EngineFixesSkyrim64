@@ -35,23 +35,35 @@ namespace Fixes::CullingFreedObjectCrash
     {
         struct Site
         {
-            std::uintptr_t callOffset;       // offset of CALL [RAX+slot]
-            std::uintptr_t convergeOffset;   // resume offset when the object is freed
+            std::uintptr_t callOffset;      // offset of CALL [RAX+slot]
+            std::uintptr_t convergeOffset;  // resume offset when the object is freed
         };
 
         // (callOffset, convergeOffset) per runtime. See the investigation notes.
         inline constexpr std::array<Site, 6> kSitesVR{ {
-            { 0xCBFD24, 0xCBFD52 }, { 0xD99D3D, 0xD99D6B }, { 0xD99E30, 0xD99E63 },
-            { 0x136F23E, 0x136F26C }, { 0x136F2BD, 0x136F2EB }, { 0x136F5CA, 0x136F5E3 },
+            { 0xCBFD24, 0xCBFD52 },
+            { 0xD99D3D, 0xD99D6B },
+            { 0xD99E30, 0xD99E63 },
+            { 0x136F23E, 0x136F26C },
+            { 0x136F2BD, 0x136F2EB },
+            { 0x136F5CA, 0x136F5E3 },
         } };
         inline constexpr std::array<Site, 7> kSitesAE{ {
-            { 0xD3FFDD, 0xD4000B }, { 0xD40151, 0xD40193 }, { 0xE2853C, 0xE2856A },
-            { 0xE2862B, 0xE2865E }, { 0x1519BBE, 0x1519BEC }, { 0x1519C38, 0x1519C66 },
+            { 0xD3FFDD, 0xD4000B },
+            { 0xD40151, 0xD40193 },
+            { 0xE2853C, 0xE2856A },
+            { 0xE2862B, 0xE2865E },
+            { 0x1519BBE, 0x1519BEC },
+            { 0x1519C38, 0x1519C66 },
             { 0x151A01A, 0x151A033 },
         } };
         inline constexpr std::array<Site, 6> kSitesSE{ {
-            { 0xC794D4, 0xC79502 }, { 0xD50E37, 0xD50E65 }, { 0xD50F2A, 0xD50F5D },
-            { 0x132C3DE, 0x132C40C }, { 0x132C45D, 0x132C48B }, { 0x132C78A, 0x132C7A3 },
+            { 0xC794D4, 0xC79502 },
+            { 0xD50E37, 0xD50E65 },
+            { 0xD50F2A, 0xD50F5D },
+            { 0x132C3DE, 0x132C40C },
+            { 0x132C45D, 0x132C48B },
+            { 0x132C78A, 0x132C7A3 },
         } };
 
         struct Patch final : Xbyak::CodeGenerator
