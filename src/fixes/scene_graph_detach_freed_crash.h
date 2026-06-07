@@ -34,8 +34,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
     {
         struct Site
         {
-            std::uintptr_t entryOffset;  // function entry: TEST RCX,RCX; JZ exit
-            std::uintptr_t exitOffset;   // the JZ target (clean pre-prologue return)
+            std::uintptr_t entryOffset;   // function entry: TEST RCX,RCX; JZ exit
+            std::uintptr_t exitOffset;    // the JZ target (clean pre-prologue return)
         };
 
         // sizeof(TEST RCX,RCX) + sizeof(JZ rel32) = 3 + 6; resume = entry + 9.
@@ -85,11 +85,22 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-                           REL::Module::IsAE() ? detail::kSiteAE :
+            REL::Module::IsAE()                ? detail::kSiteAE :
                                                  detail::kSiteSE;
 
         REL::Relocation<std::uintptr_t> entry{ REL::Offset{ site.entryOffset } };
-        detail::Patch                   p{ moduleBase, moduleEnd,
+
+        // Verify the displaced prologue is TEST RCX,RCX; JZ rel32 (48 85 C9 0F 84 ..)
+        // before caving it; guards against offset drift corrupting the function entry.
+        const auto* bytes = reinterpret_cast<const std::uint8_t*>(entry.address());
+        if (!(bytes[0] == 0x48 && bytes[1] == 0x85 && bytes[2] == 0xC9 &&
+                bytes[3] == 0x0F && bytes[4] == 0x84)) {
+            logger::warn("scene-graph detach crash fix: unexpected prologue at {:X}, skipping"sv,
+                site.entryOffset);
+            return;
+        }
+
+        detail::Patch p{ moduleBase, moduleEnd,
             entry.address() + detail::kPrologueLen,
             REL::Relocation<std::uintptr_t>{ REL::Offset{ site.exitOffset } }.address() };
         p.ready();

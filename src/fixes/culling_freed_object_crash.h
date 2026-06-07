@@ -35,35 +35,23 @@ namespace Fixes::CullingFreedObjectCrash
     {
         struct Site
         {
-            std::uintptr_t callOffset;      // offset of CALL [RAX+slot]
-            std::uintptr_t convergeOffset;  // resume offset when the object is freed
+            std::uintptr_t callOffset;       // offset of CALL [RAX+slot]
+            std::uintptr_t convergeOffset;   // resume offset when the object is freed
         };
 
         // (callOffset, convergeOffset) per runtime. See the investigation notes.
         inline constexpr std::array<Site, 6> kSitesVR{ {
-            { 0xCBFD24, 0xCBFD52 },
-            { 0xD99D3D, 0xD99D6B },
-            { 0xD99E30, 0xD99E63 },
-            { 0x136F23E, 0x136F26C },
-            { 0x136F2BD, 0x136F2EB },
-            { 0x136F5CA, 0x136F5E3 },
+            { 0xCBFD24, 0xCBFD52 }, { 0xD99D3D, 0xD99D6B }, { 0xD99E30, 0xD99E63 },
+            { 0x136F23E, 0x136F26C }, { 0x136F2BD, 0x136F2EB }, { 0x136F5CA, 0x136F5E3 },
         } };
         inline constexpr std::array<Site, 7> kSitesAE{ {
-            { 0xD3FFDD, 0xD4000B },
-            { 0xD40151, 0xD40193 },
-            { 0xE2853C, 0xE2856A },
-            { 0xE2862B, 0xE2865E },
-            { 0x1519BBE, 0x1519BEC },
-            { 0x1519C38, 0x1519C66 },
+            { 0xD3FFDD, 0xD4000B }, { 0xD40151, 0xD40193 }, { 0xE2853C, 0xE2856A },
+            { 0xE2862B, 0xE2865E }, { 0x1519BBE, 0x1519BEC }, { 0x1519C38, 0x1519C66 },
             { 0x151A01A, 0x151A033 },
         } };
         inline constexpr std::array<Site, 6> kSitesSE{ {
-            { 0xC794D4, 0xC79502 },
-            { 0xD50E37, 0xD50E65 },
-            { 0xD50F2A, 0xD50F5D },
-            { 0x132C3DE, 0x132C40C },
-            { 0x132C45D, 0x132C48B },
-            { 0x132C78A, 0x132C7A3 },
+            { 0xC794D4, 0xC79502 }, { 0xD50E37, 0xD50E65 }, { 0xD50F2A, 0xD50F5D },
+            { 0x132C3DE, 0x132C40C }, { 0x132C45D, 0x132C48B }, { 0x132C78A, 0x132C7A3 },
         } };
 
         struct Patch final : Xbyak::CodeGenerator
@@ -95,13 +83,29 @@ namespace Fixes::CullingFreedObjectCrash
             }
         };
 
+        // Expected bytes at a site: CALL [RAX+disp32] == FF 90 <slot little-endian>.
+        // Guards against offset drift corrupting an unrelated instruction stream.
+        inline bool SiteMatches(std::uintptr_t a_addr, std::uint32_t a_slot)
+        {
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0xFF && p[1] == 0x90 &&
+                   p[2] == static_cast<std::uint8_t>(a_slot) &&
+                   p[3] == static_cast<std::uint8_t>(a_slot >> 8) &&
+                   p[4] == static_cast<std::uint8_t>(a_slot >> 16) &&
+                   p[5] == static_cast<std::uint8_t>(a_slot >> 24);
+        }
+
         inline void PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
             std::uintptr_t a_base, std::uintptr_t a_end)
         {
             auto& trampoline = SKSE::GetTrampoline();
             for (const auto& site : a_sites) {
                 REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
-                Patch                           p{ a_base, a_end, a_slot, call.address() + 0x6,
+                if (!SiteMatches(call.address(), a_slot)) {
+                    logger::warn("culling crash fix: unexpected bytes at {:X}, skipping site"sv, site.callOffset);
+                    continue;
+                }
+                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
                     REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
                 p.ready();
                 call.write_branch<5>(trampoline.allocate(p));
