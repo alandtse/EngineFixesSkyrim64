@@ -35,8 +35,8 @@ namespace Fixes::CullingFreedObjectCrash
     {
         struct Site
         {
-            std::uintptr_t callOffset;       // VR offset of the CALL [RAX+0x1A8]
-            std::uintptr_t convergeOffset;   // VR offset to resume at when the object is freed
+            std::uintptr_t callOffset;      // VR offset of the CALL [RAX+0x1A8]
+            std::uintptr_t convergeOffset;  // VR offset to resume at when the object is freed
         };
 
         // BSCullingProcess / BSParabolicCullingProcess per-object cull + recursion sites.
@@ -85,15 +85,15 @@ namespace Fixes::CullingFreedObjectCrash
         if (!REL::Module::IsVR())
             return;
 
-        const auto moduleBase = REL::Module::get().base();
+        const auto  moduleBase = REL::Module::get().base();
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(moduleBase);
         const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(moduleBase + dos->e_lfanew);
-        const auto moduleEnd = moduleBase + nt->OptionalHeader.SizeOfImage;
+        const auto  moduleEnd = moduleBase + nt->OptionalHeader.SizeOfImage;
 
         auto& trampoline = SKSE::GetTrampoline();
         for (const auto& site : detail::kSites) {
             REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
-            detail::Patch p{ moduleBase, moduleEnd, call.address() + 0x6,
+            detail::Patch                   p{ moduleBase, moduleEnd, call.address() + 0x6,
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
             p.ready();
             call.write_branch<5>(trampoline.allocate(p));
