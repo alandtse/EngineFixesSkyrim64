@@ -35,8 +35,8 @@ namespace Memory::RenderPassCache
         // adds no heap traffic; restores the safety of the engine's original pool
         // (freed memory stays pass-shaped) while keeping EF's dynamic growth.
         inline constexpr std::uint32_t kQuarantineFrames = 3;
-        inline constexpr std::size_t   kMaxQuarantined   = 16384;
-        inline constexpr std::uint32_t kRetiredTag       = 0xD1ED0FF5u;  // cachePoolId sentinel: pass is quarantined
+        inline constexpr std::size_t   kMaxQuarantined = 16384;
+        inline constexpr std::uint32_t kRetiredTag = 0xD1ED0FF5u;  // cachePoolId sentinel: pass is quarantined
 
         struct RetiredPass
         {
@@ -126,7 +126,7 @@ namespace Memory::RenderPassCache
             // Do NOT touch a_renderPass's payload here: a late/concurrent draw may
             // still dereference it. Park it intact; it is physically freed only once
             // kQuarantineFrames frames have elapsed. See the quarantine note above.
-            const auto now = CurrentFrame();
+            const auto       now = CurrentFrame();
             std::scoped_lock lock(s_retireMutex);
 
             // Skip a double Deallocate of the same pass (would double-free on drain).
