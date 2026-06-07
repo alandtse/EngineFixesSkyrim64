@@ -38,6 +38,7 @@
 #include "null_process_crash.h"
 #include "perk_fragment_is_running.h"
 #include "precomputed_paths.h"
+#include "culling_freed_object_crash.h"
 #include "removed_spellbook.h"
 #include "saved_havok_data_load_init.h"
 #include "shadow_scene_crash.h"
@@ -198,5 +199,8 @@ namespace Fixes
 
         if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
             LockpickingMenuInitCrash::Install();
+
+        if (Settings::Fixes::bCullingFreedObjectCrash.GetValue())
+            CullingFreedObjectCrash::Install();
     }
 }

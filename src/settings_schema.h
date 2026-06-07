@@ -35,6 +35,7 @@
     X(Bool, bConjurationEnchantAbsorbs, true, "fixes a bug where spell absorption triggers on enchanted items using conjuration summons")                                                                           \
     X(Bool, bConsoleSaveDeadlock, true, "fixes a deadlock (permanent hang, no crash) when the console 'save' command executes off the main thread, e.g. issued programmatically via Console::ExecuteCommand")       \
     X(Bool, bCreateArmorNodeNullPtrCrash, true, "fixes typo that may cause a crash somewhere in CreateArmorNode")                                                                                                   \
+    X(Bool, bCullingFreedObjectCrash, true, "guards the cull-traversal OnVisible dispatch against a use-after-free when the object's vftable was freed/reused during cell streaming (background shader compilation)") \
     X(Bool, bDoublePerkApply, true, "fixes NPC perks applying twice when you load a game")                                                                                                                          \
     X(Bool, bEquipShoutEventSpam, true, "fixes a bug where the \"equip shout\" procedure will send a \"shout equipped\" event even if the shout fails to equip")                                                    \
     X(Bool, bESLCELLLoadBug, true, "fixes issues with interior cells created in ESL files")                                                                                                                         \
