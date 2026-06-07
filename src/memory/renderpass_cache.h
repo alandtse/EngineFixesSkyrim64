@@ -1,10 +1,73 @@
 #pragma once
 #include "memory/allocator.h"
 
+#include <array>
+#include <mutex>
+
 namespace Memory::RenderPassCache
 {
     namespace detail
     {
+        // Deferred-free quarantine for freed BSRenderPasses.
+        //
+        // EngineFixes replaces the engine's dedicated BSRenderPass pool with
+        // general-allocator alloc/free. The engine's draw path (BSBatchRenderer
+        // -> BeginPass -> a_shader->SetupTechnique) can read a BSRenderPass after
+        // it was freed: a stale entry left in a pass bucket is iterated, and with
+        // immediate free the slot has already been handed to an unrelated
+        // allocation, so Pass->shader (offset 0) reads back a garbage vftable ->
+        // execute-AV CTD. This is the unfixed root of the Community Shaders conflict
+        // (CS issue #1601 -- the CS-side guards only validate Pass->sceneLights[],
+        // never Pass->shader). CS background shader compilation removes the
+        // render-thread compile stall that previously made the window rare, exposing
+        // it on essentially every cell load.
+        //
+        // Freed passes are parked intact (including their sceneLights) in a FIFO
+        // ring tagged with the engine frame (BSGraphics::State::frameCount) and
+        // physically freed only once kQuarantineFrames frames have elapsed -- past
+        // any in-flight draw that could still hold a stale reference, so a stale
+        // read still sees the original valid shader/lights. The age test is an
+        // unsigned subtraction (wrap-safe) and does not assume the counter advances
+        // by one per call, so a frozen counter (loading screen, pause) holds passes
+        // longer rather than freeing them early. kMaxQuarantined bounds memory: if
+        // the ring fills (extreme churn or a long frozen-counter span) the oldest
+        // pass is force-freed. Allocation-free (fixed ring) so the render hot path
+        // adds no heap traffic; restores the safety of the engine's original pool
+        // (freed memory stays pass-shaped) while keeping EF's dynamic growth.
+        inline constexpr std::uint32_t kQuarantineFrames = 3;
+        inline constexpr std::size_t   kMaxQuarantined = 16384;
+        inline constexpr std::uint32_t kRetiredTag = 0xD1ED0FF5u;  // cachePoolId sentinel: pass is quarantined
+
+        struct RetiredPass
+        {
+            RE::BSRenderPass* pass;
+            std::uint32_t     frame;
+        };
+        inline std::array<RetiredPass, kMaxQuarantined> s_ring;
+        inline std::size_t                              s_head = 0;   // next write slot
+        inline std::size_t                              s_count = 0;  // live entries
+        inline std::mutex                               s_retireMutex;
+
+        inline std::uint32_t CurrentFrame()
+        {
+            const auto* state = RE::BSGraphics::State::GetSingleton();
+            return state ? state->frameCount : 0;
+        }
+
+        inline void FreeNow(RE::BSRenderPass* a_renderPass)
+        {
+            if (a_renderPass->sceneLights != nullptr)
+                Allocator::GetAllocator()->DeallocateAligned(a_renderPass->sceneLights);
+            Allocator::GetAllocator()->DeallocateAligned(a_renderPass);
+        }
+
+        // Free and drop the oldest quarantined pass. Caller holds s_retireMutex.
+        inline void FreeOldest()
+        {
+            FreeNow(s_ring[(s_head + kMaxQuarantined - s_count) % kMaxQuarantined].pass);
+            --s_count;
+        }
+
         inline void SetLights(RE::BSRenderPass* a_renderPass, uint8_t a_numLights, RE::BSLight** a_lights)
         {
             if (a_numLights != a_renderPass->numLights) {
@@ -60,9 +123,42 @@ namespace Memory::RenderPassCache
 
         inline void Deallocate(RE::BSRenderPass* a_renderPass)
         {
-            if (a_renderPass->sceneLights != nullptr)
-                Allocator::GetAllocator()->DeallocateAligned(a_renderPass->sceneLights);
-            Allocator::GetAllocator()->DeallocateAligned(a_renderPass);
+            // Do NOT touch a_renderPass's payload here: a late/concurrent draw may
+            // still dereference it. Park it intact; it is physically freed only once
+            // kQuarantineFrames frames have elapsed. See the quarantine note above.
+            std::scoped_lock lock(s_retireMutex);
+
+            // Skip a double Deallocate of the same pass (would double-free on drain).
+            // Allocate stamps cachePoolId 0xFEFEDEAD; we restamp it on retire below.
+            if (a_renderPass->cachePoolId == kRetiredTag)
+                return;
+
+            // Sample the frame under the lock: a pre-lock read could be backdated by
+            // contention, under-quarantining this pass (drained before kQuarantineFrames).
+            const auto now = CurrentFrame();
+
+            // Drain everything old enough to be past any in-flight reference.
+            while (s_count > 0) {
+                const auto& oldest = s_ring[(s_head + kMaxQuarantined - s_count) % kMaxQuarantined];
+                if (now - oldest.frame < kQuarantineFrames)
+                    break;
+                FreeOldest();
+            }
+
+            // Safety valve: never exceed the ring (extreme churn / frozen counter).
+            if (s_count == kMaxQuarantined) {
+                static bool warned = false;
+                if (!warned) {
+                    warned = true;
+                    logger::warn("render pass quarantine full ({}); force-freeing oldest"sv, kMaxQuarantined);
+                }
+                FreeOldest();
+            }
+
+            a_renderPass->cachePoolId = kRetiredTag;
+            s_ring[s_head] = { a_renderPass, now };
+            s_head = (s_head + 1) % kMaxQuarantined;
+            ++s_count;
         }
 
         inline void Install()
