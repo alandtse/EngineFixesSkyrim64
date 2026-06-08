@@ -28,6 +28,7 @@
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
 #include "lip_sync.h"
+#include "lockpicking_menu_init_crash.h"
 #include "memory_access_errors.h"
 #include "mo5s_typo.h"
 #include "music_overlap.h"
@@ -186,5 +187,8 @@ namespace Fixes
 
         if (Settings::Fixes::bShadowSceneCrash.GetValue())
             ShadowSceneCrash::Install();
+
+        if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
+            LockpickingMenuInitCrash::Install();
     }
 }
