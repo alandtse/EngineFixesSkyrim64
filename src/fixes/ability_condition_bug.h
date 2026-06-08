@@ -85,9 +85,9 @@ namespace Fixes::AbilityConditionBug
             const long cur = td.updateTimer / td.updateDiff;
             if (cur != td.lastCounter) {
                 td.lastCounter = cur;
-                return true;
+                return false;
             }
-            return false;
+            return true;
         }
 
         // Xbyak thunk: set up args, call Hook, branch on the bool return value.
