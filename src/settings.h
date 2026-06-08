@@ -60,6 +60,7 @@ namespace Settings
         static REX::TOML::Bool bBuySellStackSpeechGain("Fixes", "bBuySellStackSpeechGain", true);
         static REX::TOML::Bool bCopyBoneTransformNullCrash("Fixes", "bCopyBoneTransformNullCrash", true);
         static REX::TOML::Bool bShadowSceneCrash("Fixes", "bShadowSceneCrash", true);
+        static REX::TOML::Bool bLockpickingMenuInitCrash("Fixes", "bLockpickingMenuInitCrash", true);
     }
 
     namespace Patches
