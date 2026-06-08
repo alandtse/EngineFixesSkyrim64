@@ -36,7 +36,7 @@ namespace Memory::RenderPassCache
         // (freed memory stays pass-shaped) while keeping EF's dynamic growth.
         inline constexpr std::uint32_t kQuarantineFrames = 3;
         inline constexpr std::size_t   kMaxQuarantined = 16384;
-        inline constexpr std::uint32_t kRetiredTag = 0xD1ED0FF5u;  // cachePoolId sentinel: pass is quarantined
+        inline constexpr std::uint32_t kRetiredTag = 0xD1ED0FF5u;  // pad44 sentinel: pass is quarantined
 
         struct RetiredPass
         {
@@ -115,6 +115,7 @@ namespace Memory::RenderPassCache
             renderPass->next = nullptr;
             renderPass->passGroupNext = nullptr;
             renderPass->cachePoolId = 0xFEFEDEAD;
+            renderPass->pad44 = 0;
 
             SetLights(renderPass, a_numLights, a_lights);
 
@@ -129,8 +130,8 @@ namespace Memory::RenderPassCache
             std::scoped_lock lock(s_retireMutex);
 
             // Skip a double Deallocate of the same pass (would double-free on drain).
-            // Allocate stamps cachePoolId 0xFEFEDEAD; we restamp it on retire below.
-            if (a_renderPass->cachePoolId == kRetiredTag)
+            // Allocate stamps pad44 as 0; we restamp it on retire below.
+            if (a_renderPass->pad44 == kRetiredTag)
                 return;
 
             // Sample the frame under the lock: a pre-lock read could be backdated by
@@ -155,7 +156,7 @@ namespace Memory::RenderPassCache
                 FreeOldest();
             }
 
-            a_renderPass->cachePoolId = kRetiredTag;
+            a_renderPass->pad44 = kRetiredTag;
             s_ring[s_head] = { a_renderPass, now };
             s_head = (s_head + 1) % kMaxQuarantined;
             ++s_count;
