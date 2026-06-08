@@ -1,3 +1,10 @@
+## [7.4.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.2...v7.4.3) (2026-06-08)
+
+### Bug Fixes
+
+* **renderpass:** use pad44 as quarantine sentinel ([#15](https://github.com/alandtse/EngineFixesSkyrim64/issues/15)) ([90777d7](https://github.com/alandtse/EngineFixesSkyrim64/commit/90777d717cb1c5da477ed65657d23944305eaadd))
+* **vr:** ability-condition throttle gate ([#14](https://github.com/alandtse/EngineFixesSkyrim64/issues/14)) ([4e5d770](https://github.com/alandtse/EngineFixesSkyrim64/commit/4e5d7709488f66580c782636b6399c85e4866b0e))
+
 ## [7.4.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.1...v7.4.2) (2026-06-07)
 
 ### Bug Fixes
