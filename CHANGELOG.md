@@ -1,3 +1,9 @@
+## [7.4.4](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.3...v7.4.4) (2026-06-08)
+
+### Bug Fixes
+
+* **vr:** guard LockpickingMenu against unloaded models ([#16](https://github.com/alandtse/EngineFixesSkyrim64/issues/16)) ([3f369f3](https://github.com/alandtse/EngineFixesSkyrim64/commit/3f369f34c0be9890da8df0d6a312209928d97797))
+
 ## [7.4.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.2...v7.4.3) (2026-06-08)
 
 ### Bug Fixes
