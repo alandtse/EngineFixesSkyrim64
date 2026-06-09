@@ -1,3 +1,9 @@
+## [7.4.5](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.4...v7.4.5) (2026-06-09)
+
+### Bug Fixes
+
+* catch second site lockpick nullptr ctd ([#17](https://github.com/alandtse/EngineFixesSkyrim64/issues/17)) ([62d3dc7](https://github.com/alandtse/EngineFixesSkyrim64/commit/62d3dc70b75f76605d5e0a73bf71fbfcf7e1ee37))
+
 ## [7.4.4](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.3...v7.4.4) (2026-06-08)
 
 ### Bug Fixes
