@@ -1,3 +1,9 @@
+## [7.4.6](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.5...v7.4.6) (2026-06-14)
+
+### Bug Fixes
+
+* **settings:** self-heal EngineFixes.toml; add missing keys ([#20](https://github.com/alandtse/EngineFixesSkyrim64/issues/20)) ([aabad52](https://github.com/alandtse/EngineFixesSkyrim64/commit/aabad521e1ecb7f3926ee46d3c6daae817114836))
+
 ## [7.4.5](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.4...v7.4.5) (2026-06-09)
 
 ### Bug Fixes
