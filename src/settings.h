@@ -1,118 +1,57 @@
 #pragma once
 
+#include "settings_schema.h"
+
 namespace Settings
 {
+    // The REX::TOML bindings are generated from settings_schema.h so they can
+    // never drift from the TOML the generator writes. Section is fixed per list;
+    // each X(type, key, default, comment) becomes one inline setting object.
+
     namespace General
     {
-        static REX::TOML::Bool bVerboseLogging("General", "bVerboseLogging", false);
-        static REX::TOML::Bool bCleanSKSECoSaves("General", "bCleanSKSECoSaves", true);
+#define X(type, key, def, comment) inline REX::TOML::type key("General", #key, def);
+        EF_SETTINGS_GENERAL(X)
+#undef X
     }
 
     namespace Fixes
     {
-        static REX::TOML::Bool bArcheryDownwardAiming("Fixes", "bArcheryDownwardAiming", true);
-        static REX::TOML::Bool bAnimationLoadSignedCrash("Fixes", "bAnimationLoadSignedCrash", true);
-        static REX::TOML::Bool bBethesdaNetCrash("Fixes", "bBethesdaNetCrash", true);
-        static REX::TOML::Bool bBGSKeywordFormLoadCrash("Fixes", "bBGSKeywordFormLoadCrash", true);
-        static REX::TOML::Bool bBSLightingAmbientSpecular("Fixes", "bBSLightingAmbientSpecular", true);
-        static REX::TOML::Bool bBSLightingShaderForceAlphaTest("Fixes", "bBSLightingShaderForceAlphaTest", true);
-        static REX::TOML::Bool bBSLightingShaderParallaxBug("Fixes", "bBSLightingShaderParallaxBug", true);
-        static REX::TOML::Bool bBSLightingShaderPropertyShadowMap("Fixes", "bBSLightingShaderPropertyShadowMap", true);
-        static REX::TOML::Bool bBSTaskPoolNullVtableCrash("Fixes", "bBSTaskPoolNullVtableCrash", true);
-        static REX::TOML::Bool bBSTempEffectNiRTTI("Fixes", "bBSTempEffectNiRTTI", true);
-        static REX::TOML::Bool bCalendarSkipping("Fixes", "bCalendarSkipping", true);
-        static REX::TOML::Bool bCellInit("Fixes", "bCellInit", true);
-        static REX::TOML::Bool bClimateLoad("Fixes", "bClimateLoad", true);
-        static REX::TOML::Bool bConjurationEnchantAbsorbs("Fixes", "bConjurationEnchantAbsorbs", true);
-        static REX::TOML::Bool bCreateArmorNodeNullPtrCrash("Fixes", "bCreateArmorNodeNullPtrCrash", true);
-        static REX::TOML::Bool bDoublePerkApply("Fixes", "bDoublePerkApply", true);
-        static REX::TOML::Bool bEquipShoutEventSpam("Fixes", "bEquipShoutEventSpam", true);
-        static REX::TOML::Bool bESLCELLLoadBug("Fixes", "bESLCELLLoadBug", true);
-        static REX::TOML::Bool bFaceGenMorphDataHeadNullPtrCrash("Fixes", "bFaceGenMorphDataHeadNullPtrCrash", true);
-        static REX::TOML::Bool bGetGameSettingNotFoundCrash("Fixes", "bGetGameSettingNotFoundCrash", true);
-        static REX::TOML::Bool bGetKeywordItemCount("Fixes", "bGetKeywordItemCount", false);
-        static REX::TOML::Bool bGHeapLeakDetectionCrash("Fixes", "bGHeapLeakDetectionCrash", true);
-        static REX::TOML::Bool bGlobalTime("Fixes", "bGlobalTime", true);
-        static REX::TOML::Bool bInitializeHitDataNullPtrCrash("Fixes", "bInitializeHitDataNullPtrCrash", true);
-        static REX::TOML::Bool bIsPlayerInRegionParentCellCheck("Fixes", "bIsPlayerInRegionParentCellCheck", true);
-        static REX::TOML::Bool bLipSync("Fixes", "bLipSync", true);
-        static REX::TOML::Bool bMemoryAccessErrors("Fixes", "bMemoryAccessErrors", true);
-        static REX::TOML::Bool bMO5STypo("Fixes", "bMO5STypo", true);
-        static REX::TOML::Bool bMusicOverlap("Fixes", "bMusicOverlap", true);
-        static REX::TOML::Bool bNiControllerNoTarget("Fixes", "bNiControllerNoTarget", true);
-        static REX::TOML::Bool bNullProcessCrash("Fixes", "bNullProcessCrash", true);
-        static REX::TOML::Bool bPerkFragmentIsRunning("Fixes", "bPerkFragmentIsRunning", true);
-        static REX::TOML::Bool bPrecomputedPaths("Fixes", "bPrecomputedPaths", true);
-        static REX::TOML::Bool bRemovedSpellBook("Fixes", "bRemovedSpellBook", true);
-        static REX::TOML::Bool bSaveScreenshots("Fixes", "bSaveScreenshots", true);
-        static REX::TOML::Bool bSavedHavokDataLoadInit("Fixes", "bSavedHavokDataLoadInit", true);
-        static REX::TOML::Bool bShadowSceneNodeNullPtrCrash("Fixes", "bShadowSceneNodeNullPtrCrash", true);
-        static REX::TOML::Bool bSkyUpdateCloudsNullPtrCrash("Fixes", "bSkyUpdateCloudsNullPtrCrash", true);
-        static REX::TOML::Bool bStuckMouseButtons("Fixes", "bStuckMouseButtons", true);
-        static REX::TOML::Bool bTextureLoadCrash("Fixes", "bTextureLoadCrash", true);
-        static REX::TOML::Bool bTriShapeReleaseBufferGuard("Fixes", "bTriShapeReleaseBufferGuard", true);
-        static REX::TOML::Bool bTorchLandscape("Fixes", "bTorchLandscape", true);
-        static REX::TOML::Bool bTreeReflections("Fixes", "bTreeReflections", true);
-        static REX::TOML::Bool bVerticalLookSensitivity("Fixes", "bVerticalLookSensitivity", true);
-        static REX::TOML::Bool bWeaponBlockScaling("Fixes", "bWeaponBlockScaling", true);
-        // VR-only fixes (runtime-gated; always declared so the TOML key is always present)
-        static REX::TOML::Bool bAbilityConditionBug("Fixes", "bAbilityConditionBug", true);
-        static REX::TOML::Bool bBuySellStackSpeechGain("Fixes", "bBuySellStackSpeechGain", true);
-        static REX::TOML::Bool bCopyBoneTransformNullCrash("Fixes", "bCopyBoneTransformNullCrash", true);
-        static REX::TOML::Bool bShadowSceneCrash("Fixes", "bShadowSceneCrash", true);
-        static REX::TOML::Bool bLockpickingMenuInitCrash("Fixes", "bLockpickingMenuInitCrash", true);
+#define X(type, key, def, comment) inline REX::TOML::type key("Fixes", #key, def);
+        EF_SETTINGS_FIXES(X)
+#undef X
     }
 
     namespace Patches
     {
-        static REX::TOML::Bool bDisableChargenPrecache("Patches", "bDisableChargenPrecache", false);
-        static REX::TOML::Bool bDisableSnowFlag("Patches", "bDisableSnowFlag", false);
-        static REX::TOML::Bool bEnableAchievementsWithMods("Patches", "bEnableAchievementsWithMods", true);
-        static REX::TOML::Bool bFormCaching("Patches", "bFormCaching", true);
-        static REX::TOML::Bool bINISettingCollection("Patches", "bINISettingCollection", true);
-        static REX::TOML::Bool bMaxStdIO("Patches", "bMaxStdIO", true);
-        static REX::TOML::Bool bRegularQuicksaves("Patches", "bRegularQuicksaves", false);
-        static REX::TOML::Bool bSafeExit("Patches", "bSafeExit", true);
-        static REX::TOML::Bool bSaveAddedSoundCategories("Patches", "bSaveAddedSoundCategories", true);
-        static REX::TOML::I32  iSaveGameMaxSize("Patches", "iSaveGameMaxSize", 128);
-        static REX::TOML::Bool bScrollingDoesntSwitchPOV("Patches", "bScrollingDoesntSwitchPOV", false);
-        static REX::TOML::F32  fSleepWaitTimeModifier("Patches", "fSleepWaitTimeModifier", 1.0f);
-        static REX::TOML::Bool bTreeLodReferenceCaching("Patches", "bTreeLodReferenceCaching", true);
-        static REX::TOML::Bool bWaterflowAnimation("Patches", "bWaterflowAnimation", true);
-        static REX::TOML::F32  fWaterflowSpeed("Patches", "fWaterflowSpeed", 20.0f);
+#define X(type, key, def, comment) inline REX::TOML::type key("Patches", #key, def);
+        EF_SETTINGS_PATCHES(X)
+#undef X
     }
 
     namespace MemoryManager
     {
-        static REX::TOML::Bool bOverrideMemoryManager("MemoryManager", "bOverrideMemoryManager", true);
-        static REX::TOML::Bool bOverrideScaleformAllocator("MemoryManager", "bOverrideScaleformAllocator", true);
-        static REX::TOML::Bool bOverrideRenderPassCache("MemoryManager", "bOverrideRenderPassCache", true);
-        static REX::TOML::Bool bOverrideHavokMemorySystem("MemoryManager", "bOverrideHavokMemorySystem", true);
-        static REX::TOML::Bool bReplaceImports("MemoryManager", "bReplaceImports", false);
+#define X(type, key, def, comment) inline REX::TOML::type key("MemoryManager", #key, def);
+        EF_SETTINGS_MEMORYMANAGER(X)
+#undef X
     }
 
     namespace Warnings
     {
-        static REX::TOML::Bool bTextureLoadFailed("Warnings", "bTextureLoadFailed", true);
-        static REX::TOML::Bool bPrecomputedPathHasErrors("Warnings", "bPrecomputedPathHasErrors", true);
-        static REX::TOML::Bool bRefHandleLimit("Warnings", "bRefHandleLimit", true);
-        static REX::TOML::U32  uRefrMainMenuLimit("Warnings", "uRefrMainMenuLimit", 800000);
-        static REX::TOML::U32  uRefrLoadedGameLimit("Warnings", "uRefrLoadedGameLimit", 1000000);
-        static REX::TOML::Bool bDupeAddonNodes("Warnings", "bDupeAddonNodes", true);
+#define X(type, key, def, comment) inline REX::TOML::type key("Warnings", #key, def);
+        EF_SETTINGS_WARNINGS(X)
+#undef X
     }
 
     namespace Debug
     {
-        static REX::TOML::Bool bPrintDetailedPrecomputedPathInfo("Debug", "bPrintDetailedPrecomputedPathInfo", false);
-        static REX::TOML::Bool bDisableTBB("Debug", "bDisableTBB", false);
+#define X(type, key, def, comment) inline REX::TOML::type key("Debug", #key, def);
+        EF_SETTINGS_DEBUG(X)
+#undef X
     }
 
-    static void Load()
-    {
-        const auto toml = REX::TOML::SettingStore::GetSingleton();
-        toml->Init(
-            "Data/skse/plugins/EngineFixes.toml",
-            "Data/skse/plugins/EngineFixesCustom.toml");
-        toml->Load();
-    }
+    // Regenerates Data/SKSE/Plugins/EngineFixes.toml so every declared setting is
+    // present (self-healing: missing keys are added with their defaults and
+    // descriptions; existing values are preserved), then loads base + custom TOML.
+    void Load();
 }

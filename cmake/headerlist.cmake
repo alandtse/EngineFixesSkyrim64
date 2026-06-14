@@ -67,5 +67,6 @@ set(headers ${headers}
 	src/patches/tree_lod_reference_caching.h
 	src/patches/waterflow_animation.h
 	src/settings.h
+	src/settings_schema.h
 	src/warnings/warnings.h
 )
