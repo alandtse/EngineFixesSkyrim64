@@ -8,5 +8,6 @@ set(sources ${sources}
 	src/patches/save_added_sound_categories.cpp
 	src/patches/tree_lod_reference_caching.cpp
 	src/patches/waterflow_animation.cpp
+	src/settings.cpp
 	src/warnings/warnings.cpp
 )

@@ -1,6 +1,7 @@
 # Engine Fixes - unified build for Skyrim SE 1.5.97, AE 1.6.1170, and VR 1.4.15
 # Settings marked (VR-only) are ignored on SE/AE; all others apply to all three runtimes.
-# User overrides go in EngineFixes_Custom.toml (created alongside this file).
+# User overrides go in EngineFixesCustom.toml (created alongside this file).
+
 [General]
 bVerboseLogging = false                         # enable extra log levels
 bCleanSKSECoSaves = true                        # delete SKSE cosaves with no matching saves
@@ -23,8 +24,8 @@ bClimateLoad = true                             # fixes a bug where the game fai
 bConjurationEnchantAbsorbs = true               # fixes a bug where spell absorption triggers on enchanted items using conjuration summons
 bCreateArmorNodeNullPtrCrash = true             # fixes typo that may cause a crash somewhere in CreateArmorNode
 bDoublePerkApply = true                         # fixes NPC perks applying twice when you load a game
-bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bEquipShoutEventSpam = true                     # fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip
+bESLCELLLoadBug = true                          # fixes issues with interior cells created in ESL files
 bFaceGenMorphDataHeadNullPtrCrash = true        # fixes a crash in face morphing, possibly related to decapitations
 bGetGameSettingNotFoundCrash = true             # fixes a crash when the "GetGameSetting" (getgs) console command is given a setting name that doesn't exist
 bGetKeywordItemCount = false                    # fixes the condition function "GetKeywordItemCount", which returns broken results sometimes
@@ -47,15 +48,16 @@ bShadowSceneNodeNullPtrCrash = true             # fixes a crash in shadowsceneno
 bSkyUpdateCloudsNullPtrCrash = true             # fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods)
 bStuckMouseButtons = true                       # fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp
 bTextureLoadCrash = true                        # fixes a crash in 1.5.97 when a texture load fails (D6DDDA), this behavior is built-in to 1.6.1170; also logs texture load errors
+bTriShapeReleaseBufferGuard = true              # guards BSGraphics::TriShape::Release against an access violation when the geometry's vertex/index buffer was already freed (seen on some PBR/parallax/SMP meshes)
 bTorchLandscape = true                          # fixes a bug where torches sometimes don't light the landscape
 bTreeReflections = true                         # fixes tree LOD reflection alpha
 bVerticalLookSensitivity = true                 # fixes vertical look sensitivity being tied to framerate
 bWeaponBlockScaling = true                      # fixes weapon blocking so it correctly scales off of the blocking actor's weapon
-# VR-only fixes
-bAbilityConditionBug = true                     # (VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation to at most once per ~0.1 in-game seconds per ActiveEffect
+bAbilityConditionBug = true                     # (VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation per ActiveEffect to the engine's fActiveEffectConditionUpdateInterval
 bBuySellStackSpeechGain = true                  # (VR-only) fixes buying/selling a stack of items only granting speech XP for a single item
 bCopyBoneTransformNullCrash = true              # (VR-only) fixes a null-pointer crash when an actor's animation references a bone name absent from its skeleton (modded/mismatched skeleton)
 bShadowSceneCrash = true                        # (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix
+bLockpickingMenuInitCrash = true                # (VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame
 
 # contains optional game patches
 [Patches]
@@ -84,12 +86,12 @@ bOverrideHavokMemorySystem = true               # overrides Havok's memory manag
 bReplaceImports = true                          # replace imported CRT memory functions with selected allocator
 
 [Warnings]
-bDupeAddonNodes = true                          # Warns when duplicate ADDN (Addon Node) form indices are found in your load order; pops up a message box and logs to the Engine Fixes log
 bTextureLoadFailed = true                       # On exit, pops up a message box telling you one or more textures failed to load and have been logged
 bPrecomputedPathHasErrors = false               # On exit, pops up a message box telling you a precomputed path had an error
 bRefHandleLimit = true                          # Warns when you are close to the reference handle limit at main menu and after loading a save
 uRefrMainMenuLimit = 800000                     # Handle count to warn at on main menu
 uRefrLoadedGameLimit = 1000000                  # Handle count to warn at after loading a save game
+bDupeAddonNodes = true                          # Warns when duplicate ADDN (Addon Node) form indices are found in your load order; pops up a message box and logs to the Engine Fixes log
 
 [Debug]
 bPrintDetailedPrecomputedPathInfo = false       # disables the precomputed path crash fix and prints detailed information about broken paths
