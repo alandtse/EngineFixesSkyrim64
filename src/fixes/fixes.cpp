@@ -8,6 +8,7 @@
 #include "bslightingambientspecular.h"
 #include "bslightingshader_force_alpha_test.h"
 #include "bslightingshaderproperty_shadowmap.h"
+#include "bsopenvr_hand_index_null_crash.h"
 #include "bstaskpool_null_vtable.h"
 #include "bstempeffect_nirtti.h"
 #include "buy_sell_stack_speech_gain.h"
@@ -184,6 +185,9 @@ namespace Fixes
 
         if (Settings::Fixes::bCopyBoneTransformNullCrash.GetValue())
             CopyBoneTransformNullCrash::Install();
+
+        if (Settings::Fixes::bBSOpenVRHandIndexNullCrash.GetValue())
+            BSOpenVRHandIndexNullCrash::Install();
 
         if (Settings::Fixes::bShadowSceneCrash.GetValue())
             ShadowSceneCrash::Install();
