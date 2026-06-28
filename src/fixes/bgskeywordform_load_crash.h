@@ -20,29 +20,22 @@ namespace Fixes::BGSKeywordFormLoadCrash
 
             a_file->ReadData(&numKeywords, sizeof(numKeywords));
 
-            // if keywords > 0, run original routine
             if (numKeywords > 0) {
                 TESFile_SetOffsetChunk(a_file, currentChunkOffset);
                 orig_BGSKeywordForm_Load.call(a_self, a_file);
                 return;
             }
 
-            // if keywords = 0 and file ends, return
+            // KSIZ=0: only the no-next-subrecord case crashes; original handles everything else.
             if (!a_file->SeekNextSubrecord()) {
                 logger::warn("fixing invalid keyword form detected at formID {:X} in file {}"sv, a_file->currentform.formID, a_file->fileName);
                 return;
             }
 
-            // if this new record is not KWDA, return to the previous subrecord before returning to normal execution
-            auto currentSubrecordType = a_file->GetCurrentSubRecordType();
-
-            if (currentSubrecordType != 0x4144574B)  // KWDA
-            {
-                logger::warn("fixing invalid keyword form detected at formID {:X} in file {}"sv, a_file->currentform.formID, a_file->fileName);
-                TESFile_SetOffsetChunk(a_file, currentChunkOffset);
-            }
-
-            // if the next subrecord was KWDA it's ok to just return and skip it
+            // Reset and call original — it sets Count_10=0 cleanly, preventing stale keyword state on reload.
+            logger::warn("fixing invalid keyword form detected at formID {:X} in file {}"sv, a_file->currentform.formID, a_file->fileName);
+            TESFile_SetOffsetChunk(a_file, currentChunkOffset);
+            orig_BGSKeywordForm_Load.call(a_self, a_file);
         }
 
         inline void Install()
