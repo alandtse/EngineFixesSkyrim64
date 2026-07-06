@@ -6,13 +6,11 @@
 // Root cause: ActiveEffect::EvaluateConditions(this, float deltaTime, bool forced).
 // When forced=false the native gate at 0x54123D re-evaluates conditions only when
 //   floor(elapsedSeconds * rate) != floor((elapsedSeconds + deltaTime) * rate).
-// elapsedSeconds is frozen while a conditioned effect is inactive (flags bit 18
-// halts accumulation) and restarts at 0 on save load, so an effect restored
-// inactive -- e.g. worn/wielded-gear conditions are false mid-load, before
-// equipment re-equips -- can never cross a bucket boundary: its conditions are
-// never re-checked and it is stuck inactive forever.  SE recovers via forced
-// sweeps (deltaTime==0 calls take the forced path at +0x1FC, upstream of the
-// gate); in VR the gate is empirically the only reactivation path (issue #19).
+// elapsedSeconds restarts at 0 on save load and stays frozen for ability-class
+// effects, so an effect restored with false conditions (worn-gear conditions are
+// false mid-load, before equipment re-equips) never crosses a bucket boundary and
+// is never re-evaluated.  Forced sweeps (deltaTime==0) bypass the gate upstream
+// but do not reach these effects in VR, so the gate is the only reactivation path.
 //
 // Fix: replace the gate (0x54123D, length 0x79) with a wall-clock bucket
 // throttle keyed per ActiveEffect* that runs on first sight of an effect and
@@ -23,10 +21,9 @@
 //   true  -> jump to 0x54133D (skip path / epilogue)
 //   false -> jump to 0x5412B6 (run condition-eval path)
 //
-// v7.4.0-7.4.6 also carried over EngineFixesVR's "elapsedSeconds <= 0 -> skip"
-// early-out; combined with the frozen/reset elapsedSeconds above it permanently
-// deadlocked conditioned abilities after a save load (issue #19: Vokrii/Adamant
-// perks, dual casting, Experimenter).  Do not reintroduce it.
+// Regression risk: EngineFixesVR's newTimingFunc also skipped when
+// elapsedSeconds <= 0.  Do not reintroduce that early-out -- it permanently
+// deadlocks conditioned abilities that a save load restores inactive.
 
 namespace Fixes::AbilityConditionBug
 {
