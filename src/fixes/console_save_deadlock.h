@@ -44,15 +44,9 @@ namespace Fixes::ConsoleSaveDeadlock
         // later runs MainLoop.
         detail::g_mainThreadId = ::GetCurrentThreadId();
 
-        // Console SaveGame handler entry. The VR handler has no address-library
-        // id (SE id 22465 is unmapped there), so VR uses a raw offset.
-        std::uintptr_t handler;
-        if (REL::Module::IsVR())
-            handler = REL::Offset{ 0x328370 }.address();
-        else
-            handler = REL::RelocationID(22465, 22940).address();
-
-        REL::Relocation<std::uintptr_t> target{ handler + 0xC4 };
+        // Console SaveGame handler entry (VR resolves 22465 via the VR Address
+        // Library; requires a release containing that id).
+        REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(22465, 22940), 0xC4 };
         detail::orig_SaveImpl = target.write_call<5>(detail::Hook);
 
         logger::info("installed console save deadlock fix"sv);
