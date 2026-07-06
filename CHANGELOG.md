@@ -1,3 +1,11 @@
+## [7.4.7](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.6...v7.4.7) (2026-07-06)
+
+### Bug Fixes
+
+* console save deadlock off the main thread ([#26](https://github.com/alandtse/EngineFixesSkyrim64/issues/26)) ([89af145](https://github.com/alandtse/EngineFixesSkyrim64/commit/89af145f7aa336860ba5cce9352afad1a0fb5882))
+* **vr:** conditioned ability deadlock after load ([#25](https://github.com/alandtse/EngineFixesSkyrim64/issues/25)) ([65ebbe6](https://github.com/alandtse/EngineFixesSkyrim64/commit/65ebbe6eb12e66ad78b047309d30deaccc2b03ed))
+* **vr:** guard BSOpenVR hand-index null deref ([#23](https://github.com/alandtse/EngineFixesSkyrim64/issues/23)) ([f02f0ad](https://github.com/alandtse/EngineFixesSkyrim64/commit/f02f0ad668555441c7db1b9b277889ce14a649f8))
+
 ## [7.4.6](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.5...v7.4.6) (2026-06-14)
 
 ### Bug Fixes
