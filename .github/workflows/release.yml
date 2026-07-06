@@ -53,6 +53,7 @@ jobs:
         with:
           extra_plugins: |
             @semantic-release/changelog
+            @semantic-release/exec
             @semantic-release/git
             @semantic-release/github
             @google/semantic-release-replace-plugin
@@ -152,9 +153,39 @@ jobs:
           tag: ${{ needs.resolve-version.outputs.tag }}
           overwrite: true
 
+  settings-description:
+    name: Recent Settings Summary
+    needs: resolve-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: |
+      always() &&
+      needs.resolve-version.result == 'success'
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate recent-settings summary
+        id: gen
+        shell: bash
+        run: |
+          {
+            echo 'text<<SETTINGS_EOF'
+            python3 scripts/settings_release_notes.py filedesc
+            echo 'SETTINGS_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+    outputs:
+      text: ${{ steps.gen.outputs.text }}
+
   upload-nexus:
     name: Upload to Nexus Mods
-    needs: [semantic-release, resolve-version, build, upload-github-release]
+    needs: [semantic-release, resolve-version, build, upload-github-release, settings-description]
     if: |
       always() &&
       needs.build.result == 'success' &&
@@ -173,6 +204,7 @@ jobs:
       file_description: |
         PDB is included for crash log debugging and can be removed.
         Requires Part 2 Engine Fixes VR v.1.26
+        ${{ needs.settings-description.outputs.text }}
       previous_file: auto
     secrets:
       UNEX_NEXUSMODS_SESSION_COOKIE: ${{ secrets.UNEX_NEXUSMODS_SESSION_COOKIE }}
