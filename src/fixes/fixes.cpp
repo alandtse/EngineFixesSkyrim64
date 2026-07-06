@@ -15,6 +15,7 @@
 #include "cell_init.h"
 #include "climate_load.h"
 #include "conjuration_enchant_absorbs.h"
+#include "console_save_deadlock.h"
 #include "copybonetransform_null_crash.h"
 #include "create_armor_node_nullptr_crash.h"
 #include "double_perk_apply.h"
@@ -90,6 +91,9 @@ namespace Fixes
 
         if (Settings::Fixes::bConjurationEnchantAbsorbs.GetValue())
             ConjurationEnchantAbsorbs::Install();
+
+        if (Settings::Fixes::bConsoleSaveDeadlock.GetValue())
+            ConsoleSaveDeadlock::Install();
 
         if (Settings::Fixes::bCreateArmorNodeNullPtrCrash.GetValue())
             CreateArmorNodeNullPtrCrash::Install();

@@ -33,6 +33,7 @@
     X(Bool, bCellInit, true, "fixes a rare crash where a form field does not get converted from an id to a pointer")                                                                                                \
     X(Bool, bClimateLoad, true, "fixes a bug where the game fails to properly apply sunrise and sunset data from Climate records if you load a saved game in an interior")                                          \
     X(Bool, bConjurationEnchantAbsorbs, true, "fixes a bug where spell absorption triggers on enchanted items using conjuration summons")                                                                           \
+    X(Bool, bConsoleSaveDeadlock, true, "fixes a deadlock (permanent hang, no crash) when the console 'save' command executes off the main thread, e.g. issued programmatically via Console::ExecuteCommand")       \
     X(Bool, bCreateArmorNodeNullPtrCrash, true, "fixes typo that may cause a crash somewhere in CreateArmorNode")                                                                                                   \
     X(Bool, bDoublePerkApply, true, "fixes NPC perks applying twice when you load a game")                                                                                                                          \
     X(Bool, bEquipShoutEventSpam, true, "fixes a bug where the \"equip shout\" procedure will send a \"shout equipped\" event even if the shout fails to equip")                                                    \
