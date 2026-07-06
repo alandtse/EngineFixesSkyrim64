@@ -3,24 +3,30 @@
 // VR-only FixAbilityConditionBug port.
 // Canonical source: EngineFixesVR/fixes/miscfixes.cpp::FixAbilityConditionBug.
 //
-// Root cause: ValueModifierEffect::UpdateConditions(this, float deltaTime, bool forced).
-// When forced=false the native gate at 0x54123D checks whether the effect has
-// crossed a time bucket boundary:
-//   floor(ElapsedSeconds * rate) vs floor((ElapsedSeconds + deltaTime) * rate)
-//   if equal => skip; if different => run condition eval
-// In VR, deltaTime is zero on the primary call path so both sides are always
-// equal, the gate always skips, and conditioned active effects never re-evaluate
-// after initial application.  Mod ability effects appear to stop working.
+// Root cause: ActiveEffect::EvaluateConditions(this, float deltaTime, bool forced).
+// When forced=false the native gate at 0x54123D re-evaluates conditions only when
+//   floor(elapsedSeconds * rate) != floor((elapsedSeconds + deltaTime) * rate).
+// elapsedSeconds is frozen while a conditioned effect is inactive (flags bit 18
+// halts accumulation) and restarts at 0 on save load, so an effect restored
+// inactive -- e.g. worn/wielded-gear conditions are false mid-load, before
+// equipment re-equips -- can never cross a bucket boundary: its conditions are
+// never re-checked and it is stuck inactive forever.  SE recovers via forced
+// sweeps (deltaTime==0 calls take the forced path at +0x1FC, upstream of the
+// gate); in VR the gate is empirically the only reactivation path (issue #19).
 //
-// Fix: replace the broken gate (0x54123D, length 0x79) with a wall-clock bucket
-// throttle keyed per ActiveEffect*. Buckets are sized by the game setting
+// Fix: replace the gate (0x54123D, length 0x79) with a wall-clock bucket
+// throttle keyed per ActiveEffect* that runs on first sight of an effect and
+// once per interval after, regardless of elapsedSeconds.  Buckets are sized by
 // fActiveEffectConditionUpdateInterval at 0x1EA23E0 (default 1.0 s).
-// Conditions now re-evaluate reliably once per interval in real time.
 //
-// Return semantics match the original EngineFixesVR patch exactly
-// (intentionally non-obvious -- preserved to avoid future regressions):
+// Return semantics:
 //   true  -> jump to 0x54133D (skip path / epilogue)
 //   false -> jump to 0x5412B6 (run condition-eval path)
+//
+// v7.4.0-7.4.6 also carried over EngineFixesVR's "elapsedSeconds <= 0 -> skip"
+// early-out; combined with the frozen/reset elapsedSeconds above it permanently
+// deadlocked conditioned abilities after a save load (issue #19: Vokrii/Adamant
+// perks, dual casting, Experimenter).  Do not reintroduce it.
 
 namespace Fixes::AbilityConditionBug
 {
@@ -44,16 +50,12 @@ namespace Fixes::AbilityConditionBug
         using TimerMap = tbb::concurrent_hash_map<std::uint64_t, TimerData, U64Hash>;
         inline TimerMap g_timers;
 
-        // Mirrors EngineFixesVR::newTimingFunc return semantics.
-        // a_rid  = ActiveEffect* (RCX), used as per-effect timer key
-        // a_diff = [RDI+0x70] = effect's accumulated ElapsedSeconds;
-        //          non-positive means the effect hasn't started yet -- skip.
-        // Returns true to SKIP, false to RUN (matches EngineFixesVR newTimingFunc).
-        inline bool Hook(std::uint64_t a_rid, float a_diff)
+        // Mirrors EngineFixesVR::newTimingFunc bucket logic, minus its
+        // "elapsedSeconds <= 0 -> skip" early-out (see header note).
+        // a_rid = ActiveEffect* (RCX), used as per-effect timer key
+        // Returns true to SKIP, false to RUN.
+        inline bool Hook(std::uint64_t a_rid)
         {
-            if (a_diff <= 0.0f)
-                return true;
-
             const long now = static_cast<long>(GetTickCount64());
 
             TimerMap::accessor acc;
@@ -83,8 +85,8 @@ namespace Fixes::AbilityConditionBug
             }
 
             // false = bucket boundary crossed = run eval; true = same bucket = skip.
-            // Matches EngineFixesVR's newTimingFunc: return true when counter advances,
-            // return false when unchanged.  The Thunk below branches on this: jz->run.
+            // First sight of an effect runs immediately (lastCounter starts at -1),
+            // which is what re-activates conditioned abilities right after a load.
             const long cur = td.updateTimer / td.updateDiff;
             if (cur != td.lastCounter) {
                 td.lastCounter = cur;
@@ -107,11 +109,9 @@ namespace Fixes::AbilityConditionBug
                 // before the call (otherwise Hook's movaps saves fault on misalignment).
                 //
                 // RDI = ActiveEffect* saved in prologue (MOV RDI,RCX at +0x25).
-                // RCX is clobbered by the preceding CALL so args are sourced from RDI:
-                //   arg0 (RCX)  = RDI               -- ActiveEffect*, timer map key
-                //   arg1 (XMM1) = [RDI+0x70]        -- ElapsedSeconds (accumulated)
+                // RCX is clobbered by the preceding CALL so arg0 is sourced from RDI:
+                //   arg0 (RCX) = RDI -- ActiveEffect*, timer map key
                 sub(rsp, 0x30);
-                movss(xmm1, ptr[rdi + 0x70]);
                 mov(rcx, rdi);
                 mov(rax, reinterpret_cast<std::uintptr_t>(Hook));
                 call(rax);
