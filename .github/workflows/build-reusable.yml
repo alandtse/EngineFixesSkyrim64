@@ -79,6 +79,11 @@ jobs:
         with:
           cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
           configurePreset: vs2022-windows-vcpkg
+          # CommonLibVR release bundles are now built with the VS 2026 toolset; linking
+          # them on this VS 2022 image fails with unresolved __std_* STL helpers
+          # (e.g. __std_replace_copy_2). Build CommonLib from source until this job
+          # moves to the VS 2026 image/toolset, then drop this to restore the fast path.
+          configurePresetAdditionalArgs: "['-DCOMMONLIB_PREBUILT_MULTICONFIG=OFF']"
           buildPreset: release
 
       - name: Extract and validate version
