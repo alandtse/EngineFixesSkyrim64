@@ -1,3 +1,9 @@
+## [7.4.8](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.7...v7.4.8) (2026-07-07)
+
+### Bug Fixes
+
+* **vr:** perks lost on load ([#28](https://github.com/alandtse/EngineFixesSkyrim64/issues/28)) ([dbea6b6](https://github.com/alandtse/EngineFixesSkyrim64/commit/dbea6b6860655c53e47b0f25965eb7106d57af21)), closes [alandtse/CommonLibVR#210](https://github.com/alandtse/CommonLibVR/issues/210) [pre-#152](https://github.com/alandtse/pre-/issues/152) [#19](https://github.com/alandtse/EngineFixesSkyrim64/issues/19)
+
 ## [7.4.7](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.6...v7.4.7) (2026-07-06)
 
 ### Bug Fixes
