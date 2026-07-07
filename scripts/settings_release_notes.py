@@ -15,10 +15,11 @@ Modes (all print to stdout):
                         for binary-searching a regression to the release that shipped
                         a setting. Untagged settings are labeled VER (default
                         "unreleased").
-  filedesc [--versions N]
-                        compact plain-text "New settings" summary of the N most recent
-                        releases that added settings (default 3), for the Nexus file
-                        description.
+  filedesc --current VER
+                        compact plain-text "New settings" line for the Nexus file
+                        description, listing only settings introduced by release VER.
+                        Prints nothing when that release added no settings, so the
+                        file description stays static.
 """
 
 import argparse
@@ -165,24 +166,18 @@ def mode_full(rows, next_version):
     return "\n".join(lines)
 
 
-def mode_filedesc(rows, versions):
-    by_version = {}
-    for r in rows:
-        if r["version"] is None or r["floor"]:
-            continue
-        by_version.setdefault(r["version"], []).append(r["key"])
-    recent = sorted(by_version, key=version_key, reverse=True)[:versions]
-    if not recent:
+def mode_filedesc(rows, current):
+    keys = [r["key"] for r in rows if r["version"] == current and not r["floor"]]
+    if not keys:
         return ""
-    parts = [f"{v}: {', '.join(by_version[v])}" for v in recent]
-    return "New settings — " + " | ".join(parts) + " (see SETTINGS.md / changelog for details)"
+    return f"New settings in {current}: " + ", ".join(keys) + " (see SETTINGS.md / changelog for details)"
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("mode", choices=["notes", "full", "filedesc"])
     ap.add_argument("--next", default="unreleased", help="version label for not-yet-tagged settings (full mode)")
-    ap.add_argument("--versions", type=int, default=3, help="release count for filedesc mode")
+    ap.add_argument("--current", default="", help="the release being published (filedesc mode)")
     args = ap.parse_args()
 
     rows = collect()
@@ -191,7 +186,9 @@ def main():
     elif args.mode == "full":
         out = mode_full(rows, args.next)
     else:
-        out = mode_filedesc(rows, args.versions)
+        if not args.current:
+            ap.error("filedesc requires --current")
+        out = mode_filedesc(rows, args.current)
     if out:
         sys.stdout.buffer.write((out + "\n").encode("utf-8"))
 
