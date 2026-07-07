@@ -26,13 +26,10 @@ on:
 jobs:
   build:
     name: Build on Windows
-    # Pin to windows-2022: windows-latest migrated to windows-2025-vs2026, which
-    # ships Visual Studio 2026 and no longer has VS 2022. The CMake preset
-    # vs2022-windows-vcpkg uses the "Visual Studio 17 2022" generator, so on the
-    # new image configure fails with "could not find any instance of Visual
-    # Studio". windows-2022 has VS 2022, matching the tested toolset / prebuilt
-    # CommonLib. Revisit when moving the preset to the VS 2026 toolset.
-    runs-on: windows-2022
+    # windows-2025 ships Visual Studio 2026, matching the vs2026-windows-vcpkg
+    # preset's generator/toolset and the toolset CommonLibVR's prebuilt release
+    # bundles are built with.
+    runs-on: windows-2025
     if: github.repository_owner == 'alandtse'
     timeout-minutes: 60
     permissions:
@@ -78,7 +75,7 @@ jobs:
         uses: lukka/run-cmake@5d55ea7949e25f69f0ecb516d8d572297e03a956 # v10
         with:
           cmakeListsTxtPath: "${{ github.workspace }}/CMakeLists.txt"
-          configurePreset: vs2022-windows-vcpkg
+          configurePreset: vs2026-windows-vcpkg
           buildPreset: release
 
       - name: Extract and validate version
