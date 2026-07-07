@@ -173,10 +173,14 @@ jobs:
       - name: Generate recent-settings summary
         id: gen
         shell: bash
+        # env indirection rather than template interpolation into the script:
+        # version can originate from the unsanitized workflow_dispatch input.
+        env:
+          RELEASE_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           {
             echo 'text<<SETTINGS_EOF'
-            python3 scripts/settings_release_notes.py filedesc --current "${{ needs.resolve-version.outputs.version }}"
+            python3 scripts/settings_release_notes.py filedesc --current "$RELEASE_VERSION"
             echo 'SETTINGS_EOF'
           } >> "$GITHUB_OUTPUT"
 
