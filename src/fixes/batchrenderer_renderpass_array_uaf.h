@@ -58,7 +58,22 @@
 // too, both unconditionally regardless of which branch is taken -- so there's
 // no hidden side-effect to preserve here, just the guard.
 //
-// AE: not yet resolved -- TODO, not yet installed.
+// AE: same split-helper shape as SE. BSShaderAccumulator::RenderBatches calls
+// BSBatchRenderer::sub (bare, adjacent in the vtable/symbol ordering to the
+// address-library-identified sub_SE100852_AE107642 -- this is the SE id 100853
+// counterpart, not yet address-library-catalogued by name). Ghidra-confirmed
+// via raw disassembly: byte-identical instruction shape to SE's site (same
+// 6-write zero-clear: 5 qword MOVs + 1 dword MOV from RDI, computed pointer
+// finalized into RCX via `ADD RCX,[R10+8]`, same "48 89 39" leading bytes).
+// Same side-effect analysis as SE: RDI is zeroed at entry and POP'd back to
+// the caller's value unconditionally before the tail-call; RBX/EBX (the
+// resolved map index, used to compute the pointer) is likewise restored from
+// the stack unconditionally regardless of path. RCX itself is overwritten
+// with the `this` pointer immediately after this block on every path
+// (including the pre-existing "autoClearPasses == false" skip, which lands
+// at the exact same resume point) -- no hidden side-effect to preserve, same
+// as SE. Reuses PatchSE/SiteMatchesSE verbatim since the instruction shape is
+// identical, just at different addresses.
 
 namespace Fixes::BatchRendererRenderPassArrayUAF
 {
@@ -77,9 +92,16 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         } };
 
         // (patchOffset, resumeOffset). SE-confirmed via Ghidra disassembly of
-        // BSBatchRenderer::sub_1413083B0. AE not yet resolved.
+        // BSBatchRenderer::sub_1413083B0.
         inline constexpr std::array<Site, 1> kSitesSE{ {
             { 0x1308407, 0x130841D },
+        } };
+
+        // (patchOffset, resumeOffset). AE-confirmed via Ghidra disassembly of
+        // BSBatchRenderer::sub (static addr 0x1414f3d30, adjacent to the
+        // address-library-known sub_SE100852_AE107642 at 0x1414f39c0).
+        inline constexpr std::array<Site, 1> kSitesAE{ {
+            { 0x14F3D87, 0x14F3D9D },
         } };
 
         // No pointer returned by any real allocator will ever be this low; a
@@ -201,7 +223,7 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         if (REL::Module::IsVR())
             detail::PatchSites<detail::Patch>(detail::kSitesVR, detail::SiteMatchesVR);
         else if (REL::Module::IsAE())
-            logger::info("batchrenderer renderpass array UAF fix: AE site not yet resolved, skipping"sv);
+            detail::PatchSites<detail::PatchSE>(detail::kSitesAE, detail::SiteMatchesSE);
         else
             detail::PatchSites<detail::PatchSE>(detail::kSitesSE, detail::SiteMatchesSE);
 
