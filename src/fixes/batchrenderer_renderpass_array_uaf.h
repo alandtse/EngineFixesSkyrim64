@@ -17,8 +17,11 @@
 // called from BSShaderAccumulator::RenderBatches) rather than VR's monolithic
 // function, with a different write shape (a 6-field zero-clear vs. VR's
 // AND+MOV) -- same underlying bug, same guard, different patch site per
-// runtime. AE's site has no address-library ID cataloguing it by name yet;
-// its offset was resolved by disassembly and is hardcoded until one exists.
+// runtime.
+//
+// Address-library coverage is uneven across runtimes for this function, so
+// only SE anchors off a catalogued ID; VR and AE still use raw, disassembly-
+// resolved offsets (see the comments at each array below for why).
 
 namespace Fixes::BatchRendererRenderPassArrayUAF
 {
@@ -26,26 +29,48 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
     {
         struct Site
         {
-            std::uintptr_t patchOffset;   // start of the AND+XOR+MOV block (9 bytes)
-            std::uintptr_t resumeOffset;  // where both branches converge, right after the block
+            std::uintptr_t patchAddress;   // start of the AND+XOR+MOV block (9 bytes)
+            std::uintptr_t resumeAddress;  // where both branches converge, right after the block
         };
 
-        // BSBatchRenderer::RenderBatches
-        inline constexpr std::array<Site, 1> kSitesVR{ {
-            { 0x1349543, 0x134954C },
-        } };
+        // BSBatchRenderer::RenderBatches -- address-library IDs 99963 and
+        // 100853 both exist, but their catalogued VR addresses resolve to a
+        // different function than the one actually containing this patch
+        // site (confirmed by disassembly), so neither is a safe anchor here;
+        // offset is resolved by disassembly and hardcoded until a correct ID
+        // is found.
+        inline std::array<Site, 1> SitesVR()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x1349543 } }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x134954C } }.address() },
+            } };
+        }
 
-        // BSBatchRenderer::sub_1413083B0
-        inline constexpr std::array<Site, 1> kSitesSE{ {
-            { 0x1308407, 0x130841D },
-        } };
+        // BSBatchRenderer::sub_1413083B0 -- address-library ID 100853 resolves
+        // to this exact function's start on SE (confirmed no AE entry exists
+        // for this ID as of writing, so AE keeps a raw offset below); patch/
+        // resume sites are fixed deltas (0x57/0x6D) from that start.
+        inline std::array<Site, 1> SitesSE()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::ID(100853), 0x57 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(100853), 0x6D }.address() },
+            } };
+        }
 
-        // BSBatchRenderer::sub (static addr 0x1414f3d30); not yet
-        // address-library-catalogued, adjacent to the known
-        // sub_SE100852_AE107642 at 0x1414f39c0.
-        inline constexpr std::array<Site, 1> kSitesAE{ {
-            { 0x14F3D87, 0x14F3D9D },
-        } };
+        // BSBatchRenderer::sub (static addr 0x1414f3d30); ID 100853 (SE's
+        // anchor for this same function) has no entry for the 1.6.1170
+        // target version -- only stale 1.6.318/1.6.353 addresses exist, which
+        // don't apply -- so this stays a raw, disassembly-resolved offset,
+        // adjacent to the known sub_SE100852_AE107642 at 0x1414f39c0.
+        inline std::array<Site, 1> SitesAE()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14F3D87 } }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14F3D9D } }.address() },
+            } };
+        }
 
         // No pointer returned by any real allocator will ever be this low; a
         // computed PassGroup pointer at or below this floor can only be
@@ -129,12 +154,12 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         {
             auto& trampoline = SKSE::GetTrampoline();
             for (const auto& site : a_sites) {
-                REL::Relocation<std::uintptr_t> patch{ REL::Offset{ site.patchOffset } };
+                REL::Relocation<std::uintptr_t> patch{ site.patchAddress };
                 if (!a_matches(patch.address())) {
-                    logger::warn("batchrenderer renderpass array UAF fix: unexpected bytes at {:X}, skipping site"sv, site.patchOffset);
+                    logger::warn("batchrenderer renderpass array UAF fix: unexpected bytes at {:X}, skipping site"sv, site.patchAddress);
                     continue;
                 }
-                PatchT p{ REL::Relocation<std::uintptr_t>{ REL::Offset{ site.resumeOffset } }.address() };
+                PatchT p{ site.resumeAddress };
                 p.ready();
                 patch.write_branch<5>(trampoline.allocate(p));
             }
@@ -143,12 +168,16 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
 
     inline void Install()
     {
-        if (REL::Module::IsVR())
-            detail::PatchSites<detail::Patch>(detail::kSitesVR, detail::SiteMatchesVR);
-        else if (REL::Module::IsAE())
-            detail::PatchSites<detail::PatchSE>(detail::kSitesAE, detail::SiteMatchesSE);
-        else
-            detail::PatchSites<detail::PatchSE>(detail::kSitesSE, detail::SiteMatchesSE);
+        if (REL::Module::IsVR()) {
+            const auto sites = detail::SitesVR();
+            detail::PatchSites<detail::Patch>(sites, detail::SiteMatchesVR);
+        } else if (REL::Module::IsAE()) {
+            const auto sites = detail::SitesAE();
+            detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
+        } else {
+            const auto sites = detail::SitesSE();
+            detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
+        }
 
         logger::info("installed batchrenderer renderpass array UAF fix"sv);
     }
