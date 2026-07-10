@@ -19,9 +19,10 @@
 // AND+MOV) -- same underlying bug, same guard, different patch site per
 // runtime.
 //
-// Address-library coverage is uneven across runtimes for this function, so
-// only SE anchors off a catalogued ID; VR and AE still use raw, disassembly-
-// resolved offsets (see the comments at each array below for why).
+// Address-library coverage is uneven across runtimes for this function: SE
+// and AE both anchor off catalogued IDs (100853 and 107643 respectively --
+// separate numeric spaces per runtime); VR still uses a raw, disassembly-
+// resolved offset (see the comment at that array below for why).
 
 namespace Fixes::BatchRendererRenderPassArrayUAF
 {
@@ -59,16 +60,17 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             } };
         }
 
-        // BSBatchRenderer::sub (static addr 0x1414f3d30); ID 100853 (SE's
-        // anchor for this same function) has no entry for the 1.6.1170
-        // target version -- only stale 1.6.318/1.6.353 addresses exist, which
-        // don't apply -- so this stays a raw, disassembly-resolved offset,
-        // adjacent to the known sub_SE100852_AE107642 at 0x1414f39c0.
+        // BSBatchRenderer::sub -- AE uses a separate numeric ID space from SE
+        // (see se_ae.csv), so SE's 100853 doesn't carry over; ID 107643
+        // resolves to this exact function's start on the 1.6.1170 target
+        // (confirmed: Ghidra's own address-library-derived symbol for this
+        // address is already sub_SE100853_AE107643). Patch/resume are the
+        // same fixed deltas (0x57/0x6D) as SE, since the two are byte-identical.
         inline std::array<Site, 1> SitesAE()
         {
             return { {
-                { REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14F3D87 } }.address(),
-                    REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14F3D9D } }.address() },
+                { REL::Relocation<std::uintptr_t>{ REL::ID(107643), 0x57 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(107643), 0x6D }.address() },
             } };
         }
 
