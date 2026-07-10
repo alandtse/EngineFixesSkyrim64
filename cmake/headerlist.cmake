@@ -4,6 +4,7 @@ set(headers ${headers}
 	src/fixes/ability_condition_bug.h
 	src/fixes/animation_load_signed_crash.h
 	src/fixes/archery_downward_aiming.h
+	src/fixes/batchrenderer_renderpass_array_uaf.h
 	src/fixes/bethesda_net_crash.h
 	src/fixes/buy_sell_stack_speech_gain.h
 	src/fixes/bgskeywordform_load_crash.h
