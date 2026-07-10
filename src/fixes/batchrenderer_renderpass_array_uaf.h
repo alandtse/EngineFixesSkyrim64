@@ -75,16 +75,28 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             {
                 Xbyak::Label skipLbl, resumeAddr;
 
+                // `xor ebx,ebx` is NOT just scratch setup for the write below --
+                // RBX/EBX gets persisted into three globals a few instructions
+                // after the resume point (a "last processed pass" cache), and
+                // the original code guarantees it's always zero here on EVERY
+                // path through this region (this block's own xor, or the
+                // xor on the function's other pre-existing branch that also
+                // converges before those global writes). Zero it unconditionally
+                // so the guard preserves that invariant instead of leaking
+                // whatever stale value RBX held before this site.
+                xor_(ebx, ebx);
+
                 cmp(rdx, kMinPlausiblePointer);
                 jb(skipLbl);
 
-                // Valid pointer: reproduce the original writes.
+                // Valid pointer: reproduce the original write (already zeroed
+                // ebx above, so just the AND and the MOV remain).
                 and_(dword[rdx + 0x28], ebp);
-                xor_(ebx, ebx);
                 mov(qword[rdx + rcx * 8], rbx);
 
                 // renderPass._data was freed: skip straight here either way,
-                // resuming at the next pointer-independent instruction.
+                // resuming at the next instruction -- ebx is already zeroed,
+                // and rdx is not touched again.
                 L(skipLbl);
                 jmp(ptr[rip + resumeAddr]);
 
