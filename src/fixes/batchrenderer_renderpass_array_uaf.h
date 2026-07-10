@@ -13,11 +13,11 @@
 // vftable can; the guard instead checks the pointer against a floor no real
 // allocation ever returns and skips the write if it looks freed.
 //
-// SE/AE split this logic into a separate helper (BSBatchRenderer::sub_*,
-// called from BSShaderAccumulator::RenderBatches) rather than VR's monolithic
-// function, with a different write shape (a 6-field zero-clear vs. VR's
-// AND+MOV) -- same underlying bug, same guard, different patch site per
-// runtime.
+// SE/AE split this logic into a separate helper (BSBatchRenderer::
+// GetRenderPassIndex, called from BSShaderAccumulator::RenderBatches) rather
+// than VR's monolithic function, with a different write shape (a 6-field
+// zero-clear vs. VR's AND+MOV) -- same underlying bug, same guard, different
+// patch site per runtime.
 //
 // Address-library coverage is uneven across runtimes for this function: SE
 // and AE both anchor off catalogued IDs (100853 and 107643 respectively --
@@ -48,10 +48,9 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             } };
         }
 
-        // BSBatchRenderer::sub_1413083B0 -- address-library ID 100853 resolves
-        // to this exact function's start on SE (confirmed no AE entry exists
-        // for this ID as of writing, so AE keeps a raw offset below); patch/
-        // resume sites are fixed deltas (0x57/0x6D) from that start.
+        // BSBatchRenderer::GetRenderPassIndex -- address-library ID 100853
+        // resolves to this exact function's start on SE; patch/resume sites
+        // are fixed deltas (0x57/0x6D) from that start.
         inline std::array<Site, 1> SitesSE()
         {
             return { {
@@ -60,12 +59,11 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             } };
         }
 
-        // BSBatchRenderer::sub -- AE uses a separate numeric ID space from SE
-        // (see se_ae.csv), so SE's 100853 doesn't carry over; ID 107643
-        // resolves to this exact function's start on the 1.6.1170 target
-        // (confirmed: Ghidra's own address-library-derived symbol for this
-        // address is already sub_SE100853_AE107643). Patch/resume are the
-        // same fixed deltas (0x57/0x6D) as SE, since the two are byte-identical.
+        // BSBatchRenderer::GetRenderPassIndex -- AE uses a separate numeric ID
+        // space from SE (see se_ae.csv), so SE's 100853 doesn't carry over;
+        // ID 107643 resolves to this exact function's start on the 1.6.1170
+        // target. Patch/resume are the same fixed deltas (0x57/0x6D) as SE,
+        // since the two are byte-identical.
         inline std::array<Site, 1> SitesAE()
         {
             return { {
