@@ -19,6 +19,7 @@
 #include "console_save_deadlock.h"
 #include "copybonetransform_null_crash.h"
 #include "create_armor_node_nullptr_crash.h"
+#include "culling_freed_object_crash.h"
 #include "double_perk_apply.h"
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
@@ -40,6 +41,7 @@
 #include "precomputed_paths.h"
 #include "removed_spellbook.h"
 #include "saved_havok_data_load_init.h"
+#include "scene_graph_detach_freed_crash.h"
 #include "shadow_scene_crash.h"
 #include "shadowscenenode_nullptr_crash.h"
 #include "sky_update_clouds_nullptr_crash.h"
@@ -198,5 +200,11 @@ namespace Fixes
 
         if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
             LockpickingMenuInitCrash::Install();
+
+        if (Settings::Fixes::bCullingFreedObjectCrash.GetValue())
+            CullingFreedObjectCrash::Install();
+
+        if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
+            SceneGraphDetachFreedCrash::Install();
     }
 }
