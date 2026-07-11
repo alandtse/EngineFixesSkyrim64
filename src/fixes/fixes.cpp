@@ -3,6 +3,7 @@
 #include "ability_condition_bug.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
+#include "batchrenderer_renderpass_array_uaf.h"
 #include "bethesda_net_crash.h"
 #include "bgskeywordform_load_crash.h"
 #include "bslightingambientspecular.h"
@@ -198,5 +199,8 @@ namespace Fixes
 
         if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
             LockpickingMenuInitCrash::Install();
+
+        if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
+            BatchRendererRenderPassArrayUAF::Install();
     }
 }
