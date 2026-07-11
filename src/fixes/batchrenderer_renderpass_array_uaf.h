@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 // BSBatchRenderer keeps a technique-ID -> index map (renderPassMap) alongside
 // the array it indexes into (renderPass / a_this->shaderProperty on SE/AE).
 // If that backing storage is freed/reallocated while the map still holds a
@@ -90,7 +92,7 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
                 xor_(ebx, ebx);
 
                 cmp(rdx, kMinPlausiblePointer);
-                jb(skipLbl);
+                jbe(skipLbl);
 
                 and_(dword[rdx + 0x28], ebp);
                 mov(qword[rdx + rcx * 8], rbx);
@@ -103,12 +105,15 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             }
         };
 
-        // AND dword ptr [RDX+0x28],EBP -- guards against offset drift
-        // patching an unrelated instruction stream.
+        // Full 9-byte block: AND [RDX+0x28],EBP; XOR EBX,EBX; MOV [RDX+RCX*8],RBX.
+        // Validated in full (not just the leading opcode) since the patch
+        // overwrites all 9 bytes and the skip path relies on nothing past
+        // them having drifted.
         inline bool SiteMatchesVR(std::uintptr_t a_addr)
         {
-            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
-            return p[0] == 0x21 && p[1] == 0x6A && p[2] == 0x28;
+            static constexpr std::uint8_t kExpected[] = { 0x21, 0x6A, 0x28, 0x33, 0xDB, 0x48, 0x89, 0x1C, 0xCA };
+            const auto*                   p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
         }
 
         // 22-byte site (5 qword MOVs + 1 dword MOV from RDI), likewise too
@@ -120,7 +125,7 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
                 Xbyak::Label skipLbl, resumeAddr;
 
                 cmp(rcx, kMinPlausiblePointer);
-                jb(skipLbl);
+                jbe(skipLbl);
 
                 // RDI is zeroed at function entry and never reassigned
                 // before this site, and is restored to the caller's value
@@ -142,17 +147,24 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             }
         };
 
-        // Expected bytes at the SE site: MOV [RCX],RDI == 48 89 39.
+        // Full 22-byte block: 5x MOV qword [RCX+n],RDI, then MOV dword
+        // [RCX+0x28],EDI. Validated in full for the same reason as
+        // SiteMatchesVR -- the patch overwrites the whole block.
         inline bool SiteMatchesSE(std::uintptr_t a_addr)
         {
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x89, 0x39, 0x48, 0x89, 0x79, 0x08, 0x48, 0x89, 0x79, 0x10,
+                0x48, 0x89, 0x79, 0x18, 0x48, 0x89, 0x79, 0x20, 0x89, 0x79, 0x28
+            };
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
-            return p[0] == 0x48 && p[1] == 0x89 && p[2] == 0x39;
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
         }
 
         template <class PatchT>
-        inline void PatchSites(std::span<const Site> a_sites, bool (*a_matches)(std::uintptr_t))
+        inline std::size_t PatchSites(std::span<const Site> a_sites, bool (*a_matches)(std::uintptr_t))
         {
-            auto& trampoline = SKSE::GetTrampoline();
+            auto&       trampoline = SKSE::GetTrampoline();
+            std::size_t installed = 0;
             for (const auto& site : a_sites) {
                 REL::Relocation<std::uintptr_t> patch{ site.patchAddress };
                 if (!a_matches(patch.address())) {
@@ -162,23 +174,30 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
                 PatchT p{ site.resumeAddress };
                 p.ready();
                 patch.write_branch<5>(trampoline.allocate(p));
+                ++installed;
             }
+            return installed;
         }
     }
 
     inline void Install()
     {
+        std::size_t installed = 0;
         if (REL::Module::IsVR()) {
             const auto sites = detail::SitesVR();
-            detail::PatchSites<detail::Patch>(sites, detail::SiteMatchesVR);
+            installed = detail::PatchSites<detail::Patch>(sites, detail::SiteMatchesVR);
         } else if (REL::Module::IsAE()) {
             const auto sites = detail::SitesAE();
-            detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
+            installed = detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
         } else {
             const auto sites = detail::SitesSE();
-            detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
+            installed = detail::PatchSites<detail::PatchSE>(sites, detail::SiteMatchesSE);
         }
 
-        logger::info("installed batchrenderer renderpass array UAF fix"sv);
+        if (installed > 0) {
+            logger::info("installed batchrenderer renderpass array UAF fix"sv);
+        } else {
+            logger::warn("batchrenderer renderpass array UAF fix: no sites matched, not installed"sv);
+        }
     }
 }
