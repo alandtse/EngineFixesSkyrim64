@@ -45,6 +45,7 @@
     X(Bool, bGlobalTime, true, "fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix")                                                               \
     X(Bool, bInitializeHitDataNullPtrCrash, true, "fixes a crash on melee hit that unequipped the weapon at the same time")                                                                                         \
     X(Bool, bIsPlayerInRegionParentCellCheck, true, "(VR-only) fixes a crash in IsPlayerInRegion caused by missing parent-cell null checks that SE added but VR lacks")                                             \
+    X(Bool, bKeyboardPollScancodeOOBCrash, true, "fixes a crash in BSWin32KeyboardDevice::Poll caused by an unbounded array index when DirectInput returns a malformed keyboard scancode")                          \
     X(Bool, bLipSync, true, "fixes a bug causing lip sync to desync")                                                                                                                                               \
     X(Bool, bMemoryAccessErrors, true, "fixes miscellaneous errors that are obscured by Skyrim's default allocator")                                                                                                \
     X(Bool, bMO5STypo, true, "fixes a typo preventing the game from loading MO5S entries in ARMA forms")                                                                                                            \
