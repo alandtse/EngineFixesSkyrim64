@@ -24,11 +24,17 @@ namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
     // The trampoline re-runs the displaced load only when rigidBody is non-null; otherwise it
     // substitutes 0 (as if referencedObject were also null) and resumes at the following
     // `test rax,rax`, which then takes its existing null path unchanged.
+    //
+    // BGSAcousticSpaceListener::Unk_07 (an added virtual beyond hkpEntityListener's interface,
+    // fired when something touches/overlaps the acoustic space) runs the same identity check and
+    // has the identical unguarded rigidBody dereference; it gets the same treatment below. Address
+    // library id 25155 (AE id 25677). AE allocates the load's destination to rax; SE/VR allocate it
+    // to rcx -- otherwise the same guard.
     namespace detail
     {
-        struct Patch final : Xbyak::CodeGenerator
+        struct EntityRemovedPatch final : Xbyak::CodeGenerator
         {
-            Patch(std::uintptr_t a_resume)
+            EntityRemovedPatch(std::uintptr_t a_resume)
             {
                 test(rcx, rcx);
                 jz("null");
@@ -41,17 +47,59 @@ namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
                 dq(a_resume);
             }
         };
+
+        struct Unk07PatchAE final : Xbyak::CodeGenerator
+        {
+            Unk07PatchAE(std::uintptr_t a_resume)
+            {
+                test(rdx, rdx);
+                jz("null");
+                mov(rax, qword[rdx + 0x10]);
+                jmp(ptr[rip]);
+                dq(a_resume);
+                L("null");
+                xor_(eax, eax);
+                jmp(ptr[rip]);
+                dq(a_resume);
+            }
+        };
+
+        struct Unk07PatchSEVR final : Xbyak::CodeGenerator
+        {
+            Unk07PatchSEVR(std::uintptr_t a_resume)
+            {
+                test(rdx, rdx);
+                jz("null");
+                mov(rcx, qword[rdx + 0x10]);
+                jmp(ptr[rip]);
+                dq(a_resume);
+                L("null");
+                xor_(ecx, ecx);
+                jmp(ptr[rip]);
+                dq(a_resume);
+            }
+        };
     }
 
     inline void Install()
     {
-        REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(25154, 25676), VAR_NUM(0x32, 0x36, 0x32) };
-
         auto& trampoline = SKSE::GetTrampoline();
 
-        detail::Patch p(patch.address() + 0x4);
-        p.ready();
-        patch.write_branch<5>(trampoline.allocate(p));
+        REL::Relocation<std::uintptr_t> entityRemoved{ RELOCATION_ID(25154, 25676), VAR_NUM(0x32, 0x36, 0x32) };
+        detail::EntityRemovedPatch      entityRemovedPatch(entityRemoved.address() + 0x4);
+        entityRemovedPatch.ready();
+        entityRemoved.write_branch<5>(trampoline.allocate(entityRemovedPatch));
+
+        REL::Relocation<std::uintptr_t> unk07{ RELOCATION_ID(25155, 25677), VAR_NUM(0x49, 0x4F, 0x49) };
+        if (REL::Module::IsAE()) {
+            detail::Unk07PatchAE p(unk07.address() + 0x4);
+            p.ready();
+            unk07.write_branch<5>(trampoline.allocate(p));
+        } else {
+            detail::Unk07PatchSEVR p(unk07.address() + 0x4);
+            p.ready();
+            unk07.write_branch<5>(trampoline.allocate(p));
+        }
 
         logger::info("installed acoustic space listener null rigidbody crash fix"sv);
     }
