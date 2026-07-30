@@ -16,7 +16,8 @@ namespace Fixes::ActorValueStorageClearRaceCrash
     // Fix: move the `actorValues` reset to *before* UnlockWrite so `entries == nullptr` and
     // `actorValues == ""` become visible together, closing the torn window. The identical
     // bug exists in the neighboring wrapper that clears the sibling LocalMap<Modifiers> (at
-    // this+0x10/this+0x18) before tail-calling into ClearBaseValues; same fix applied there.
+    // this+0x10/this+0x18) before tail-calling into ClearBaseValues (id 38071/39026); same
+    // fix applied there.
     // A defensive guard is also added to SetBaseValue itself as a backstop, since a torn
     // `entries == nullptr && actorValues != ""` state -- however it arises -- is unsafe on
     // every branch of SetBaseValue, not just the one hit in the crash log:
@@ -143,10 +144,14 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         }
 
         // --- Fix 2: sibling wrapper -- same bug clearing LocalMap<Modifiers> at +0x10/+0x18
-        //     before tail-calling into ClearBaseValues. No address-library id yet. ---
+        //     before tail-calling into ClearBaseValues. id 38071/39026 registered in
+        //     skyrim_vr_address_library#176; requires that PR to merge and a new release
+        //     to ship before this id resolves (same dependency as #176's other ids). The
+        //     signature check below still fails closed (skip+warn) if the id is stale or
+        //     unresolved.
         {
-            REL::Relocation<std::uintptr_t> patch{ REL::VariantOffset(0x63ED7D, 0x6D1356, 0x647E0D) };
-            REL::Relocation<std::uintptr_t> resume{ REL::VariantOffset(0x63ED86, 0x6D1363, 0x647E16) };
+            REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38071, 39026), VAR_NUM(0x9D, 0x96, 0x9D) };
+            REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38071, 39026), VAR_NUM(0xA6, 0xA3, 0xA6) };
 
             const bool matches = isAE ? detail::BytesMatch(patch.address(), { 0x48, 0x8D, 0x0D }) :
                                         detail::BytesMatch(patch.address(), { 0x49, 0x8B, 0xCE });
