@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 namespace Fixes::KeyboardPollScancodeOOBCrash
 {
     // Vanilla out-of-bounds crash in BSWin32KeyboardDevice::Poll's buffered-event loop.
@@ -26,6 +28,25 @@ namespace Fixes::KeyboardPollScancodeOOBCrash
     // skipping the malformed event entirely instead of trusting it.
     namespace detail
     {
+        // Full 5-byte flat (SE/AE) block: MOV R14D,[RBX+RAX*8+0x78]. REX.R (0x44)
+        // selects r14 as the reg field; disp8 fits since 0x78 <= 0x7F.
+        inline bool SignatureMatchesFlat(std::uintptr_t a_addr)
+        {
+            static constexpr std::uint8_t kExpected[] = { 0x44, 0x8B, 0x74, 0xC3, 0x78 };
+            const auto*                   p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
+        }
+
+        // Full 8-byte VR block: MOV R14D,[RBX+RCX*8+0x80]. Displacement 0x80
+        // overflows imm8's signed range, forcing the disp32 encoding (mod=10)
+        // instead of flat's disp8 (mod=01) -- the extra 3 bytes noted above.
+        inline bool SignatureMatchesVR(std::uintptr_t a_addr)
+        {
+            static constexpr std::uint8_t kExpected[] = { 0x44, 0x8B, 0xB4, 0xCB, 0x80, 0x00, 0x00, 0x00 };
+            const auto*                   p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
+        }
+
         struct FlatPatch final : Xbyak::CodeGenerator
         {
             FlatPatch(std::uintptr_t a_resume, std::uintptr_t a_skip)
@@ -62,9 +83,15 @@ namespace Fixes::KeyboardPollScancodeOOBCrash
         REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(67472, 68782), VAR_NUM(0xDB, 0xDC, 0xE0) };
         REL::Relocation<std::uintptr_t> skip{ RELOCATION_ID(67472, 68782), VAR_NUM(0x232, 0x2F0, 0x1D9) };
 
+        const bool isVR = REL::Module::IsVR();
+        if (isVR ? !detail::SignatureMatchesVR(patch.address()) : !detail::SignatureMatchesFlat(patch.address())) {
+            logger::warn("keyboard poll scancode out-of-bounds crash fix: unexpected bytes at patch site, skipping"sv);
+            return;
+        }
+
         auto& trampoline = SKSE::GetTrampoline();
 
-        if (REL::Module::IsVR()) {
+        if (isVR) {
             detail::VRPatch p(patch.address() + 0x8, skip.address());
             p.ready();
             patch.write_branch<5>(trampoline.allocate(p));
