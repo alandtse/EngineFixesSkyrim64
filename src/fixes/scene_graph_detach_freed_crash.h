@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstdint>
+#include <cstring>
+
 // Fix for a use-after-free crash in the scene-graph downward-visit traversal,
 // exposed by Community Shaders background shader compilation.
 //
@@ -27,6 +30,10 @@
 // `TEST RCX,RCX (3) + JZ rel32 (6)` prologue are identical on SE/AE/VR; only the addresses
 // differ (resolved per runtime). VR is where this bites (stereo widens the streaming race),
 // but the traversal is shared, so SE/AE are covered for completeness.
+//
+// The exit address is not stored separately: it is decoded from the JZ rel32 at the site's
+// own entry, so the exit can never drift out of sync with the prologue bytes the signature
+// check already validates.
 
 namespace Fixes::SceneGraphDetachFreedCrash
 {
@@ -34,16 +41,15 @@ namespace Fixes::SceneGraphDetachFreedCrash
     {
         struct Site
         {
-            std::uintptr_t entryOffset;  // function entry: TEST RCX,RCX; JZ exit
-            std::uintptr_t exitOffset;   // the JZ target (clean pre-prologue return)
+            std::uintptr_t entryOffset;  // function entry: TEST RCX,RCX; JZ <rel32>
         };
 
-        // sizeof(TEST RCX,RCX) + sizeof(JZ rel32) = 3 + 6; resume = entry + 9.
+        // sizeof(TEST RCX,RCX) + sizeof(JZ rel32) = 3 + (2 opcode + 4 rel32); resume = entry + 9.
         inline constexpr std::uintptr_t kPrologueLen = 9;
 
-        inline constexpr Site kSiteVR{ 0xDFDCF0, 0xDFDDBA };
-        inline constexpr Site kSiteAE{ 0xE87DF0, 0xE87EBA };
-        inline constexpr Site kSiteSE{ 0xDA8D70, 0xDA8E3A };
+        inline constexpr Site kSiteVR{ 0xDFDCF0 };
+        inline constexpr Site kSiteAE{ 0xE87DF0 };
+        inline constexpr Site kSiteSE{ 0xDA8D70 };
 
         struct Patch final : Xbyak::CodeGenerator
         {
@@ -100,9 +106,13 @@ namespace Fixes::SceneGraphDetachFreedCrash
             return;
         }
 
-        detail::Patch p{ moduleBase, moduleEnd,
-            entry.address() + detail::kPrologueLen,
-            REL::Relocation<std::uintptr_t>{ REL::Offset{ site.exitOffset } }.address() };
+        // Decode the JZ rel32 (bytes 5-8) to derive the exit address directly from the
+        // validated prologue, rather than trusting a separately-hardcoded offset.
+        std::int32_t rel32;
+        std::memcpy(&rel32, bytes + 5, sizeof(rel32));
+        const auto exit = entry.address() + detail::kPrologueLen + rel32;
+
+        detail::Patch p{ moduleBase, moduleEnd, entry.address() + detail::kPrologueLen, exit };
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
