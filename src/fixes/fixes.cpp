@@ -30,6 +30,7 @@
 #include "global_time.h"
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
+#include "keyboard_poll_scancode_oob_crash.h"
 #include "lip_sync.h"
 #include "lockpicking_menu_init_crash.h"
 #include "memory_access_errors.h"
@@ -129,6 +130,9 @@ namespace Fixes
 
         if (Settings::Fixes::bIsPlayerInRegionParentCellCheck.GetValue())
             IsPlayerInRegionParentCellCheck::Install();
+
+        if (Settings::Fixes::bKeyboardPollScancodeOOBCrash.GetValue())
+            KeyboardPollScancodeOOBCrash::Install();
 
         if (Settings::Fixes::bLipSync.GetValue())
             LipSync::Install();
