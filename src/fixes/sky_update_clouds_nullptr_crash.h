@@ -47,7 +47,9 @@ namespace Fixes::SkyUpdateCloudsNullPtrCrash
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        target.write_branch<5>(trampoline.allocate(p));
+        // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers (SE/AE only --
+        // doesn't overlap on VR's layout).
+        target.write_branch<5>(trampoline.allocate(p), false, 0x9087007B5A1020EULL);
 
         logger::info("installed Sky::UpdateClouds null cloud crash fix"sv);
     }

@@ -130,7 +130,8 @@ namespace Fixes::TriShapeReleaseBufferGuard
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        target.write_branch<5>(trampoline.allocate(p));
+        // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers, identical on SE/AE and VR.
+        target.write_branch<5>(trampoline.allocate(p), false, 0x4A99F519CEB2708DULL);
 
         logger::info("installed trishape release buffer guard"sv);
     }

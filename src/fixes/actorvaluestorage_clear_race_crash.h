@@ -139,7 +139,9 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             } else {
                 detail::ResetBeforeUnlockPatch p(resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0);
                 p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
+                // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers into the
+                // clobbered+orphan range on SE/AE or VR.
+                patch.write_branch<5>(trampoline.allocate(p), false, 0xA0EC9A68EA31A37BULL);
             }
         }
 
@@ -160,7 +162,9 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             } else {
                 detail::ResetBeforeUnlockPatch p(resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0x10);
                 p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
+                // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers into the
+                // clobbered+orphan range on SE/AE or VR.
+                patch.write_branch<5>(trampoline.allocate(p), false, 0xB0ADFBE81818D7D1ULL);
             }
         }
 
@@ -177,7 +181,9 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             } else {
                 detail::NullEntriesGuardPatch p(lockAddr, unlockFunc, resume.address(), isAE);
                 p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
+                // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers into the
+                // clobbered+orphan range on SE/AE or VR.
+                patch.write_branch<5>(trampoline.allocate(p), false, 0x4ABBE119CECF34F7ULL);
             }
         }
 

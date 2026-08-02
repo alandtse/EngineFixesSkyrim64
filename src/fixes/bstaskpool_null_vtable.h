@@ -78,8 +78,9 @@ namespace Fixes::BSTaskPoolNullVtableCrash
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        target.write_branch<5>(trampoline.allocate(p));
-        // Byte at target+5 (0xCE, orphaned tail of MOV RCX,R14) is unreachable.
+        // Byte at target+5 (0xCE, orphaned tail of MOV RCX,R14) is unreachable. Hash
+        // verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers, identical on SE/AE and VR.
+        target.write_branch<5>(trampoline.allocate(p), false, 0x3EC0C719C7155B29ULL);
 
         logger::info("installed BSTaskPool null vtable crash fix"sv);
     }

@@ -42,7 +42,9 @@ namespace Fixes::LightingShaderNullTextureCrash
             detail::Patch p(target.address() + 0x8);  // +4 (load) +4 (mov edx,[r8+0x70])
             p.ready();
             auto& trampoline = SKSE::GetTrampoline();
-            target.write_branch<5>(trampoline.allocate(p));
+            // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers (SE/AE only --
+            // doesn't overlap on VR's layout).
+            target.write_branch<5>(trampoline.allocate(p), false, 0x2CD8758A4966A1ADULL);
 
             logger::info("installed lighting shader null texture crash fix"sv);
         } else {

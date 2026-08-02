@@ -82,7 +82,9 @@ namespace Fixes::NiTimeControllerNoTarget
 
             Patch p(target.address(), SKSE::stl::unrestricted_cast<std::uintptr_t>(ShouldProcess));
             p.ready();
-            target.write_branch<5>(trampoline.allocate(p));
+            // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers (AE only --
+            // doesn't overlap on VR's layout).
+            target.write_branch<5>(trampoline.allocate(p), false, 0x19A2BCD01F4F7BE7ULL);
         }
     }
 

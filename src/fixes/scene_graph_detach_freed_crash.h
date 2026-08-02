@@ -116,7 +116,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        entry.write_branch<5>(trampoline.allocate(p));
+        // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers, identical on SE/AE and VR.
+        entry.write_branch<5>(trampoline.allocate(p), false, 0xEA30A8AB6572B91FULL);
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
     }

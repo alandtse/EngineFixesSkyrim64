@@ -50,7 +50,10 @@ namespace Fixes::FaceGenMorphDataHeadNullPtrCrash
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        target.write_branch<5>(trampoline.allocate(p));
+        // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers into the
+        // clobbered+orphan range; line below immediately NOP-fills the rest of it anyway.
+        // Differs per runtime -- bytes at the orphan address aren't identical SE/AE vs VR.
+        target.write_branch<5>(trampoline.allocate(p), false, REL::Module::IsVR() ? 0x7FE6E02F02EBCEAULL : 0x348F214DD731814DULL);
 
         REL::Relocation<std::uintptr_t> nopTarget{ RELOCATION_ID(26343, 26918), 0x51 };
         nopTarget.write_fill(REL::NOP, 0x5);

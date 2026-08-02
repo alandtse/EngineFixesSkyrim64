@@ -50,7 +50,9 @@ namespace Fixes::SaveScreenshots
                 IsSaveRequest_Code code(BGSSaveLoadManager_ProcessEvents_RequestScreenshot.address());
                 code.ready();
 
-                BGSSaveLoadManager_ProcessEvents_RequestScreenshot.write_branch<6>(trampoline.allocate(code));
+                // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers (VR only --
+                // doesn't overlap on SE/AE's layout).
+                BGSSaveLoadManager_ProcessEvents_RequestScreenshot.write_branch<6>(trampoline.allocate(code), false, 0x7815BE58505E624BULL);
             }
             // use menu fix for DoF+TAA Disabled ingame requests
             else {
@@ -185,7 +187,9 @@ namespace Fixes::SaveScreenshots
                 ScreenshotRender_Code code(ScreenshotJnz.address(), ScreenshotRenderOrigJnz.address());
                 code.ready();
 
-                ScreenshotJnz.write_branch<6>(trampoline.allocate(code));
+                // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers on SE/AE and
+                // VR. Differs per runtime -- bytes at the orphan address aren't identical.
+                ScreenshotJnz.write_branch<6>(trampoline.allocate(code), false, REL::Module::IsVR() ? 0xEE8B50507A7E5BC7ULL : 0xE76172F836795454ULL);
             }
 
             // flicker version of fix, checks for screenshot requested from open menu

@@ -79,7 +79,8 @@ namespace Fixes::ShadowSceneCrash
         auto& trampoline = SKSE::GetTrampoline();
         // write_branch writes a 5-byte JMP at the target site.
         // Bytes 5-8 become unreachable dead code (not executed), so no explicit NOP fill needed.
-        target.write_branch<5>(trampoline.allocate(p));
+        // Hash verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers.
+        target.write_branch<5>(trampoline.allocate(p), false, 0x4ABBF219CECF51DAULL);
 
         logger::info("installed shadow scene crash fix (VR)"sv);
     }

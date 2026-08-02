@@ -251,7 +251,9 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
                 }
                 PatchT p{ site.resumeAddress };
                 p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
+                // Hash verified 2026-08-01 for whichever of the 2 sites overlaps (only one
+                // does): 0 code xrefs, 0 stored/vtable pointers, identical on SE/AE and VR.
+                patch.write_branch<5>(trampoline.allocate(p), false, 0xDC4AC3DA72A38D83ULL);
                 ++installed;
             }
             return installed;

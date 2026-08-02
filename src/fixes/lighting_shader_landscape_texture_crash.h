@@ -55,22 +55,23 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             REL::Relocation<std::uintptr_t> diffuseBase{ REL::Offset{ 0x14DC310 + 0x2E8 } };
             Patch                           pDiffuseBase(diffuseBase.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pDiffuseBase.ready();
-            diffuseBase.write_branch<5>(trampoline.allocate(pDiffuseBase));
+            // All 4 hashes verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers.
+            diffuseBase.write_branch<5>(trampoline.allocate(pDiffuseBase), false, 0x4A99EC19CEB26142ULL);
 
             REL::Relocation<std::uintptr_t> normalBase{ REL::Offset{ 0x14DC310 + 0x315 } };
             Patch                           pNormalBase(normalBase.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pNormalBase.ready();
-            normalBase.write_branch<5>(trampoline.allocate(pNormalBase));
+            normalBase.write_branch<5>(trampoline.allocate(pNormalBase), false, 0x4A99EC19CEB26142ULL);
 
             REL::Relocation<std::uintptr_t> diffuseLayer{ REL::Offset{ 0x14DC310 + 0x36F } };
             Patch                           pDiffuseLayer(diffuseLayer.address() + 0x7, Xbyak::util::rcx, Xbyak::util::rax);
             pDiffuseLayer.ready();
-            diffuseLayer.write_branch<5>(trampoline.allocate(pDiffuseLayer));
+            diffuseLayer.write_branch<5>(trampoline.allocate(pDiffuseLayer), false, 0x4A99F519CEB2708DULL);
 
             REL::Relocation<std::uintptr_t> normalLayer{ REL::Offset{ 0x14DC310 + 0x3DE } };
             Patch                           pNormalLayer(normalLayer.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pNormalLayer.ready();
-            normalLayer.write_branch<5>(trampoline.allocate(pNormalLayer));
+            normalLayer.write_branch<5>(trampoline.allocate(pNormalLayer), false, 0x4A99EC19CEB26142ULL);
 
             logger::info("installed lighting shader landscape texture crash fix (ae)"sv);
         }
@@ -95,22 +96,23 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             REL::Relocation<std::uintptr_t> diffuseBase{ REL::ID(100588), 0x7 };
             Patch                           pDiffuseBase(diffuseBase.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pDiffuseBase.ready();
-            diffuseBase.write_branch<5>(trampoline.allocate(pDiffuseBase));
+            // All 4 hashes verified 2026-08-01: 0 code xrefs, 0 stored/vtable pointers.
+            diffuseBase.write_branch<5>(trampoline.allocate(pDiffuseBase), false, 0x4A99EC19CEB26142ULL);
 
             REL::Relocation<std::uintptr_t> normalBase{ REL::ID(100588), 0x2F };
             Patch                           pNormalBase(normalBase.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pNormalBase.ready();
-            normalBase.write_branch<5>(trampoline.allocate(pNormalBase));
+            normalBase.write_branch<5>(trampoline.allocate(pNormalBase), false, 0x4A99EC19CEB26142ULL);
 
             REL::Relocation<std::uintptr_t> diffuseLayer{ REL::ID(100588), 0x7E };
             Patch                           pDiffuseLayer(diffuseLayer.address() + 0x7, Xbyak::util::rcx, Xbyak::util::rax);
             pDiffuseLayer.ready();
-            diffuseLayer.write_branch<5>(trampoline.allocate(pDiffuseLayer));
+            diffuseLayer.write_branch<5>(trampoline.allocate(pDiffuseLayer), false, 0x4A99F519CEB2708DULL);
 
             REL::Relocation<std::uintptr_t> normalLayer{ REL::ID(100588), 0xE6 };
             Patch                           pNormalLayer(normalLayer.address() + 0x7, Xbyak::util::rax, Xbyak::util::rax);
             pNormalLayer.ready();
-            normalLayer.write_branch<5>(trampoline.allocate(pNormalLayer));
+            normalLayer.write_branch<5>(trampoline.allocate(pNormalLayer), false, 0x4A99EC19CEB26142ULL);
 
             logger::info("installed lighting shader landscape texture crash fix (se/vr)"sv);
         }
