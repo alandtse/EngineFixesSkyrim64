@@ -27,6 +27,7 @@
     X(Bool, bBSLightingShaderForceAlphaTest, true, "fixes object LOD reflections by forcing alpha test flag on when NiAlphaProperty/AlphaTest is true")                                                             \
     X(Bool, bBSLightingShaderParallaxBug, true, "fixes a bug causing the parallax technique to break if specular is not also set")                                                                                  \
     X(Bool, bBSLightingShaderPropertyShadowMap, true, "fixes re-use of render passes when a light has multiple shadow map passes")                                                                                  \
+    X(Bool, bBatchRendererRenderPassArrayUAF, true, "guards BSBatchRenderer render-pass array writes when a stale technique lookup resolves after its backing storage was freed or reallocated")                    \
     X(Bool, bBSTaskPoolNullVtableCrash, true, "fixes a crash in BSTaskPool when an actor is freed while a pathfinding task is still pending")                                                                       \
     X(Bool, bBSTempEffectNiRTTI, true, "fixes a bug where the NiRTTI for this object is not set properly")                                                                                                          \
     X(Bool, bCalendarSkipping, true, "fixes a bug where the game calendar effectively skips a year if you fast travel too far between 20:00 and 23:99 in-game")                                                     \
@@ -35,6 +36,7 @@
     X(Bool, bConjurationEnchantAbsorbs, true, "fixes a bug where spell absorption triggers on enchanted items using conjuration summons")                                                                           \
     X(Bool, bConsoleSaveDeadlock, true, "fixes a deadlock (permanent hang, no crash) when the console 'save' command executes off the main thread, e.g. issued programmatically via Console::ExecuteCommand")       \
     X(Bool, bCreateArmorNodeNullPtrCrash, true, "fixes typo that may cause a crash somewhere in CreateArmorNode")                                                                                                   \
+    X(Bool, bCullingFreedObjectCrash, true, "guards cull traversal against dispatch through a scene object's freed or reused vftable during cell streaming")                                                        \
     X(Bool, bDoublePerkApply, true, "fixes NPC perks applying twice when you load a game")                                                                                                                          \
     X(Bool, bEquipShoutEventSpam, true, "fixes a bug where the \"equip shout\" procedure will send a \"shout equipped\" event even if the shout fails to equip")                                                    \
     X(Bool, bESLCELLLoadBug, true, "fixes issues with interior cells created in ESL files")                                                                                                                         \
@@ -56,6 +58,7 @@
     X(Bool, bRemovedSpellBook, true, "fixes a crash where learning a spell from a book that is later removed in another plugin causes a crash in the inventory")                                                    \
     X(Bool, bSaveScreenshots, true, "fixes save screenshots being blank under certain configurations")                                                                                                              \
     X(Bool, bSavedHavokDataLoadInit, true, "fixes motion vectors for objects with saved havok data that differs significantly from their base state")                                                               \
+    X(Bool, bSceneGraphDetachFreedCrash, true, "guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown")                                                                  \
     X(Bool, bShadowSceneNodeNullPtrCrash, true, "fixes a crash in shadowscenenode")                                                                                                                                 \
     X(Bool, bSkyUpdateCloudsNullPtrCrash, true, "fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods)")                  \
     X(Bool, bStuckMouseButtons, true, "fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp")                                                                                   \

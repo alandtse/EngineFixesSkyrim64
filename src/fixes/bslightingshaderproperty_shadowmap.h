@@ -1,6 +1,7 @@
 #pragma once
 #include "memory/allocator.h"
 
+#include <atomic>
 #include <cstddef>
 
 namespace BSLightingShaderPropertyShadowMap
@@ -25,13 +26,23 @@ namespace BSLightingShaderPropertyShadowMap
             }
         };
 
-        inline std::uint32_t g_currentIndex = 0;
+        inline constexpr std::uint32_t kShadowPassCount = 4;
+
+        // AccumulateShadowMap carries a job index and can overlap with other
+        // shadow work. A process-global slot lets one light redirect another
+        // light's GetRenderPasses call. Keep the active descriptor index local
+        // to the calling thread and restore it around nested accumulation.
+        inline thread_local std::uint32_t g_currentIndex = 0;
+        inline std::atomic_bool           g_loggedInvalidIndex = false;
 
         inline REL::Relocation<RE::BSRenderPass*(RE::BSShader*, RE::BSShaderProperty*, RE::BSGeometry*, std::uint32_t, std::uint8_t, RE::BSLight**)> BSRenderPass_Allocate{ RELOCATION_ID(100717, 107497) };
         inline REL::Relocation<void(RE::BSRenderPass*)>                                                                                              BSRenderPass_Deallocate{ RELOCATION_ID(100718, 107498) };
 
         inline std::uint32_t GetShadowmapIndex(const void* a_data)
         {
+            if (a_data == nullptr)
+                return 0;
+
             const auto* bytes = static_cast<const std::byte*>(a_data);
             const auto  offset = REL::Module::IsVR() ? offsetof(RE::BSShadowLight::ShadowmapDescriptorVR, shadowmapIndex) :
                                                        offsetof(RE::BSShadowLight::ShadowmapDescriptor, shadowmapIndex);
@@ -40,18 +51,23 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline RE::BSRenderPass** BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
         {
+            // Defence in depth: this index is used for direct heap addressing.
+            // Never permit a malformed/stale VR descriptor to write beyond the
+            // four-pointer allocation below.
+            const auto index = g_currentIndex < kShadowPassCount ? g_currentIndex : 0;
+
             // create our storage, 4 max
             // re-use the RenderPassArray space here
             if (a_property->volumetricShadowUtilityPasses.unk08 != 0xDEADBEEF) {
-                a_property->volumetricShadowUtilityPasses.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * 4, 8));
-                memset(a_property->volumetricShadowUtilityPasses.head, 0, sizeof(RE::BSRenderPass*) * 4);
+                a_property->volumetricShadowUtilityPasses.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * kShadowPassCount, 8));
+                memset(a_property->volumetricShadowUtilityPasses.head, 0, sizeof(RE::BSRenderPass*) * kShadowPassCount);
                 a_property->volumetricShadowUtilityPasses.unk08 = 0xDEADBEEF;
             }
             auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_property->volumetricShadowUtilityPasses.head);
             // clear last frame's render pass
-            if (passArray[g_currentIndex] != nullptr) {
-                BSRenderPass_Deallocate(passArray[g_currentIndex]);
-                passArray[g_currentIndex] = nullptr;
+            if (passArray[index] != nullptr) {
+                BSRenderPass_Deallocate(passArray[index]);
+                passArray[index] = nullptr;
             }
 
             // create new one
@@ -65,14 +81,14 @@ namespace BSLightingShaderPropertyShadowMap
 
             RE::BSRenderPass* pass = BSRenderPass_Allocate(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B, 0, nullptr);
             pass->accumulationHint = 8;
-            if ((a_geometry->GetFlags().underlying() & 0x8000000) != 0) {
+            if ((a_geometry->GetFlags().underlying() & 0x8000000) != 0 && a_property->fadeNode != nullptr) {
                 pass->LODMode.index = a_property->fadeNode->GetRuntimeData().unk152 & 0xF;
             } else {
                 pass->LODMode.index = 3;
             }
             pass->LODMode.singleLevel = false;
-            passArray[g_currentIndex] = pass;
-            return &passArray[g_currentIndex];
+            passArray[index] = pass;
+            return &passArray[index];
         }
 
         inline SafetyHookInline orig_BSShadowLight_AccumulateShadowMap;
@@ -80,15 +96,27 @@ namespace BSLightingShaderPropertyShadowMap
         inline void BSShadowLight_AccumulateShadowMap(RE::BSShadowLight* a_self, void* a_data, std::uint32_t* a_pShadowMaskChannel, RE::BSTArray<RE::BSCullingProcess*>* a_cullingProcessArray, const std::uint32_t a_jobIndex)
         {
             // VR uses a different shadow descriptor layout, so read the index by runtime offset.
-            g_currentIndex = GetShadowmapIndex(a_data);
+            auto index = GetShadowmapIndex(a_data);
+            if (index >= kShadowPassCount) {
+                if (!g_loggedInvalidIndex.exchange(true, std::memory_order_relaxed)) {
+                    logger::error("shadow map descriptor index {} exceeds {} slots; using slot 0 to prevent heap corruption"sv,
+                        index,
+                        kShadowPassCount);
+                }
+                index = 0;
+            }
+
+            const auto previousIndex = g_currentIndex;
+            g_currentIndex = index;
             orig_BSShadowLight_AccumulateShadowMap.call(a_self, a_data, a_pShadowMaskChannel, a_cullingProcessArray, a_jobIndex);
+            g_currentIndex = previousIndex;
         }
 
         inline void CleanAllocatedArrays(RE::BSLightingShaderProperty* a_self)
         {
             if (a_self->volumetricShadowUtilityPasses.unk08 == 0xDEADBEEF) {
                 auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_self->volumetricShadowUtilityPasses.head);
-                for (int i = 0; i < 4; i++) {
+                for (std::uint32_t i = 0; i < kShadowPassCount; i++) {
                     if (passArray[i] != nullptr) {
                         BSRenderPass_Deallocate(passArray[i]);
                         passArray[i] = nullptr;
