@@ -265,6 +265,75 @@ namespace Fixes::SceneGraphDetachFreedCrash
             second.write_branch<5>(trampoline.allocate(secondPatch));
             logger::info("installed recursive scene-node freed-object crash fix (2 sites)"sv);
         }
+
+        // The multibound/water scene helper is reached from the same cell teardown
+        // traversal with an auxiliary scene object in RDX.  During an exterior coc
+        // storm that object was already zeroed while its enclosing Riften multibound
+        // graph was still being visited; the helper immediately dispatched vfunc
+        // +0x48 through the null vftable at SkyrimVR+0x4DA56F.  Every normal path in
+        // this helper returns zero, so rejecting a null/freed argument at entry has
+        // the same failure semantics as its existing internal checks.
+        struct MultiBoundHelperPatch final : Xbyak::CodeGenerator
+        {
+            MultiBoundHelperPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                test(rdx, rdx);
+                jz(invalidLbl);
+
+                mov(rax, ptr[rdx]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                // Replicate the complete six-byte prologue displaced by the
+                // five-byte branch, then resume at the first body instruction.
+                push(rbx);
+                sub(rsp, 0x20);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(invalidLbl);
+                xor_(eax, eax);
+                ret();
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchMultiBoundHelperVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t                                  a_moduleEnd)
+        {
+            constexpr std::uintptr_t      kEntryOffset = 0x4DA560;
+            constexpr std::uintptr_t      kResumeOffset = 0x4DA566;
+            static constexpr std::uint8_t kExpected[] = {
+                0x40, 0x53,                         // push rbx
+                0x48, 0x83, 0xEC, 0x20,             // sub rsp,20h
+                0x48, 0x8B, 0x02,                   // mov rax,[rdx]
+                0x48, 0x8B, 0xCA,                   // mov rcx,rdx
+                0x48, 0x8B, 0xDA,                   // mov rbx,rdx
+                0xFF, 0x50, 0x48                    // call [rax+48h]
+            };
+
+            REL::Relocation<std::uintptr_t> entry{ REL::Offset{ kEntryOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(entry.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("multibound scene helper crash fix: unexpected bytes at {:X}, skipping"sv,
+                    kEntryOffset);
+                return;
+            }
+
+            MultiBoundHelperPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed multibound scene helper freed-object crash fix"sv);
+        }
     }
 
     inline void Install()
@@ -302,6 +371,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         if (REL::Module::IsVR()) {
             detail::PatchFreedChildTraversalVR(moduleBase, moduleEnd);
             detail::PatchRecursiveNodeTraversalVR(moduleBase, moduleEnd);
+            detail::PatchMultiBoundHelperVR(moduleBase, moduleEnd);
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
