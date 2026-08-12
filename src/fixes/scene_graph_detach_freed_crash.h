@@ -388,6 +388,99 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed multibound scene helper freed-object crash fix"sv);
         }
 
+        // Three recursive multibound callers invoke +0x18 on their scene-node
+        // input immediately after consulting the guarded helper above.  The
+        // helper can safely reject its own stale RDX argument, but does not own
+        // or validate the caller's RCX node.  A captured Riften-to-Markarth
+        // transition reached the middle caller with a stale BSMultiBoundNode
+        // vftable.  Invalid inputs reproduce a null virtual result and resume
+        // at the caller's native post-call null check.
+        struct MultiBoundCallerPatch final : Xbyak::CodeGenerator
+        {
+            MultiBoundCallerPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_postCall, bool a_objectInRdi)
+            {
+                Xbyak::Label invalidLbl, postAddr;
+
+                if (a_objectInRdi) {
+                    mov(ptr[rsp + 0x50], rbp);
+                    mov(rax, ptr[rdi]);
+                } else {
+                    mov(ptr[rsp + 0x20], rbp);
+                    mov(rax, ptr[rsi]);
+                }
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                if (a_objectInRdi)
+                    mov(rcx, rdi);
+                else
+                    mov(rcx, rsi);
+                call(ptr[rax + 0x18]);
+                jmp(ptr[rip + postAddr]);
+
+                L(invalidLbl);
+                xor_(eax, eax);
+                jmp(ptr[rip + postAddr]);
+
+                L(postAddr);
+                dq(a_postCall);
+            }
+        };
+
+        inline void PatchMultiBoundCallersVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t                                  a_moduleEnd)
+        {
+            struct CallerSite
+            {
+                std::uintptr_t patchOffset;
+                std::uintptr_t postCallOffset;
+                bool           objectInRdi;
+                std::uint8_t   objectModRm;
+                std::uint8_t   stackDisplacement;
+            };
+
+            static constexpr std::array<CallerSite, 3> kSites{ {
+                { 0x4D9BE1, 0x4D9BEF, false, 0x06, 0x20 },
+                { 0x4D9CB1, 0x4D9CBF, false, 0x06, 0x20 },
+                { 0x4D9D83, 0x4D9D91, true, 0x07, 0x50 },
+            } };
+
+            auto&       trampoline = SKSE::GetTrampoline();
+            std::size_t installed = 0;
+            for (const auto& site : kSites) {
+                REL::Relocation<std::uintptr_t> patch{ REL::Offset{ site.patchOffset } };
+                const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+                const std::uint8_t              expected[] = {
+                    0x48, 0x8B, site.objectModRm,  // mov rax,[rsi/rdi]
+                    0x48, 0x8B,                    // mov rcx,rsi/rdi
+                    static_cast<std::uint8_t>(site.objectModRm + 0xC8),
+                    0x48, 0x89, 0x6C, 0x24, site.stackDisplacement,
+                    0xFF, 0x50, 0x18  // call [rax+18h]
+                };
+                if (!std::equal(std::begin(expected), std::end(expected), bytes) ||
+                    site.patchOffset + std::size(expected) != site.postCallOffset) {
+                    logger::warn("multibound caller crash fix: unexpected bytes at {:X}, skipping site"sv,
+                        site.patchOffset);
+                    continue;
+                }
+
+                MultiBoundCallerPatch p{ a_moduleBase, a_moduleEnd,
+                    REL::Relocation<std::uintptr_t>{ REL::Offset{ site.postCallOffset } }.address(),
+                    site.objectInRdi };
+                p.ready();
+                patch.write_branch<5>(trampoline.allocate(p));
+                ++installed;
+            }
+            logger::info("installed multibound caller freed-object crash fix ({} site(s))"sv,
+                installed);
+        }
+
         // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking
         // a node's children.  A stress transition retained a departed
         // MountainTrimSlab beneath ObjectLODRoot whose reused heap vftable held
@@ -498,6 +591,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchFreedChildTraversalVR(moduleBase, moduleEnd);
             detail::PatchRecursiveNodeTraversalVR(moduleBase, moduleEnd);
             detail::PatchMultiBoundHelperVR(moduleBase, moduleEnd);
+            detail::PatchMultiBoundCallersVR(moduleBase, moduleEnd);
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
         }
 
