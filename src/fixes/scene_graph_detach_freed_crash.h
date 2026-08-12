@@ -334,6 +334,79 @@ namespace Fixes::SceneGraphDetachFreedCrash
             entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed multibound scene helper freed-object crash fix"sv);
         }
+
+        // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking
+        // a node's children.  A stress transition retained a departed
+        // MountainTrimSlab beneath ObjectLODRoot whose reused heap vftable held
+        // the value 1 in that slot, producing an execute-at-0x1 crash at
+        // SkyrimVR+0x13021E0.  Guarding the recursive function's entry covers
+        // both its initial dispatch and every descendant visit.  Its native
+        // null-input path returns zero, which is also the safe result here.
+        struct ObjectLODVisitorPatch final : Xbyak::CodeGenerator
+        {
+            ObjectLODVisitorPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                test(rcx, rcx);
+                jz(invalidLbl);
+
+                mov(rax, ptr[rcx]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                // Replicate the displaced pre-prologue home-space store.
+                mov(ptr[rsp + 0x10], rdx);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(invalidLbl);
+                xor_(eax, eax);
+                ret();
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchObjectLODVisitorVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t                                 a_moduleEnd)
+        {
+            constexpr std::uintptr_t      kEntryOffset = 0x13021C0;
+            constexpr std::uintptr_t      kResumeOffset = 0x13021C5;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x89, 0x54, 0x24, 0x10,        // mov [rsp+10h],rdx
+                0x53,                                // push rbx
+                0x56,                                // push rsi
+                0x57,                                // push rdi
+                0x48, 0x83, 0xEC, 0x20,              // sub rsp,20h
+                0x33, 0xDB,                          // xor ebx,ebx
+                0x48, 0x8B, 0xF2,                    // mov rsi,rdx
+                0x48, 0x8B, 0xF9,                    // mov rdi,rcx
+                0x48, 0x85, 0xC9,                    // test rcx,rcx
+                0x0F, 0x84, 0x89, 0x00, 0x00, 0x00,  // je native zero-result exit
+                0x48, 0x8B, 0x01,                    // mov rax,[rcx]
+                0xFF, 0x50, 0x38                     // call [rax+38h]
+            };
+
+            REL::Relocation<std::uintptr_t> entry{ REL::Offset{ kEntryOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(entry.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("ObjectLOD recursive visitor crash fix: unexpected bytes at {:X}, skipping"sv,
+                    kEntryOffset);
+                return;
+            }
+
+            ObjectLODVisitorPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed ObjectLOD recursive visitor freed-object crash fix"sv);
+        }
     }
 
     inline void Install()
@@ -372,6 +445,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchFreedChildTraversalVR(moduleBase, moduleEnd);
             detail::PatchRecursiveNodeTraversalVR(moduleBase, moduleEnd);
             detail::PatchMultiBoundHelperVR(moduleBase, moduleEnd);
+            detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
