@@ -744,15 +744,15 @@ namespace Fixes::SceneGraphDetachFreedCrash
         };
 
         inline void PatchNiNodeCloneChildVR(std::uintptr_t a_moduleBase,
-            std::uintptr_t                                a_moduleEnd)
+            std::uintptr_t                                 a_moduleEnd)
         {
             constexpr std::uintptr_t      kPatchOffset = 0xC9C870;
             constexpr std::uintptr_t      kPostCallOffset = 0xC9C87C;
             constexpr std::uintptr_t      kNextChildOffset = 0xC9C894;
             static constexpr std::uint8_t kExpected[] = {
-                0x48, 0x8B, 0x01,                    // mov rax,[rcx]
-                0x48, 0x8B, 0xD5,                    // mov rdx,rbp
-                0xFF, 0x90, 0xB8, 0x00, 0x00, 0x00   // call [rax+B8h]
+                0x48, 0x8B, 0x01,                   // mov rax,[rcx]
+                0x48, 0x8B, 0xD5,                   // mov rdx,rbp
+                0xFF, 0x90, 0xB8, 0x00, 0x00, 0x00  // call [rax+B8h]
             };
             static_assert(kPatchOffset + std::size(kExpected) == kPostCallOffset);
 
