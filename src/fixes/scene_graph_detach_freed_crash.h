@@ -148,24 +148,59 @@ namespace Fixes::SceneGraphDetachFreedCrash
             // Validate each complete block crossed by its invalid-child path,
             // not just the six displaced bytes.  The next-child offset begins
             // at the first instruction after each sequence.
-            static constexpr std::uint8_t kFirstExpected[] = {
+            static constexpr std::uint8_t kTraversal410Expected[] = {
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
+                0xE8, 0x3D, 0xFF, 0xFF, 0xFF, 0x40, 0x0A, 0xF0
+            };
+            static constexpr std::uint8_t kTraversal510Expected[] = {
                 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
                 0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
                 0xE8, 0x5D, 0xFF, 0xFF, 0xFF, 0x40, 0x0A, 0xF0
             };
-            static constexpr std::uint8_t kSecondExpected[] = {
+            static constexpr std::uint8_t kTraversal5E0Expected[] = {
                 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
                 0x48, 0x85, 0xC0, 0x74, 0x08, 0x48, 0x8B, 0xC8,
                 0xE8, 0x2D, 0xFF, 0xFF, 0xFF
             };
-            static_assert(0x29D5A0 + std::size(kFirstExpected) == 0x29D5B6);
-            static_assert(0x29D6A0 + std::size(kSecondExpected) == 0x29D6B3);
+            static constexpr std::uint8_t kTraversal6E0Expected[] = {
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18, 0x48, 0x8B, 0xF0,
+                0x48, 0x85, 0xC0, 0x74, 0x28, 0x48, 0x8B, 0x10,
+                0x48, 0x8B, 0xC8, 0xFF, 0x52, 0x10, 0x48, 0x85, 0xC0,
+                0x74, 0x12, 0x0F, 0x1F, 0x40, 0x00, 0x48, 0x3B, 0xC5,
+                0x74, 0x33, 0x48, 0x8B, 0x40, 0x08, 0x48, 0x85, 0xC0,
+                0x75, 0xF2, 0x48, 0x8B, 0xCE, 0xE8, 0x7A, 0xFF, 0xFF, 0xFF
+            };
+            static constexpr std::uint8_t kTraversal7A0Expected[] = {
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x08, 0x48, 0x8B, 0xC8,
+                0xE8, 0x7D, 0xFF, 0xFF, 0xFF
+            };
+            static constexpr std::uint8_t kTraversal850Expected[] = {
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0C, 0x48, 0x8B, 0xC8,
+                0xE8, 0x8D, 0xFF, 0xFF, 0xFF, 0x84, 0xC0, 0x75, 0x2C
+            };
+            static_assert(0x29D4C0 + std::size(kTraversal410Expected) == 0x29D4D6);
+            static_assert(0x29D5A0 + std::size(kTraversal510Expected) == 0x29D5B6);
+            static_assert(0x29D6A0 + std::size(kTraversal5E0Expected) == 0x29D6B3);
+            static_assert(0x29D730 + std::size(kTraversal6E0Expected) == 0x29D766);
+            static_assert(0x29D810 + std::size(kTraversal7A0Expected) == 0x29D823);
+            static_assert(0x29D8B0 + std::size(kTraversal850Expected) == 0x29D8C7);
 
             std::size_t installed = 0;
             installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
-                0x29D5A0, 0x29D5A6, 0x29D5B6, kFirstExpected);
+                0x29D4C0, 0x29D4C6, 0x29D4D6, kTraversal410Expected);
             installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
-                0x29D6A0, 0x29D6A6, 0x29D6B3, kSecondExpected);
+                0x29D5A0, 0x29D5A6, 0x29D5B6, kTraversal510Expected);
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D6A0, 0x29D6A6, 0x29D6B3, kTraversal5E0Expected);
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D730, 0x29D736, 0x29D766, kTraversal6E0Expected);
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D810, 0x29D816, 0x29D823, kTraversal7A0Expected);
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D8B0, 0x29D8B6, 0x29D8C7, kTraversal850Expected);
             logger::info("installed scene-graph child freed-object crash fix ({} site(s))"sv,
                 installed);
         }
