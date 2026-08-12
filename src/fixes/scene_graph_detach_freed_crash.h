@@ -120,36 +120,54 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
+        inline std::size_t PatchFreedChildTraversalSiteVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t a_moduleEnd, std::uintptr_t a_patchOffset,
+            std::uintptr_t a_postCallOffset, std::uintptr_t a_nextChildOffset,
+            std::span<const std::uint8_t> a_expected)
+        {
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ a_patchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(a_expected.begin(), a_expected.end(), bytes) ||
+                a_patchOffset + a_expected.size() != a_nextChildOffset) {
+                logger::warn("scene-graph child crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    a_patchOffset);
+                return 0;
+            }
+
+            ChildPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_postCallOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_nextChildOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            return 1;
+        }
+
         inline void PatchFreedChildTraversalVR(std::uintptr_t a_moduleBase,
             std::uintptr_t                                    a_moduleEnd)
         {
-            constexpr std::uintptr_t kPatchOffset = 0x29D5A0;
-            constexpr std::uintptr_t kPostCallOffset = 0x29D5A6;
-            constexpr std::uintptr_t kNextChildOffset = 0x29D5B6;
-            // Validate the complete block crossed by the invalid-child path,
-            // not just the six displaced bytes. kNextChildOffset begins at
-            // the first instruction after this sequence.
-            static constexpr std::uint8_t kExpected[] = {
+            // Validate each complete block crossed by its invalid-child path,
+            // not just the six displaced bytes.  The next-child offset begins
+            // at the first instruction after each sequence.
+            static constexpr std::uint8_t kFirstExpected[] = {
                 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
                 0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
                 0xE8, 0x5D, 0xFF, 0xFF, 0xFF, 0x40, 0x0A, 0xF0
             };
-            static_assert(kPatchOffset + std::size(kExpected) == kNextChildOffset);
+            static constexpr std::uint8_t kSecondExpected[] = {
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x08, 0x48, 0x8B, 0xC8,
+                0xE8, 0x2D, 0xFF, 0xFF, 0xFF
+            };
+            static_assert(0x29D5A0 + std::size(kFirstExpected) == 0x29D5B6);
+            static_assert(0x29D6A0 + std::size(kSecondExpected) == 0x29D6B3);
 
-            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
-            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
-            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
-                logger::warn("scene-graph child crash fix: unexpected bytes at {:X}, skipping site"sv,
-                    kPatchOffset);
-                return;
-            }
-
-            ChildPatch p{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kPostCallOffset } }.address(),
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kNextChildOffset } }.address() };
-            p.ready();
-            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed scene-graph child freed-object crash fix"sv);
+            std::size_t installed = 0;
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D5A0, 0x29D5A6, 0x29D5B6, kFirstExpected);
+            installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
+                0x29D6A0, 0x29D6A6, 0x29D6B3, kSecondExpected);
+            logger::info("installed scene-graph child freed-object crash fix ({} site(s))"sv,
+                installed);
         }
 
         // A third recursive scene traversal dispatches twice through the same

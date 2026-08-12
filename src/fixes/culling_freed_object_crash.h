@@ -197,6 +197,72 @@ namespace Fixes::CullingFreedObjectCrash
             return 1;
         }
 
+        // The same ObjectLOD path first asks an auxiliary property at
+        // object+0x170 for its runtime type through vfunc +0x10.  A captured
+        // transition retained the property pointer after its vftable had been
+        // replaced by heap data.  Invalid properties follow the function's
+        // existing null-property fallback at +0x13085C8; valid properties
+        // resume immediately after the displaced call.
+        struct ObjectLODPropertyPatch final : Xbyak::CodeGenerator
+        {
+            ObjectLODPropertyPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume, std::uintptr_t a_fallback)
+            {
+                Xbyak::Label fallbackLbl, resumeAddr, fallbackAddr;
+
+                mov(rax, ptr[rdi]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(fallbackLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(fallbackLbl);
+
+                mov(rcx, rdi);
+                call(ptr[rax + 0x10]);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(fallbackLbl);
+                jmp(ptr[rip + fallbackAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(fallbackAddr);
+                dq(a_fallback);
+            }
+        };
+
+        inline std::size_t PatchObjectLODPropertySiteVR(std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            constexpr std::uintptr_t      kPatchOffset = 0x13085A1;
+            constexpr std::uintptr_t      kResumeOffset = 0x13085AA;
+            constexpr std::uintptr_t      kFallbackOffset = 0x13085C8;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x10,
+                0x48, 0x8D, 0x0D, 0xAF, 0x38, 0xE6, 0x01,
+                0x48, 0x3B, 0xC8, 0x0F, 0x94, 0xC0, 0x84, 0xC0, 0x74, 0x0D,
+                0x80, 0x7F, 0x78, 0x00, 0x75, 0x07,
+                0xB0, 0x01, 0xE9, 0x20, 0x01, 0x00, 0x00
+            };
+            static_assert(kPatchOffset + std::size(kExpected) == kFallbackOffset);
+
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("ObjectLOD property crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kPatchOffset);
+                return 0;
+            }
+
+            ObjectLODPropertyPatch p{ a_base, a_end,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed ObjectLOD property freed-object crash fix"sv);
+            return 1;
+        }
+
         inline std::size_t PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
             std::uintptr_t a_base, std::uintptr_t a_end)
         {
@@ -231,6 +297,7 @@ namespace Fixes::CullingFreedObjectCrash
         // OnVisible (NiAVObject vfunc 0x34) byte offset differs on VR (+1 vfunc).
         if (REL::Module::IsVR()) {
             installed += detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
+            installed += detail::PatchObjectLODPropertySiteVR(moduleBase, moduleEnd);
             installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
             installed += detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
