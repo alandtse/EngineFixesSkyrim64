@@ -4,16 +4,17 @@
 
 // BSBatchRenderer keeps a technique-ID -> index map (renderPassMap) alongside
 // the array it indexes into (renderPass / a_this->shaderProperty on SE/AE).
-// If that backing storage is freed/reallocated while the map still holds a
-// populated index for a technique ID, the computed pointer is a small,
-// freed-derived value and the write through it corrupts memory or crashes.
+// If that backing storage is cleared while the map still holds a populated
+// index for a technique ID, the computed pointer is a small, null-derived
+// value and the write through it corrupts memory or crashes.
 // Distinct from renderpass_cache.h (defers individual BSRenderPass frees) and
 // culling_freed_object_crash.h (guards NiAVObject vftable reads in cull/detach)
 // -- neither covers this array's own backing storage.
 //
 // A heap pointer can't be range-checked against the module image the way a
 // vftable can; the guard instead checks the pointer against a floor no real
-// allocation ever returns and skips the write if it looks freed.
+// allocation ever returns and skips that null-derived write. It cannot prove
+// that an otherwise plausible heap address still owns the expected storage.
 //
 // All 3 runtimes have TWO vulnerable functions that write through this
 // pointer, and both are patched on all 3 runtimes:
@@ -127,19 +128,24 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         {
             PatchApplyPassRcx(std::uintptr_t a_resume)
             {
-                Xbyak::Label skipLbl, resumeAddr;
-
-                // EBX is persisted into 3 globals downstream; every original
-                // path zeroes it before reaching them, so this must too.
-                xor_(ebx, ebx);
+                Xbyak::Label skipLbl, resumeLbl, resumeAddr;
 
                 cmp(rdx, kMinPlausiblePointer);
                 jbe(skipLbl);
 
+                // Preserve the displaced block's instruction order and final
+                // EFLAGS state (from XOR), as well as its EBX side effect.
                 and_(dword[rdx + 0x28], ebp);
+                xor_(ebx, ebx);
                 mov(qword[rdx + rcx * 8], rbx);
+                jmp(resumeLbl);
 
                 L(skipLbl);
+                // The exceptional path cannot execute the memory AND, but it
+                // must retain the original block's zeroed EBX and XOR flags.
+                xor_(ebx, ebx);
+
+                L(resumeLbl);
                 jmp(ptr[rip + resumeAddr]);
 
                 L(resumeAddr);
@@ -165,17 +171,20 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         {
             PatchApplyPassRax(std::uintptr_t a_resume)
             {
-                Xbyak::Label skipLbl, resumeAddr;
-
-                xor_(ebx, ebx);
+                Xbyak::Label skipLbl, resumeLbl, resumeAddr;
 
                 cmp(rdx, kMinPlausiblePointer);
                 jbe(skipLbl);
 
                 and_(dword[rdx + 0x28], ebp);
+                xor_(ebx, ebx);
                 mov(qword[rdx + rax * 8], rbx);
+                jmp(resumeLbl);
 
                 L(skipLbl);
+                xor_(ebx, ebx);
+
+                L(resumeLbl);
                 jmp(ptr[rip + resumeAddr]);
 
                 L(resumeAddr);
@@ -201,6 +210,9 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             {
                 Xbyak::Label skipLbl, resumeAddr;
 
+                // The displaced block contains only MOVs and therefore
+                // preserves incoming EFLAGS. Save them around the guard.
+                pushfq();
                 cmp(rcx, kMinPlausiblePointer);
                 jbe(skipLbl);
 
@@ -215,8 +227,9 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
                 mov(qword[rcx + 0x20], rdi);
                 mov(dword[rcx + 0x28], edi);
 
-                // Backing storage was freed: skip straight here either way.
+                // Null-derived storage: skip straight here either way.
                 L(skipLbl);
+                popfq();
                 jmp(ptr[rip + resumeAddr]);
 
                 L(resumeAddr);

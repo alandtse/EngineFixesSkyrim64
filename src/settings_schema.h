@@ -27,7 +27,7 @@
     X(Bool, bBSLightingShaderForceAlphaTest, true, "fixes object LOD reflections by forcing alpha test flag on when NiAlphaProperty/AlphaTest is true")                                                             \
     X(Bool, bBSLightingShaderParallaxBug, true, "fixes a bug causing the parallax technique to break if specular is not also set")                                                                                  \
     X(Bool, bBSLightingShaderPropertyShadowMap, true, "fixes re-use of render passes when a light has multiple shadow map passes")                                                                                  \
-    X(Bool, bBatchRendererRenderPassArrayUAF, true, "guards BSBatchRenderer render-pass array writes when a stale technique lookup resolves after its backing storage was freed or reallocated")                    \
+    X(Bool, bBatchRendererRenderPassArrayUAF, true, "guards BSBatchRenderer render-pass array writes when a stale technique lookup resolves to a null-derived low address")                                         \
     X(Bool, bBSTaskPoolNullVtableCrash, true, "fixes a crash in BSTaskPool when an actor is freed while a pathfinding task is still pending")                                                                       \
     X(Bool, bBSTempEffectNiRTTI, true, "fixes a bug where the NiRTTI for this object is not set properly")                                                                                                          \
     X(Bool, bCalendarSkipping, true, "fixes a bug where the game calendar effectively skips a year if you fast travel too far between 20:00 and 23:99 in-game")                                                     \

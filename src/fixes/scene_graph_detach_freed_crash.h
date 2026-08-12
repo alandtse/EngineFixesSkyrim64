@@ -123,12 +123,18 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchFreedChildTraversalVR(std::uintptr_t a_moduleBase,
             std::uintptr_t                                    a_moduleEnd)
         {
-            constexpr std::uintptr_t      kPatchOffset = 0x29D5A0;
-            constexpr std::uintptr_t      kPostCallOffset = 0x29D5A6;
-            constexpr std::uintptr_t      kNextChildOffset = 0x29D5B6;
+            constexpr std::uintptr_t kPatchOffset = 0x29D5A0;
+            constexpr std::uintptr_t kPostCallOffset = 0x29D5A6;
+            constexpr std::uintptr_t kNextChildOffset = 0x29D5B6;
+            // Validate the complete block crossed by the invalid-child path,
+            // not just the six displaced bytes. kNextChildOffset begins at
+            // the first instruction after this sequence.
             static constexpr std::uint8_t kExpected[] = {
-                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18
+                0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
+                0xE8, 0x5D, 0xFF, 0xFF, 0xFF, 0x40, 0x0A, 0xF0
             };
+            static_assert(kPatchOffset + std::size(kExpected) == kNextChildOffset);
 
             REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
             const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
@@ -223,18 +229,30 @@ namespace Fixes::SceneGraphDetachFreedCrash
             static constexpr std::uint8_t kSecondExpected[] = {
                 0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x18
             };
+            // Both guarded calls execute after the function's single
+            // sub rsp,0x40 prologue and before its common add rsp,0x40
+            // epilogue; no intervening instruction adjusts RSP. Validate the
+            // complete shared epilogue before either exceptional path uses it.
+            static constexpr std::uint8_t kExitExpected[] = {
+                0x48, 0x8B, 0x5C, 0x24, 0x70,
+                0x48, 0x83, 0xC4, 0x40,
+                0x5F, 0x5E, 0x5D, 0xC3
+            };
 
             REL::Relocation<std::uintptr_t> first{ REL::Offset{ kFirstPatch } };
             REL::Relocation<std::uintptr_t> second{ REL::Offset{ kSecondPatch } };
+            REL::Relocation<std::uintptr_t> exitSite{ REL::Offset{ kExit } };
             const auto*                     firstBytes = reinterpret_cast<const std::uint8_t*>(first.address());
             const auto*                     secondBytes = reinterpret_cast<const std::uint8_t*>(second.address());
+            const auto*                     exitBytes = reinterpret_cast<const std::uint8_t*>(exitSite.address());
             if (!std::equal(std::begin(kFirstExpected), std::end(kFirstExpected), firstBytes) ||
-                !std::equal(std::begin(kSecondExpected), std::end(kSecondExpected), secondBytes)) {
+                !std::equal(std::begin(kSecondExpected), std::end(kSecondExpected), secondBytes) ||
+                !std::equal(std::begin(kExitExpected), std::end(kExitExpected), exitBytes)) {
                 logger::warn("recursive scene-node crash fix: unexpected bytes, skipping sites"sv);
                 return;
             }
 
-            const auto            exit = REL::Relocation<std::uintptr_t>{ REL::Offset{ kExit } }.address();
+            const auto            exit = exitSite.address();
             RecursiveNodePatchRdx firstPatch{ a_moduleBase, a_moduleEnd,
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kFirstPost } }.address(), exit };
             RecursiveNodePatchRdi secondPatch{ a_moduleBase, a_moduleEnd,

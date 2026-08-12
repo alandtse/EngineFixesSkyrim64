@@ -100,6 +100,20 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x132C78A, 0x132C7A3, kPostSE5 },
         } };
 
+        template <std::size_t N>
+        consteval bool SitesConsistent(const std::array<Site, N>& a_sites)
+        {
+            for (const auto& site : a_sites) {
+                if (site.convergeOffset != site.callOffset + 0x6 + site.postCall.size())
+                    return false;
+            }
+            return true;
+        }
+
+        static_assert(SitesConsistent(kSitesVR), "VR culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
+
         struct Patch final : Xbyak::CodeGenerator
         {
             Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uint32_t a_slot,
@@ -162,7 +176,7 @@ namespace Fixes::CullingFreedObjectCrash
             0x0B, 0x75, 0xBF
         };
 
-        inline void PatchObjectLODRenderSiteVR(std::uintptr_t a_base, std::uintptr_t a_end)
+        inline std::size_t PatchObjectLODRenderSiteVR(std::uintptr_t a_base, std::uintptr_t a_end)
         {
             constexpr std::uintptr_t kCallOffset = 0x13085EE;
             constexpr std::uintptr_t kConvergeOffset = 0x13085C1;
@@ -172,7 +186,7 @@ namespace Fixes::CullingFreedObjectCrash
                 !PostCallMatches(call.address() + 0x6, kObjectLODRenderPostVR)) {
                 logger::warn("ObjectLOD render crash fix: unexpected bytes at {:X}, skipping site"sv,
                     kCallOffset);
-                return;
+                return 0;
             }
 
             Patch p{ a_base, a_end, 0x80, call.address() + 0x6,
@@ -180,12 +194,14 @@ namespace Fixes::CullingFreedObjectCrash
             p.ready();
             call.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed ObjectLOD render freed-object crash fix"sv);
+            return 1;
         }
 
-        inline void PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
+        inline std::size_t PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
             std::uintptr_t a_base, std::uintptr_t a_end)
         {
-            auto& trampoline = SKSE::GetTrampoline();
+            auto&       trampoline = SKSE::GetTrampoline();
+            std::size_t installed = 0;
             for (const auto& site : a_sites) {
                 REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
                 if (!CallMatches(call.address(), a_slot)) {
@@ -200,7 +216,9 @@ namespace Fixes::CullingFreedObjectCrash
                     REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
                 p.ready();
                 call.write_branch<5>(trampoline.allocate(p));
+                ++installed;
             }
+            return installed;
         }
     }
 
@@ -208,15 +226,21 @@ namespace Fixes::CullingFreedObjectCrash
     {
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
+        std::size_t installed = 0;
+
         // OnVisible (NiAVObject vfunc 0x34) byte offset differs on VR (+1 vfunc).
         if (REL::Module::IsVR()) {
-            detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
-            detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
+            installed += detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
+            installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
-            detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+            installed += detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
         else
-            detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
+            installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
-        logger::info("installed culling freed-object crash fix"sv);
+        if (installed > 0) {
+            logger::info("installed culling freed-object crash fix ({} site(s))"sv, installed);
+        } else {
+            logger::warn("culling freed-object crash fix: no sites matched, not installed"sv);
+        }
     }
 }
