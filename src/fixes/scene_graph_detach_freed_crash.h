@@ -553,6 +553,158 @@ namespace Fixes::SceneGraphDetachFreedCrash
             entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed ObjectLOD recursive visitor freed-object crash fix"sv);
         }
+
+        // Two more ObjectLOD readers were exposed after the recursive visitor
+        // guards had completed a full 30-leg route.  One walks a linked parent
+        // chain and dispatches +0x10 twice on a matching node.  The other is a
+        // two-function child-array family that dispatches +0x38 and, on the
+        // fallback path, +0x18.  Captured stale objects carried heap/reused
+        // vftables, producing execute-at-zero/three crashes.  Each exceptional
+        // path uses the reader's existing no-match/next-child continuation.
+        struct ObjectLODReaderDispatchPatch final : Xbyak::CodeGenerator
+        {
+            ObjectLODReaderDispatchPatch(std::uintptr_t a_moduleBase,
+                std::uintptr_t a_moduleEnd, std::uintptr_t a_postCall,
+                std::uintptr_t a_invalid, bool a_objectInRdi,
+                std::uint8_t a_vfuncOffset)
+            {
+                Xbyak::Label invalidLbl, postAddr, invalidAddr;
+
+                if (a_objectInRdi)
+                    mov(rax, ptr[rdi]);
+                else
+                    mov(rax, ptr[rbx]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                if (a_objectInRdi)
+                    mov(rcx, rdi);
+                else
+                    mov(rcx, rbx);
+                call(ptr[rax + a_vfuncOffset]);
+                jmp(ptr[rip + postAddr]);
+
+                L(invalidLbl);
+                jmp(ptr[rip + invalidAddr]);
+
+                L(postAddr);
+                dq(a_postCall);
+                L(invalidAddr);
+                dq(a_invalid);
+            }
+        };
+
+        inline bool PatchObjectLODReaderDispatchVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t a_moduleEnd, std::uintptr_t a_patchOffset,
+            std::uintptr_t a_postCallOffset, std::uintptr_t a_invalidOffset,
+            std::span<const std::uint8_t> a_expected, bool a_objectInRdi,
+            std::uint8_t a_vfuncOffset)
+        {
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ a_patchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(a_expected.begin(), a_expected.end(), bytes)) {
+                logger::warn("ObjectLOD reader crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    a_patchOffset);
+                return false;
+            }
+
+            ObjectLODReaderDispatchPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_postCallOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_invalidOffset } }.address(),
+                a_objectInRdi, a_vfuncOffset };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            return true;
+        }
+
+        inline void PatchAdditionalObjectLODReadersVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t                                           a_moduleEnd)
+        {
+            static constexpr std::uint8_t kLinkedFirstExpected[] = {
+                0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x10,
+                0x48, 0x3B, 0xC7, 0x74, 0x16, 0x48, 0x8B, 0x5B, 0x30,
+                0x48, 0x85, 0xDB, 0x75, 0xE9
+            };
+            static constexpr std::uint8_t kLinkedSecondExpected[] = {
+                0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x10,
+                0x48, 0x3B, 0xC7, 0x75, 0xE5
+            };
+            static constexpr std::uint8_t kLinkedExitExpected[] = {
+                0x33, 0xC0, 0x48, 0x8B, 0x5C, 0x24, 0x30,
+                0x48, 0x83, 0xC4, 0x20, 0x5F, 0xC3
+            };
+
+            static constexpr std::uint8_t kOuterFirstExpected[] = {
+                0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x38,
+                0x48, 0x85, 0xC0, 0x74, 0x1F,
+                0x48, 0x8B, 0x87, 0x68, 0x01, 0x00, 0x00,
+                0x48, 0x85, 0xC0, 0x74, 0x2C, 0x48, 0x8B, 0x48, 0x70,
+                0x48, 0x85, 0xC9, 0x74, 0x23, 0x48, 0x8B, 0xD7,
+                0xE8, 0x80, 0xC7, 0x05, 0x00, 0xEB, 0x19,
+                0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xD0,
+                0x48, 0x8B, 0xCD, 0xE8, 0xF5, 0x3F, 0x00, 0x00
+            };
+            static constexpr std::uint8_t kOuterSecondExpected[] = {
+                0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xD0,
+                0x48, 0x8B, 0xCD, 0xE8, 0xF5, 0x3F, 0x00, 0x00
+            };
+            static constexpr std::uint8_t kInnerFirstExpected[] = {
+                0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x38,
+                0x48, 0x85, 0xC0, 0x74, 0x1F,
+                0x48, 0x8B, 0x83, 0x68, 0x01, 0x00, 0x00,
+                0x48, 0x85, 0xC0, 0x74, 0x2C, 0x48, 0x8B, 0x48, 0x70,
+                0x48, 0x85, 0xC9, 0x74, 0x23, 0x48, 0x8B, 0xD3,
+                0xE8, 0x05, 0x87, 0x05, 0x00, 0xEB, 0x19,
+                0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xD0,
+                0x48, 0x8B, 0xCD, 0xE8, 0x7A, 0xFF, 0xFF, 0xFF
+            };
+            static constexpr std::uint8_t kInnerSecondExpected[] = {
+                0x48, 0x8B, 0x03, 0x48, 0x8B, 0xCB, 0xFF, 0x50, 0x18,
+                0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xD0,
+                0x48, 0x8B, 0xCD, 0xE8, 0x7A, 0xFF, 0xFF, 0xFF
+            };
+
+            static_assert(0x136004E + std::size(kLinkedFirstExpected) == 0x1360065);
+            static_assert(0x1360072 + std::size(kLinkedSecondExpected) == 0x1360080);
+            static_assert(0x1360065 + std::size(kLinkedExitExpected) == 0x1360072);
+            static_assert(0x12F8035 + std::size(kOuterFirstExpected) == 0x12F807B);
+            static_assert(0x12F8062 + std::size(kOuterSecondExpected) == 0x12F807B);
+            static_assert(0x12FC0B0 + std::size(kInnerFirstExpected) == 0x12FC0F6);
+            static_assert(0x12FC0DD + std::size(kInnerSecondExpected) == 0x12FC0F6);
+
+            REL::Relocation<std::uintptr_t> linkedExit{ REL::Offset{ 0x1360065 } };
+            const auto*                     linkedExitBytes = reinterpret_cast<const std::uint8_t*>(linkedExit.address());
+            if (!std::equal(std::begin(kLinkedExitExpected), std::end(kLinkedExitExpected), linkedExitBytes)) {
+                logger::warn("ObjectLOD linked-reader crash fix: unexpected exit bytes, skipping sites"sv);
+            } else {
+                std::size_t installed = 0;
+                installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                    0x136004E, 0x1360057, 0x1360065, kLinkedFirstExpected, false, 0x10);
+                installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                    0x1360072, 0x136007B, 0x1360065, kLinkedSecondExpected, false, 0x10);
+                logger::info("installed ObjectLOD linked-reader freed-object crash fix ({} site(s))"sv,
+                    installed);
+            }
+
+            std::size_t installed = 0;
+            installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                0x12F8035, 0x12F803E, 0x12F807B, kOuterFirstExpected, true, 0x38);
+            installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                0x12F8062, 0x12F806B, 0x12F807B, kOuterSecondExpected, true, 0x18);
+            installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                0x12FC0B0, 0x12FC0B9, 0x12FC0F6, kInnerFirstExpected, false, 0x38);
+            installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
+                0x12FC0DD, 0x12FC0E6, 0x12FC0F6, kInnerSecondExpected, false, 0x18);
+            logger::info("installed ObjectLOD child-reader freed-object crash fix ({} site(s))"sv,
+                installed);
+        }
     }
 
     inline void Install()
@@ -593,6 +745,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchMultiBoundHelperVR(moduleBase, moduleEnd);
             detail::PatchMultiBoundCallersVR(moduleBase, moduleEnd);
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
+            detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
