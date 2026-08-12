@@ -68,6 +68,7 @@
     X(Bool, bAbilityConditionBug, true, "(VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation per ActiveEffect to the engine's fActiveEffectConditionUpdateInterval")            \
     X(Bool, bBuySellStackSpeechGain, true, "(VR-only) fixes buying/selling a stack of items only granting speech XP for a single item")                                                                             \
     X(Bool, bCopyBoneTransformNullCrash, true, "(VR-only) fixes a null-pointer crash when an actor's animation references a bone name absent from its skeleton (modded/mismatched skeleton)")                       \
+    X(Bool, bHavokMaterialLookupGuard, true, "(VR-only) validates compressed-mesh material lookup results before Skyrim dereferences the material table")                                                           \
     X(Bool, bShadowSceneCrash, true, "(VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix")                                                           \
     X(Bool, bLockpickingMenuInitCrash, true, "(VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame")                                 \
     X(Bool, bBSOpenVRHandIndexNullCrash, true, "(VR-only) guards BSOpenVR::GetTrackedDeviceIndexForHand against a null-pointer crash when the VR hand-device API is queried while the HMD is asleep / OpenVR is not initialized (no SteamVR null driver loaded)")
