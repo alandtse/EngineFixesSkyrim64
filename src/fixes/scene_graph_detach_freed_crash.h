@@ -705,6 +705,72 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed ObjectLOD child-reader freed-object crash fix ({} site(s))"sv,
                 installed);
         }
+
+        // NiNode::ProcessClone walks the source node's child array and invokes
+        // ProcessClone (vfunc +0xB8) on every non-null child.  A streamed Riften
+        // reload retained a non-null Coin01 child whose object had already been
+        // reclaimed: its vftable was heap data and the +0xB8 slot contained -1.
+        // The native loop already skips null source children and leaves the
+        // corresponding preallocated destination slot empty.  Treat a child
+        // with a non-image vftable identically, then continue with its sibling.
+        struct NiNodeCloneChildPatch final : Xbyak::CodeGenerator
+        {
+            NiNodeCloneChildPatch(std::uintptr_t a_moduleBase,
+                std::uintptr_t a_moduleEnd, std::uintptr_t a_postCall,
+                std::uintptr_t a_nextChild)
+            {
+                Xbyak::Label invalidLbl, postAddr, nextAddr;
+
+                mov(rax, ptr[rcx]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                mov(rdx, rbp);
+                call(ptr[rax + 0xB8]);
+                jmp(ptr[rip + postAddr]);
+
+                L(invalidLbl);
+                jmp(ptr[rip + nextAddr]);
+
+                L(postAddr);
+                dq(a_postCall);
+                L(nextAddr);
+                dq(a_nextChild);
+            }
+        };
+
+        inline void PatchNiNodeCloneChildVR(std::uintptr_t a_moduleBase,
+            std::uintptr_t                                a_moduleEnd)
+        {
+            constexpr std::uintptr_t      kPatchOffset = 0xC9C870;
+            constexpr std::uintptr_t      kPostCallOffset = 0xC9C87C;
+            constexpr std::uintptr_t      kNextChildOffset = 0xC9C894;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x01,                    // mov rax,[rcx]
+                0x48, 0x8B, 0xD5,                    // mov rdx,rbp
+                0xFF, 0x90, 0xB8, 0x00, 0x00, 0x00   // call [rax+B8h]
+            };
+            static_assert(kPatchOffset + std::size(kExpected) == kPostCallOffset);
+
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("NiNode clone child crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kPatchOffset);
+                return;
+            }
+
+            NiNodeCloneChildPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kPostCallOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kNextChildOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed NiNode clone child freed-object crash fix"sv);
+        }
     }
 
     inline void Install()
@@ -746,6 +812,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchMultiBoundCallersVR(moduleBase, moduleEnd);
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
+            detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
