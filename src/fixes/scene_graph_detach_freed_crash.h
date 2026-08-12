@@ -307,17 +307,17 @@ namespace Fixes::SceneGraphDetachFreedCrash
         };
 
         inline void PatchMultiBoundHelperVR(std::uintptr_t a_moduleBase,
-            std::uintptr_t                                  a_moduleEnd)
+            std::uintptr_t                                 a_moduleEnd)
         {
             constexpr std::uintptr_t      kEntryOffset = 0x4DA560;
             constexpr std::uintptr_t      kResumeOffset = 0x4DA566;
             static constexpr std::uint8_t kExpected[] = {
-                0x40, 0x53,                         // push rbx
-                0x48, 0x83, 0xEC, 0x20,             // sub rsp,20h
-                0x48, 0x8B, 0x02,                   // mov rax,[rdx]
-                0x48, 0x8B, 0xCA,                   // mov rcx,rdx
-                0x48, 0x8B, 0xDA,                   // mov rbx,rdx
-                0xFF, 0x50, 0x48                    // call [rax+48h]
+                0x40, 0x53,              // push rbx
+                0x48, 0x83, 0xEC, 0x20,  // sub rsp,20h
+                0x48, 0x8B, 0x02,        // mov rax,[rdx]
+                0x48, 0x8B, 0xCA,        // mov rcx,rdx
+                0x48, 0x8B, 0xDA,        // mov rbx,rdx
+                0xFF, 0x50, 0x48         // call [rax+48h]
             };
 
             REL::Relocation<std::uintptr_t> entry{ REL::Offset{ kEntryOffset } };
