@@ -98,7 +98,8 @@ namespace Fixes::CullingFreedObjectCrash
 
         struct Patch final : Xbyak::CodeGenerator
         {
-            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uint32_t a_slot,
+            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_textBase, std::uintptr_t a_textEnd, std::uint32_t a_slot,
                 std::uintptr_t a_postCall, std::uintptr_t a_converge)
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
@@ -110,11 +111,24 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // Valid vftable: perform the original call, resume after it.
-                call(ptr[rax + a_slot]);
+                // The base check above only proves RAX is *some* in-module vtable; a
+                // freed-and-reused object can carry a real, different vtable whose
+                // slot at this offset is null -- also validate the loaded target itself.
+                mov(r11, ptr[rax + a_slot]);
+                test(r11, r11);
+                jz(skipLbl);
+                mov(r10, a_textBase);
+                cmp(r11, r10);
+                jb(skipLbl);
+                mov(r10, a_textEnd);
+                cmp(r11, r10);
+                jae(skipLbl);
+
+                // Valid vftable + valid slot: perform the original call, resume after it.
+                call(r11);
                 jmp(ptr[rip + postAddr]);
 
-                // Freed object: skip the call AND the [object+0x10C] write.
+                // Freed object or bad slot: skip the call AND the [object+0x10C] write.
                 L(skipLbl);
                 jmp(ptr[rip + convAddr]);
 
@@ -148,7 +162,7 @@ namespace Fixes::CullingFreedObjectCrash
         }
 
         inline void PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
-            std::uintptr_t a_base, std::uintptr_t a_end)
+            std::uintptr_t a_base, std::uintptr_t a_end, std::uintptr_t a_textBase, std::uintptr_t a_textEnd)
         {
             auto& trampoline = SKSE::GetTrampoline();
             for (const auto& site : a_sites) {
@@ -161,7 +175,7 @@ namespace Fixes::CullingFreedObjectCrash
                     logger::warn("culling crash fix: unexpected bytes after call at {:X}, skipping site"sv, site.callOffset);
                     continue;
                 }
-                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
+                Patch p{ a_base, a_end, a_textBase, a_textEnd, a_slot, call.address() + 0x6,
                     REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
                 p.ready();
                 call.write_branch<5>(trampoline.allocate(p));
@@ -172,14 +186,15 @@ namespace Fixes::CullingFreedObjectCrash
     inline void Install()
     {
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
+        const auto [textBase, textEnd] = util::GetTextSectionBounds();
 
         // OnVisible (NiAVObject vfunc 0x34) byte offset differs on VR (+1 vfunc).
         if (REL::Module::IsVR())
-            detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
+            detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd, textBase, textEnd);
         else if (REL::Module::IsAE())
-            detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+            detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd, textBase, textEnd);
         else
-            detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
+            detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd, textBase, textEnd);
 
         logger::info("installed culling freed-object crash fix"sv);
     }
