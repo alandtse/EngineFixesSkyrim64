@@ -2,37 +2,11 @@
 
 namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
 {
-    // Vanilla out-of-bounds crash in BGSAcousticSpaceListener::EntityRemovedCallback
-    // (RE::hkpEntityListener slot 02), fired by hkpWorld::FireEntityRemovedCallback whenever a
-    // Havok entity is removed from the physics world.
-    //
-    // When the preceding PlayerCharacter vfunc check is true, the handler compares the removed
-    // entity against gPlayerCamera->rigidBody->referencedObject -- the camera's own Havok
-    // collision body, used for camera-collision avoidance -- but dereferences
-    // gPlayerCamera->rigidBody unconditionally, with no null check on rigidBody itself:
-    //     mov rcx, [rax + 0x128]  ; rcx = gPlayerCamera->rigidBody (VR: +0x138)
-    //     mov rax, [rcx + 0x10]   ; crashes when rigidBody is null
-    // The code one step further down (`test rax,rax` / `cmovz`) already null-handles a missing
-    // referencedObject; it just never guards the rigidBody pointer that field is read from.
-    // rigidBody is null whenever the active camera state has no collision body attached (e.g.
-    // during a camera-state transition), which is unrelated to whether the removed entity is the
-    // player -- so on a null rigidBody the correct, engine-consistent answer is simply "not a
-    // match" (the same outcome the null-safe referencedObject check would already produce), not a
-    // crash.
-    //
-    // BGSAcousticSpaceListener::Unk_07 (an added virtual beyond hkpEntityListener's interface,
-    // fired when something touches/overlaps the acoustic space) runs the same identity check and
-    // has the identical unguarded rigidBody dereference; it gets the same treatment below.
-    //
-    // The patch site for both is the `mov reg,[rax+0x128/0x138]` load, not the shorter
-    // `mov reg,[reg+0x10]` load that actually faults: that load is only 4 bytes, one short of the
-    // 5-byte jmp a hotpatch trampoline needs, and the borrowed byte from the following
-    // instruction (`test`) turned out to be independently reachable -- a first attempt at this
-    // fix patched there and corrupted that shared byte, producing a *worse* crash on live
-    // players. The load patched here is a full 7-byte instruction, so the trampoline's 5 bytes
-    // never touch anything outside it. Each site's leading opcode bytes are verified against the
-    // exact bytes read from the binary before patching; a mismatch skips that site rather than
-    // risking a corrupt write.
+    // Vanilla out-of-bounds crash: BGSAcousticSpaceListener::EntityRemovedCallback and Unk_07
+    // both dereference gPlayerCamera->rigidBody unconditionally before the already-null-safe
+    // referencedObject check; a null rigidBody (e.g. mid camera-state transition) must evaluate
+    // to "not a match", not crash. Patched at the 7-byte rigidBody load rather than the 4-byte
+    // faulting load, which is too small for a 5-byte hotpatch trampoline.
     namespace detail
     {
         // MOV RCX,[RAX+imm32] (EntityRemovedCallback) or MOV RDX,[RAX+imm32] (Unk_07): both
@@ -108,9 +82,8 @@ namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
         auto&               trampoline = SKSE::GetTrampoline();
         const std::uint32_t rigidBodyOffset = REL::Module::IsVR() ? 0x138 : 0x128;
 
-        // Resume offsets = patch site + length of every original instruction re-run in the
-        // trampoline (the 7-byte rigidBody load, plus whatever sits between it and the faulting
-        // load in each case) -- i.e. the address of the first instruction NOT re-run (`test`).
+        // Resume offset = patch site + length of every original instruction re-run in the
+        // trampoline, i.e. the address of the first instruction NOT re-run (`test`).
         REL::Relocation<std::uintptr_t> entityRemoved{ RELOCATION_ID(25154, 25676), VAR_NUM(0x2B, 0x2F, 0x2B) };
         if (detail::SignatureMatches(entityRemoved.address(), 0x88, rigidBodyOffset)) {
             detail::EntityRemovedPatch p(entityRemoved.address() + 0xB, rigidBodyOffset);  // +7 (load) +4 (faulting load)
