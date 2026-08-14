@@ -2,11 +2,9 @@
 
 namespace Fixes::LightingShaderNullTextureCrash
 {
-    // BSLightingShader::SetupTexture (id 100587 SE/VR, 107329 AE) dereferences its
-    // texture-pointer argument's +0x48 field before ever null-checking the pointer
-    // itself; several SetupMaterial call sites pass it unguarded, causing the real
-    // crash this patches. See the PR description for the full call-site list and
-    // the separate AE-only inlined crash surface left deliberately out of scope.
+    // BSLightingShader::SetupTexture dereferences its texture-pointer argument's +0x48 field
+    // before ever null-checking the pointer itself; some SetupMaterial call sites pass it
+    // unguarded.
     namespace detail
     {
         inline bool SignatureMatches(std::uintptr_t a_addr)
