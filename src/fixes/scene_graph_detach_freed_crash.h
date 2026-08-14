@@ -3,37 +3,11 @@
 #include <cstdint>
 #include <cstring>
 
-// Fix for a use-after-free crash in the scene-graph downward-visit traversal,
-// exposed by Community Shaders background shader compilation.
-//
-// Background-compile removes the blocking precompile screen, which also gated world
-// rendering/streaming. With it gone, cell teardown (coc/cow -> GridArray::DetachAll ->
-// TESObjectREFR::DetachHavok) walks the scene graph via the recursive NiAVObject visitor
-// while the cell loader frees nodes. The visitor does `MOV RAX,[RDI]; CALL [RAX+0x18]`
-// (RDI->vfunc[3], the get-children dispatch) on a freed-and-zeroed node -> RAX (vftable)
-// is null -> AV read @0x18 -> CTD. Debugger/crashlog-confirmed on VR (TreePineForest02
-// node hierarchy during a coc storm). Same UAF class as the BSCullingProcess OnVisible
-// crashes (culling_freed_object_crash.h) and the renderpass-cache UAF, different subsystem.
-//
-// The visitor is a single recursive function (every node, at every depth, re-enters it),
-// so ONE guard at its entry covers the whole subtree walk and both internal virtual
-// dispatches (the get-children CALL [RAX+0x18] and the earlier CALL [RAX+0x90]). The entry
-// already begins `TEST RCX,RCX; JZ <exit>` BEFORE any stack setup, so <exit> is a
-// proven-safe return from the pre-prologue state. The guard reuses that exact exit: it
-// replicates the null check, then validates the node's vftable lies inside the main module
-// image (a live vftable is in .rdata; a freed node's is null or heap garbage). Valid ->
-// resume the original prologue; null/freed -> jump to the same clean <exit>, skipping the
-// entire (recursive) walk.
-//
-// RAX and R10 are volatile and not argument registers (RCX/RDX/R8/R9), so they are safe to
-// clobber at entry; RCX (the node) is preserved. Cross-runtime: the function and its 9-byte
-// `TEST RCX,RCX (3) + JZ rel32 (6)` prologue are identical on SE/AE/VR; only the addresses
-// differ (resolved per runtime). VR is where this bites (stereo widens the streaming race),
-// but the traversal is shared, so SE/AE are covered for completeness.
-//
-// The exit address is not stored separately: it is decoded from the JZ rel32 at the site's
-// own entry, so the exit can never drift out of sync with the prologue bytes the signature
-// check already validates.
+// Guards the recursive scene-graph visitor (get-children dispatch CALL [RAX+0x18]) against
+// a freed/null node's vftable during cell teardown. The visitor re-enters itself at every
+// depth, so one guard at its entry (before `TEST RCX,RCX; JZ <exit>`) covers the whole
+// subtree walk: valid vftable resumes the original prologue, null/freed takes the same
+// pre-existing exit.
 
 namespace Fixes::SceneGraphDetachFreedCrash
 {

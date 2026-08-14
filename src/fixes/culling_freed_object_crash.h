@@ -2,34 +2,11 @@
 
 #include <algorithm>
 
-// Fix for use-after-free crashes in the cull traversal's per-object OnVisible
-// dispatch, exposed by Community Shaders background shader compilation.
-//
-// Background-compile removes the blocking precompile screen, which also gated world
-// rendering/culling during cell streaming. The cull traversal then runs while the
-// cell loader frees scene objects and calls object->OnVisible (NiAVObject vfunc 0x34)
-// on a freed-and-reused NiAVObject -> the vftable is heap garbage (a real vftable is
-// in .rdata) and the slot is null/garbage -> CTD. Debugger-confirmed (dbgeng attach
-// to live VR): object->vftable held a heap pointer ~0x1C0 bytes from the object.
-//
-// The dispatch is duplicated across the cull processes (BSCullingProcess,
-// NiCullingProcess, BSParabolicCullingProcess). Every site matches CALL [RAX+slot]
-// (RAX = object->vftable) immediately followed by CMP byte [reg+0x11D] (cull flag),
-// then a conditional OR/AND [object+0x10C] write. Each is caved to a guard that
-// validates the vftable lies inside the main module image: valid -> original call +
-// resume; freed -> jump to the converge point (the post-CMP JZ target), skipping both
-// the virtual call AND the [object+0x10C] write (a second UAF).
-//
-// Cross-runtime: OnVisible is NiAVObject vfunc 0x34. VR (1.4.15) inserts one extra
-// vfunc before it (SKYRIM_REL_VR_VIRTUAL), so its byte offset is 0x1A8 on VR vs 0x1A0
-// on SE/AE; the site addresses and converge targets were resolved per runtime. VR is
-// where this actually bites (stereo doubles cull traversals -> wider race window); the
-// SE/AE sites are covered for completeness (the renderpass-cache fix already let SE
-// survive the same storm, so the cull crash is rarer there).
-//
-// The 5-byte branch's trailing byte is dead code (the cave only jumps to absolute
-// targets), so no NOP fill is needed. R10 is volatile and not an argument register
-// (RCX/RDX/R8/R9), so it is safe to clobber for the range check.
+// Guards the cull traversal's OnVisible dispatch (NiAVObject vfunc 0x34, CALL [RAX+slot])
+// against a freed/reused vftable: validates it lies inside the main module image before
+// calling, else jumps past both the call and the following [object+0x10C] write. VR
+// inserts one extra vfunc before OnVisible, so the site byte offset is 0x1A8 vs 0x1A0 on
+// SE/AE.
 
 namespace Fixes::CullingFreedObjectCrash
 {
@@ -42,11 +19,8 @@ namespace Fixes::CullingFreedObjectCrash
             std::span<const std::uint8_t> postCall;        // expected bytes from callOffset+0x6 to convergeOffset
         };
 
-        // Displaced post-call bytes for each site (CMP byte [reg+0x11D] plus the
-        // conditional OR/AND [object+0x10C] write, and in a few sites an inner
-        // branch besides). Validated in full, not just the CALL opcode, since a
-        // convergeOffset pointing at the wrong basic block would silently skip
-        // the wrong code on a freed object.
+        // Displaced post-call bytes per site, validated in full so a convergeOffset
+        // pointing at the wrong basic block can't silently skip the wrong code.
         inline constexpr std::uint8_t kPostVR0[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR1[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR2[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x24, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x18, 0x40, 0x84, 0xED, 0x75, 0x13, 0x40, 0x38, 0xA9, 0x1D, 0x01, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
@@ -69,7 +43,6 @@ namespace Fixes::CullingFreedObjectCrash
         inline constexpr std::uint8_t kPostSE4[] = { 0x80, 0xBF, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8B, 0xF4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xB9, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA3, 0xF4, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostSE5[] = { 0x80, 0xBF, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0x8B, 0xF4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04 };
 
-        // (callOffset, convergeOffset, postCall) per runtime. See the investigation notes.
         inline constexpr std::array<Site, 6> kSitesVR{ {
             { 0xCBFD24, 0xCBFD52, kPostVR0 },
             { 0xD99D3D, 0xD99D6B, kPostVR1 },
@@ -103,6 +76,7 @@ namespace Fixes::CullingFreedObjectCrash
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
 
+                // R10 is volatile and not an argument register, so it is safe to clobber here.
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(skipLbl);
@@ -137,10 +111,8 @@ namespace Fixes::CullingFreedObjectCrash
                    p[5] == static_cast<std::uint8_t>(a_slot >> 24);
         }
 
-        // Validates the displaced block from callOffset+0x6 up to convergeOffset
-        // against the site's recorded postCall bytes. Without this, a stale
-        // convergeOffset could still pass CallMatches and get patched to skip
-        // the wrong basic block on a freed object.
+        // A stale convergeOffset could still pass CallMatches, so validate the displaced
+        // block through convergeOffset too before patching.
         inline bool PostCallMatches(std::uintptr_t a_postCallAddr, std::span<const std::uint8_t> a_expected)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_postCallAddr);
