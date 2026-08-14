@@ -4,28 +4,10 @@
 
 namespace Fixes::KeyboardPollScancodeOOBCrash
 {
-    // Vanilla out-of-bounds crash in BSWin32KeyboardDevice::Poll's buffered-event loop.
-    //
-    // For each buffered event GetDeviceData actually returned (the loop bound itself is correct),
-    // the function reads dwOfs straight from the driver-filled DIDEVICEOBJECTDATA entry and uses it,
-    // with NO range check, as a byte index into the fixed 256-byte prevState/curState arrays
-    // (prevState[dwOfs], curState[dwOfs], ...). This is only safe because the DirectInput API
-    // contract promises dwOfs is always a valid DIK_* scancode (<0x100) for a standard keyboard
-    // device -- nothing in this function enforces that itself.
-    //
-    // Observed (crash-2026-07-19-16-03-49.log, AE): dwOfs came back as 0x74186963, nowhere near a
-    // valid scancode, producing a wild out-of-bounds byte access -> EXCEPTION_ACCESS_VIOLATION at
-    // func+0xF2. Root cause of the garbage dwOfs itself is not established (a third-party
-    // input-hooking overlay or heap corruption elsewhere stomping the diObjData buffer between
-    // GetDeviceData's fill and this read are the plausible categories).
-    //
-    // Handler is address library id 67472 (AE id 68782). Patch site = the `mov r14d,[..+dwOfs]`
-    // load (flat: func+0xDB/+0xDC, index register rax, 5-byte instr; VR: func+0xE0, index register
-    // rcx, 8-byte instr -- VR's extra BSIInputDevice field shifts diObjData from +0x78 to +0x80,
-    // pushing the displacement past the imm8 encoding range). The trampoline re-runs the displaced
-    // load, bounds-checks it, and either resumes right after the load (valid scancode) or jumps to
-    // the loop's `uVar14 = uVar14 + 1; continue` point (flat func+0x232/+0x2F0; VR func+0x1D9),
-    // skipping the malformed event entirely instead of trusting it.
+    // Poll trusts dwOfs (from DirectInput) as an unchecked byte index into the 256-byte
+    // prevState/curState arrays; a malformed dwOfs causes an out-of-bounds access. VR's extra
+    // BSIInputDevice field shifts diObjData from +0x78 to +0x80, changing the load's displacement
+    // encoding from disp8 to disp32 (5 vs 8 bytes), hence the separate Flat/VR patch variants.
     namespace detail
     {
         // Full 5-byte flat (SE/AE) block: MOV R14D,[RBX+RAX*8+0x78]. REX.R (0x44)
