@@ -200,7 +200,6 @@ target_link_libraries(
     ${CommonLibName}::${CommonLibName}
     safetyhook::safetyhook
     TBB::tbb
-    TBB::tbbmalloc
     Boost::regex
 )
 
@@ -237,6 +236,8 @@ endif()
 
 # ---- Post build ----
 
+set(TbbRedistDir "${CMAKE_CURRENT_SOURCE_DIR}/extern/tbb-redist")
+
 if(COPY_BUILD)
     if(DEFINED SkyrimPluginTargets)
         foreach(target_dir IN LISTS SkyrimPluginTargets)
@@ -247,6 +248,13 @@ if(COPY_BUILD)
                         COMMAND ${CMAKE_COMMAND} -E make_directory "${target_dir}"
                         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${PROJECT_NAME}> "${target_dir}"
                         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_PDB_FILE:${PROJECT_NAME}> "${target_dir}"
+                        # Official oneTBB redistributable: tbbmalloc_proxy.dll performs the real
+                        # CRT malloc/free/realloc replacement (with foreign-pointer-safe fallback)
+                        # on load; EngineFixes' own allocator calls resolve scalable_* from the
+                        # same tbbmalloc.dll instance via GetProcAddress -- see src/memory/allocator.cpp.
+                        COMMAND ${CMAKE_COMMAND} -E copy "${TbbRedistDir}/tbb12.dll" "${target_dir}"
+                        COMMAND ${CMAKE_COMMAND} -E copy "${TbbRedistDir}/tbbmalloc.dll" "${target_dir}"
+                        COMMAND ${CMAKE_COMMAND} -E copy "${TbbRedistDir}/tbbmalloc_proxy.dll" "${target_dir}"
                 )
             endif()
         endforeach()
