@@ -2,37 +2,16 @@
 
 namespace Fixes::ActorValueStorageClearRaceCrash
 {
-    // Vanilla lock-scope bug in Actor::ActorValueStorage::LocalMap<float>::ClearBaseValues
-    // (id 38064) leading to a null-pointer write in the sibling SetBaseValue (id 38062).
-    //
-    // ClearBaseValues frees `entries`, nulls it, then calls UnlockWrite -- and only *after*
-    // the lock is released does it reset the `actorValues` key string to "". Between the
-    // unlock and that reset, another thread can enter SetBaseValue's write lock and see the
-    // still-nonempty `actorValues` (so it takes the "key already present"/no-realloc branch)
-    // with `entries` already null, and writes through the null pointer.
-    // Observed: AE 1.6.1170 EXCEPTION_ACCESS_VIOLATION writing 0x4 (`movss [rbp+rbx*4],xmm6`,
-    // rbp == 0) inside SetBaseValue.
-    //
-    // Fix: move the `actorValues` reset to *before* UnlockWrite so `entries == nullptr` and
-    // `actorValues == ""` become visible together, closing the torn window. The identical
-    // bug exists in the neighboring wrapper that clears the sibling LocalMap<Modifiers> (at
-    // this+0x10/this+0x18) before tail-calling into ClearBaseValues (id 38071/39026); same
-    // fix applied there.
-    // A defensive guard is also added to SetBaseValue itself as a backstop, since a torn
-    // `entries == nullptr && actorValues != ""` state -- however it arises -- is unsafe on
-    // every branch of SetBaseValue, not just the one hit in the crash log:
-    //   - the "key already present" branch writes `entries[index]` directly (no null check)
-    //   - the "insert, no realloc needed" branch (odd HasValue() parity) shifts and writes
-    //     into `entries` directly
-    //   - the "insert, realloc needed" branch (even parity) allocates a *new* buffer but
-    //     then copies from the old (null) `entries` at an offset near address 0, in the
-    //     copy-in loop -- a different faulting address, same class of bug
-    //
-    // Verified identical structure (ClearBaseValues, the Modifiers wrapper, and SetBaseValue)
-    // in SE 1.5.97, AE 1.6.1170 and VR 1.4.15, though not byte-identical: AE caches neither
-    // the write-lock global's address nor `this` in the same registers SE/VR do (SE/VR use a
-    // cached R14/RSI-RDI register scheme; AE reloads via LEA/RDI each time), so patch sites
-    // and byte lengths differ per runtime (see VAR_NUM / signatures below).
+    // ClearBaseValues frees+nulls `entries`, releases the write lock, and only then resets
+    // `actorValues` to "" -- another thread can enter SetBaseValue in that window, see the
+    // still-nonempty key, take the no-realloc branch, and write through the null `entries`.
+    // Fix moves the reset before UnlockWrite so both become visible together; the identical
+    // bug (and fix) exists in the sibling wrapper that clears LocalMap<Modifiers> before
+    // tail-calling into ClearBaseValues. SetBaseValue also gets a defensive guard, since a
+    // torn `entries == nullptr && actorValues != ""` state is unsafe on every write branch,
+    // not just the one observed. Structurally identical across SE/AE/VR but not
+    // byte-identical (AE reloads registers via LEA instead of SE/VR's cached scheme), hence
+    // the differing patch sites below.
     namespace detail
     {
         inline bool BytesMatch(std::uintptr_t a_addr, std::initializer_list<std::uint8_t> a_expected)
@@ -41,12 +20,9 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             return std::equal(a_expected.begin(), a_expected.end(), p);
         }
 
-        // Displaces the original "restore lock ptr into rcx; call UnlockWrite" sequence
-        // (8 bytes on SE/VR via cached R14, 12 bytes on AE via a fresh LEA) found at the end
-        // of ClearBaseValues' and the Modifiers-wrapper's free-guarded block. Re-runs the
-        // reset call (previously located further down, after the original unlock) while the
-        // write lock is still held, performs the original unlock, then jumps past the
-        // now-redundant reset call in the original code.
+        // Re-runs the actorValues reset (originally located after UnlockWrite) while the
+        // write lock is still held, then performs the original unlock and skips the now-
+        // redundant reset call further down.
         struct ResetBeforeUnlockPatch final : Xbyak::CodeGenerator
         {
             // a_fieldOffset: 0 for ClearBaseValues' own actorValues (LocalMap<float>), 0x10
@@ -77,10 +53,8 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             }
         };
 
-        // Defensive backstop in SetBaseValue: bail out (still under the write lock) if
-        // `entries` is null but the key string is non-empty -- a torn state where every
-        // write branch below is unsafe. `entries == nullptr && length == 0` is the
-        // legitimate first-insert case and must fall through unchanged.
+        // Bails out under lock on a torn `entries == nullptr && length != 0` state;
+        // `length == 0` is the legitimate first-insert case and falls through unchanged.
         struct NullEntriesGuardPatch final : Xbyak::CodeGenerator
         {
             NullEntriesGuardPatch(
@@ -144,11 +118,8 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         }
 
         // --- Fix 2: sibling wrapper -- same bug clearing LocalMap<Modifiers> at +0x10/+0x18
-        //     before tail-calling into ClearBaseValues. id 38071/39026 registered in
-        //     skyrim_vr_address_library#176; requires that PR to merge and a new release
-        //     to ship before this id resolves (same dependency as #176's other ids). The
-        //     signature check below still fails closed (skip+warn) if the id is stale or
-        //     unresolved.
+        //     before tail-calling into ClearBaseValues. The signature check below fails
+        //     closed (skip+warn) if id 38071/39026 is stale or unresolved. ---
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38071, 39026), VAR_NUM(0x9D, 0x96, 0x9D) };
             REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38071, 39026), VAR_NUM(0xA6, 0xA3, 0xA6) };
