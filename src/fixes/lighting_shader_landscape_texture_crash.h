@@ -6,7 +6,7 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
     // present in all three runtimes. AE's compiler inlines the landscape-blend helper into
     // BSLightingShader::SetupMaterial (4 sites, patched below via raw offsets into that
     // function). SE/VR keep it as a standalone function (address-library id 100588, 4 sites
-    // at its own entry+0x7/0x2F/0x7E/0xE6). See PR description for reachability rationale.
+    // at its own entry+0x7/0x2F/0x7E/0xE6).
     namespace detail
     {
         inline bool SignatureMatches(std::uintptr_t a_addr, std::uint8_t a_modrm)
