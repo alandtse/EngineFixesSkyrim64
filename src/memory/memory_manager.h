@@ -36,7 +36,7 @@ namespace Memory::MemoryManager
             // global at 0x1430C1F78 by 0x10 on each zero-size Ctor; Dtor compares the stored slot to
             // both the current and rotated cookie to decide skip-vs-free). We replace the cookie scheme
             // with a simpler nullptr sentinel:
-            //   Ctor +0x1D..+0x32 (15 bytes): cookie rotation → NOP. Falls through to +0x32
+            //   Ctor +0x1D..+0x32: cookie rotation → NOP. Falls through to +0x32
             //     (mov [rcx], rdx) with rdx==size==0, so the slot is zeroed.
             //   Dtor +0x12..+0x2F (29 bytes): cookie comparison → `xor rax,rax; cmp rbx,rax` + NOP fill,
             //     and the jnz at +0x2F is flipped to jz, meaning "skip free if slot is null".
@@ -63,7 +63,7 @@ namespace Memory::MemoryManager
                     }
                 };
 
-                // AutoScrapBuffer::Ctor: NOP cookie rotation block [+0x1D..+0x32) (15 bytes).
+                // AutoScrapBuffer::Ctor: NOP cookie rotation block [+0x1D..+0x32).
                 REL::Relocation<std::uintptr_t> ctorBase{ RELOCATION_ID(66853, 68108) };
                 REL::safe_fill(ctorBase.address() + 0x1D, REL::NOP, 0x32 - 0x1D);
 
