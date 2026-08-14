@@ -4,38 +4,14 @@
 #include <cstdint>
 #include <cstring>
 
-// Fix for a use-after-free crash in the scene-graph downward-visit traversal,
-// exposed by Community Shaders background shader compilation.
-//
-// Background-compile removes the blocking precompile screen, which also gated world
-// rendering/streaming. With it gone, cell teardown (coc/cow -> GridArray::DetachAll ->
-// TESObjectREFR::DetachHavok) walks the scene graph via the recursive NiAVObject visitor
-// while the cell loader frees nodes. The visitor does `MOV RAX,[RDI]; CALL [RAX+0x18]`
-// (RDI->vfunc[3], the get-children dispatch) on a freed-and-zeroed node -> RAX (vftable)
-// is null -> AV read @0x18 -> CTD. Debugger/crashlog-confirmed on VR (TreePineForest02
-// node hierarchy during a coc storm). Same UAF class as the BSCullingProcess OnVisible
-// crashes (culling_freed_object_crash.h) and the renderpass-cache UAF, different subsystem.
-//
-// The primary visitor is a single recursive function (every node, at every depth,
-// re-enters it), so one guard at its entry covers that subtree walk and both internal
-// virtual dispatches. A separate cell child-array traversal can still encounter a
-// freed child after its own null check, so VR also guards that loop's +0x18 call. The entry
-// already begins `TEST RCX,RCX; JZ <exit>` BEFORE any stack setup, so <exit> is a
-// proven-safe return from the pre-prologue state. The guard reuses that exact exit: it
-// replicates the null check, then validates the node's vftable lies inside the main module
-// image (a live vftable is in .rdata; a freed node's is null or heap garbage). Valid ->
-// resume the original prologue; null/freed -> jump to the same clean <exit>, skipping the
-// entire (recursive) walk.
-//
-// RAX and R10 are volatile and not argument registers (RCX/RDX/R8/R9), so they are safe to
-// clobber at entry; RCX (the node) is preserved. Cross-runtime: the function and its 9-byte
-// `TEST RCX,RCX (3) + JZ rel32 (6)` prologue are identical on SE/AE/VR; only the addresses
-// differ (resolved per runtime). VR is where this bites (stereo widens the streaming race),
-// but the traversal is shared, so SE/AE are covered for completeness.
-//
-// The exit address is not stored separately: it is decoded from the JZ rel32 at the site's
-// own entry, so the exit can never drift out of sync with the prologue bytes the signature
-// check already validates.
+// Guards the recursive scene-graph visitor (get-children dispatch CALL [RAX+0x18]) against
+// a freed/null node's vftable during cell teardown. The visitor re-enters itself at every
+// depth, so one guard at its entry (before `TEST RCX,RCX; JZ <exit>`) covers the whole
+// subtree walk: valid vftable resumes the original prologue, null/freed takes the same
+// pre-existing exit. VR additionally has several other cell-teardown traversals (child-array
+// iteration, recursive node visits, multibound helpers, ObjectLOD readers, NiNode cloning)
+// that reach the same class of freed-vftable dispatch through different call sites; each is
+// guarded below with the same range-check-then-cave-or-continue pattern.
 
 namespace Fixes::SceneGraphDetachFreedCrash
 {
@@ -64,7 +40,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 test(rcx, rcx);
                 jz(exitLbl);
 
-                // Validate the node's vftable lies inside the main module image.
+                // Validate the node's vftable lies inside the main module image. RAX/R10 are
+                // volatile and not argument registers, so they're safe to clobber here.
                 mov(rax, ptr[rcx]);
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
@@ -87,11 +64,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
-        // A second cell-teardown traversal iterates a node's child array and
-        // calls vfunc +0x18 before recursing.  A captured Riften transition had
-        // a valid parent/child pointer but a null child vftable.  Skip that one
-        // child and continue the original loop when its vftable is not in the
-        // Skyrim image.
+        // A second cell-teardown traversal calls vfunc +0x18 on each child before recursing;
+        // skip a child whose vftable isn't in the module image and continue the loop.
         struct ChildPatch final : Xbyak::CodeGenerator
         {
             ChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -145,9 +119,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchFreedChildTraversalVR(std::uintptr_t a_moduleBase,
             std::uintptr_t                                    a_moduleEnd)
         {
-            // Validate each complete block crossed by its invalid-child path,
-            // not just the six displaced bytes.  The next-child offset begins
-            // at the first instruction after each sequence.
+            // Validate each complete block crossed by its invalid-child path, not just the
+            // six displaced bytes; the next-child offset begins right after each sequence.
             static constexpr std::uint8_t kTraversal410Expected[] = {
                 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
                 0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
@@ -205,11 +178,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // A third recursive scene traversal dispatches twice through the same
-        // node: +0x10 before its type/owner work and +0x18 before descending
-        // into children.  Cell teardown can free the node before either call.
-        // Both invalid-vftable paths use the function's existing epilogue,
-        // avoiding every later read from that node.
+        // A third recursive scene traversal dispatches twice through the same node: +0x10
+        // before its type/owner work and +0x18 before descending into children. Both
+        // invalid-vftable paths use the function's existing epilogue, avoiding every later
+        // read from that node.
         struct RecursiveNodePatchRdx final : Xbyak::CodeGenerator
         {
             RecursiveNodePatchRdx(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -319,13 +291,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed recursive scene-node freed-object crash fix (2 sites)"sv);
         }
 
-        // The multibound/water scene helper is reached from the same cell teardown
-        // traversal with an auxiliary scene object in RDX.  During an exterior coc
-        // storm that object was already zeroed while its enclosing Riften multibound
-        // graph was still being visited; the helper immediately dispatched vfunc
-        // +0x48 through the null vftable at SkyrimVR+0x4DA56F.  Every normal path in
-        // this helper returns zero, so rejecting a null/freed argument at entry has
-        // the same failure semantics as its existing internal checks.
+        // The multibound/water scene helper is reached from the same cell teardown traversal
+        // with an auxiliary scene object in RDX. Every normal path in this helper returns
+        // zero, so rejecting a null/freed argument at entry has the same failure semantics
+        // as its existing internal checks.
         struct MultiBoundHelperPatch final : Xbyak::CodeGenerator
         {
             MultiBoundHelperPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -388,13 +357,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed multibound scene helper freed-object crash fix"sv);
         }
 
-        // Three recursive multibound callers invoke +0x18 on their scene-node
-        // input immediately after consulting the guarded helper above.  The
-        // helper can safely reject its own stale RDX argument, but does not own
-        // or validate the caller's RCX node.  A captured Riften-to-Markarth
-        // transition reached the middle caller with a stale BSMultiBoundNode
-        // vftable.  Invalid inputs reproduce a null virtual result and resume
-        // at the caller's native post-call null check.
+        // Three recursive multibound callers invoke +0x18 on their scene-node input right
+        // after consulting the guarded helper above; the helper validates its own RDX
+        // argument but not the caller's RCX node. Invalid inputs reproduce a null virtual
+        // result and resume at the caller's native post-call null check.
         struct MultiBoundCallerPatch final : Xbyak::CodeGenerator
         {
             MultiBoundCallerPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -481,13 +447,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking
-        // a node's children.  A stress transition retained a departed
-        // MountainTrimSlab beneath ObjectLODRoot whose reused heap vftable held
-        // the value 1 in that slot, producing an execute-at-0x1 crash at
-        // SkyrimVR+0x13021E0.  Guarding the recursive function's entry covers
-        // both its initial dispatch and every descendant visit.  Its native
-        // null-input path returns zero, which is also the safe result here.
+        // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking a node's
+        // children. Guarding the function's entry covers both its initial dispatch and every
+        // descendant visit; its native null-input path returns zero, which is also the safe
+        // result here.
         struct ObjectLODVisitorPatch final : Xbyak::CodeGenerator
         {
             ObjectLODVisitorPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -554,13 +517,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed ObjectLOD recursive visitor freed-object crash fix"sv);
         }
 
-        // Two more ObjectLOD readers were exposed after the recursive visitor
-        // guards had completed a full 30-leg route.  One walks a linked parent
-        // chain and dispatches +0x10 twice on a matching node.  The other is a
-        // two-function child-array family that dispatches +0x38 and, on the
-        // fallback path, +0x18.  Captured stale objects carried heap/reused
-        // vftables, producing execute-at-zero/three crashes.  Each exceptional
-        // path uses the reader's existing no-match/next-child continuation.
+        // Two more ObjectLOD readers: one walks a linked parent chain and dispatches +0x10
+        // twice on a matching node; the other is a two-function child-array family that
+        // dispatches +0x38 and, on the fallback path, +0x18. Each exceptional path uses the
+        // reader's existing no-match/next-child continuation.
         struct ObjectLODReaderDispatchPatch final : Xbyak::CodeGenerator
         {
             ObjectLODReaderDispatchPatch(std::uintptr_t a_moduleBase,
@@ -706,13 +666,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // NiNode::ProcessClone walks the source node's child array and invokes
-        // ProcessClone (vfunc +0xB8) on every non-null child.  A streamed Riften
-        // reload retained a non-null Coin01 child whose object had already been
-        // reclaimed: its vftable was heap data and the +0xB8 slot contained -1.
-        // The native loop already skips null source children and leaves the
-        // corresponding preallocated destination slot empty.  Treat a child
-        // with a non-image vftable identically, then continue with its sibling.
+        // NiNode::ProcessClone walks the source node's child array and invokes ProcessClone
+        // (vfunc +0xB8) on every non-null child. The native loop already skips null source
+        // children, leaving the preallocated destination slot empty; treat a non-image
+        // vftable identically, then continue with the sibling.
         struct NiNodeCloneChildPatch final : Xbyak::CodeGenerator
         {
             NiNodeCloneChildPatch(std::uintptr_t a_moduleBase,
