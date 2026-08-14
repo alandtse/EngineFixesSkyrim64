@@ -15,7 +15,7 @@ namespace Fixes::SavedHavokDataLoadInit
                         FlagForPrevWorldResetDownwards(childPtr);
                 }
             }
-            REL::RelocateMember<std::uint8_t>(a_self, 0x109, 0x120) |= 0x40;
+            a_self->GetFlags02() |= 0x40;
         }
 
         inline void NiAVObject_Update(RE::NiAVObject* a_self, RE::NiUpdateData* a_data)
