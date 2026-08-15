@@ -728,6 +728,79 @@ namespace Fixes::SceneGraphDetachFreedCrash
             patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed NiNode clone child freed-object crash fix"sv);
         }
+
+        // NiAVObject::VisitCollisionObjectTree's entry guard (kSiteVR above) covers `this`
+        // being a freed/null node at entry -- but not a node that was VALID at entry whose
+        // children-array backing buffer (loaded from [node+0x140], a NiTArray/BSTArray data
+        // pointer) gets freed-and-reused mid-traversal by a different thread. Live crash
+        // 2026-08-14 23:50 (soak test with the entry guard already active): RCX read back
+        // 0x423A972942200000, a non-canonical address (bits 63-47 not sign-extended) --
+        // float-bit-pattern-reinterpreted-as-pointer garbage from reused memory, not a
+        // plausible heap pointer. A vtable-style module/.text bounds check doesn't apply
+        // here (this is a heap data pointer, not a code pointer), so this guard instead
+        // rejects non-canonical/null array-base pointers and null-substitutes the
+        // recursive call's `this` (the function already no-ops on `this == nullptr`).
+        //
+        // Original: MOV RCX,[RDI+0x140] (array base); MOV R8,RBP; MOV R9D,EBX; MOV RDX,RSI;
+        // MOV RCX,[RCX+R9*8] (crash: element read) -> CALL VisitCollisionObjectTree (recurse).
+        struct VisitCollisionArrayPatch final : Xbyak::CodeGenerator
+        {
+            explicit VisitCollisionArrayPatch(std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rcx, qword[rdi + 0x140]);  // re-run displaced MOV RCX,[RDI+0x140]
+                mov(r8, rbp);                  // re-run displaced MOV R8,RBP
+                mov(r9d, ebx);                 // re-run displaced MOV R9D,EBX
+                mov(rdx, rsi);                 // re-run displaced MOV RDX,RSI
+
+                // Reject null or non-canonical array base (freed/reused garbage).
+                test(rcx, rcx);
+                jz(invalidLbl);
+                mov(r10, 0x0000800000000000ULL);
+                cmp(rcx, r10);
+                jae(invalidLbl);
+
+                // Valid-looking base: perform the original indexed read, resume after it.
+                mov(rcx, ptr[rcx + r9 * 8]);
+                jmp(ptr[rip + resumeAddr]);
+
+                // Freed/reused array: substitute a null child (no-op for the recursive call).
+                L(invalidLbl);
+                xor_(rcx, rcx);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchVisitCollisionArrayVR()
+        {
+            constexpr std::uintptr_t kHookOffset = 0xDFDD80;    // MOV RCX,[RDI+0x140]
+            constexpr std::uintptr_t kResumeOffset = 0xDFDD94;  // CALL VisitCollisionObjectTree
+
+            // MOV RCX,[RDI+0x140]; MOV R8,RBP; MOV R9D,EBX; MOV RDX,RSI.
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x8F, 0x40, 0x01, 0x00, 0x00,
+                0x4C, 0x8B, 0xC5,
+                0x44, 0x8B, 0xCB,
+                0x48, 0x8B, 0xD6
+            };
+
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("VisitCollisionObjectTree array guard: unexpected bytes at {:X}, skipping"sv,
+                    kHookOffset);
+                return;
+            }
+
+            VisitCollisionArrayPatch p{ REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed VisitCollisionObjectTree array guard"sv);
+        }
     }
 
     inline void Install()
@@ -770,6 +843,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
             detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
+            detail::PatchVisitCollisionArrayVR();
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
