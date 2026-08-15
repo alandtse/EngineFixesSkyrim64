@@ -31,6 +31,7 @@
 #include "getgamesetting_not_found_crash.h"
 #include "gheap_leak_detection_crash.h"
 #include "global_time.h"
+#include "havok_material_lookup_guard.h"
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
 #include "keyboard_poll_scancode_oob_crash.h"
@@ -221,6 +222,9 @@ namespace Fixes
 
         if (Settings::Fixes::bCopyBoneTransformNullCrash.GetValue())
             CopyBoneTransformNullCrash::Install();
+
+        if (Settings::Fixes::bHavokMaterialLookupGuard.GetValue())
+            HavokMaterialLookupGuard::Install();
 
         if (Settings::Fixes::bBSOpenVRHandIndexNullCrash.GetValue())
             BSOpenVRHandIndexNullCrash::Install();
