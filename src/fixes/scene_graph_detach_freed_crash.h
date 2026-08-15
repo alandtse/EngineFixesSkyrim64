@@ -729,6 +729,73 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode clone child freed-object crash fix"sv);
         }
 
+        // NiNode::ProcessClone's own child-array virtual dispatch: a sibling site to
+        // PatchNiNodeCloneChildVR above, in the same clone-traversal family but a
+        // distinct function/call slot (vfunc 0xE8, not 0xB8). Live crash 2026-08-15
+        // 00:47 (soak with PR38's 8-site culling fix + our VisitCollisionObjectTree
+        // guard both active, ~9.5min uptime): RCX (child, read via [RDI+0x140] then
+        // indexed) already null-checked by the original code, but the object it
+        // points at had been freed and reused -- its own vftable field ([RCX]) read
+        // back a heap pointer (0x1FE6FE509C0) nowhere near the module image, so
+        // CALL [RAX+0xE8] jumped into unmapped memory. The call's return value is
+        // never consumed by the caller (the next instruction re-reads the loop
+        // bound from [RDI+0x14A] and continues), so an invalid vtable can skip the
+        // call entirely rather than needing a fake return value.
+        struct NiNodeProcessCloneChildPatch final : Xbyak::CodeGenerator
+        {
+            NiNodeProcessCloneChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rax, qword[rcx]);  // re-run displaced MOV RAX,[RCX]
+                mov(rdx, rsi);         // re-run displaced MOV RDX,RSI
+
+                // Validate the child's vftable lies inside the main module image, same
+                // convention as every other guard in this file.
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                call(ptr[rax + 0xE8]);
+
+                L(invalidLbl);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchNiNodeProcessCloneChildVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
+        {
+            constexpr std::uintptr_t      kPatchOffset = 0xC9E410;
+            constexpr std::uintptr_t      kResumeOffset = 0xC9E41C;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x01,                   // mov rax,[rcx]
+                0x48, 0x8B, 0xD6,                   // mov rdx,rsi
+                0xFF, 0x90, 0xE8, 0x00, 0x00, 0x00  // call [rax+E8h]
+            };
+            static_assert(kPatchOffset + std::size(kExpected) == kResumeOffset);
+
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("NiNode ProcessClone child crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kPatchOffset);
+                return;
+            }
+
+            NiNodeProcessCloneChildPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
+        }
+
         // NiAVObject::VisitCollisionObjectTree's entry guard (kSiteVR above) covers `this`
         // being a freed/null node at entry -- but not a node that was VALID at entry whose
         // children-array backing buffer (loaded from [node+0x140], a NiTArray/BSTArray data
@@ -843,6 +910,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
             detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
+            detail::PatchNiNodeProcessCloneChildVR(moduleBase, moduleEnd);
             detail::PatchVisitCollisionArrayVR();
         }
 
