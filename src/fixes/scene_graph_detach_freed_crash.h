@@ -785,6 +785,69 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
         }
 
+        // BSLight::AttachSubtree dispatches NiObject::AsNode() (vtable slot 0x18) on a
+        // node whose vftable may be freed/reused mid-traversal.
+        struct LightAttachSubtreeAsNodePatch final : Xbyak::CodeGenerator
+        {
+            LightAttachSubtreeAsNodePatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rax, qword[rbx]);
+                mov(rcx, rbx);
+                mov(qword[rsp + 0x40], rdi);
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x18], invalidLbl);
+
+                call(r11);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(invalidLbl);
+                xor_(rax, rax);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        // Expected bytes at the hook point: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX
+        // (48 8B CB); MOV [RSP+0x40],RDI (48 89 7C 24 40); CALL [RAX+0x18] (FF 50 18).
+        inline bool LightAttachSubtreeSiteMatches(std::uintptr_t a_addr)
+        {
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x03 &&
+                   p[3] == 0x48 && p[4] == 0x8B && p[5] == 0xCB &&
+                   p[6] == 0x48 && p[7] == 0x89 && p[8] == 0x7C && p[9] == 0x24 && p[10] == 0x40 &&
+                   p[11] == 0xFF && p[12] == 0x50 && p[13] == 0x18;
+        }
+
+        inline void PatchLightAttachSubtreeAsNodeVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
+        {
+            constexpr std::uintptr_t kHookOffset = 0x136397B;    // MOV RAX,[RBX]
+            constexpr std::uintptr_t kResumeOffset = 0x1363989;  // MOV RDI,RAX
+
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
+            if (!LightAttachSubtreeSiteMatches(hook.address())) {
+                logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, kHookOffset);
+                return;
+            }
+
+            LightAttachSubtreeAsNodePatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed BSLight::AttachSubtree AsNode guard"sv);
+        }
+
         // The children-array data pointer (loaded from [node+0x140]) can be freed/reused
         // mid-traversal even when the node itself is valid; it's a heap data pointer, not a
         // code pointer, so reject non-canonical/null rather than module-bounds-checking it.
@@ -887,6 +950,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
             detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
             detail::PatchNiNodeProcessCloneChildVR(moduleBase, moduleEnd);
+            detail::PatchLightAttachSubtreeAsNodeVR(moduleBase, moduleEnd);
             detail::PatchVisitCollisionArrayVR();
         }
 
