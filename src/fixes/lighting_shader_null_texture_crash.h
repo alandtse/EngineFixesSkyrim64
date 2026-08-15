@@ -2,11 +2,12 @@
 
 namespace Fixes::LightingShaderNullTextureCrash
 {
-    // BSLightingShader::SetupTexture dereferences its texture-pointer argument's +0x48 field
-    // before ever null-checking the pointer itself; some SetupMaterial call sites pass it
-    // unguarded.
+    // SetupTexture dereferences its texture-pointer arg's +0x48 field before null-checking
+    // the pointer itself; some SetupMaterial call sites pass it unguarded.
     namespace detail
     {
+        inline constexpr std::uintptr_t kDisplacedBytes = 0x8;
+
         inline bool SignatureMatches(std::uintptr_t a_addr)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
@@ -37,7 +38,7 @@ namespace Fixes::LightingShaderNullTextureCrash
         REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(100587, 107329) };
 
         if (detail::SignatureMatches(target.address())) {
-            detail::Patch p(target.address() + 0x8);  // +4 (load) +4 (mov edx,[r8+0x70])
+            detail::Patch p(target.address() + detail::kDisplacedBytes);
             p.ready();
             auto& trampoline = SKSE::GetTrampoline();
             target.write_branch<5>(trampoline.allocate(p));
