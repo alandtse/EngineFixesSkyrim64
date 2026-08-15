@@ -2,16 +2,9 @@
 
 namespace Fixes::ActorValueStorageClearRaceCrash
 {
-    // ClearBaseValues frees+nulls `entries`, releases the write lock, and only then resets
-    // `actorValues` to "" -- another thread can enter SetBaseValue in that window, see the
-    // still-nonempty key, take the no-realloc branch, and write through the null `entries`.
-    // Fix moves the reset before UnlockWrite so both become visible together; the identical
-    // bug (and fix) exists in the sibling wrapper that clears LocalMap<Modifiers> before
-    // tail-calling into ClearBaseValues. SetBaseValue also gets a defensive guard, since a
-    // torn `entries == nullptr && actorValues != ""` state is unsafe on every write branch,
-    // not just the one observed. Structurally identical across SE/AE/VR but not
-    // byte-identical (AE reloads registers via LEA instead of SE/VR's cached scheme), hence
-    // the differing patch sites below.
+    // ClearBaseValues unlocks before resetting `actorValues`; a racing SetBaseValue can see
+    // the torn state and write through the freed `entries`. Moves the reset before unlock,
+    // in both ClearBaseValues and its sibling wrapper, plus a defensive SetBaseValue guard.
     namespace detail
     {
         inline bool BytesMatch(std::uintptr_t a_addr, std::initializer_list<std::uint8_t> a_expected)
@@ -20,9 +13,7 @@ namespace Fixes::ActorValueStorageClearRaceCrash
             return std::equal(a_expected.begin(), a_expected.end(), p);
         }
 
-        // Re-runs the actorValues reset (originally located after UnlockWrite) while the
-        // write lock is still held, then performs the original unlock and skips the now-
-        // redundant reset call further down.
+        // Runs the key-string reset while the write lock is still held, then unlocks.
         struct ResetBeforeUnlockPatch final : Xbyak::CodeGenerator
         {
             // a_fieldOffset: 0 for ClearBaseValues' own actorValues (LocalMap<float>), 0x10
@@ -42,14 +33,14 @@ namespace Fixes::ActorValueStorageClearRaceCrash
                 }
                 mov(rdx, a_resetEmptyString);
                 mov(rax, a_resetFunc);
-                call(rax);  // reset the key string to "" while the write lock is still held
+                call(rax);
 
                 mov(rcx, a_lockAddr);
                 mov(rax, a_unlockFunc);
-                call(rax);  // original UnlockWrite call
+                call(rax);
 
                 jmp(ptr[rip]);
-                dq(a_resume);  // skip the original (now redundant) reset call further down
+                dq(a_resume);
             }
         };
 
@@ -87,6 +78,22 @@ namespace Fixes::ActorValueStorageClearRaceCrash
                 dq(a_resume);
             }
         };
+        template <typename PatchFactory>
+        inline void InstallGuardedSite(REL::Relocation<std::uintptr_t> a_patch,
+            std::initializer_list<std::uint8_t> a_expectedSEVR, std::initializer_list<std::uint8_t> a_expectedAE,
+            bool a_isAE, const char* a_siteName, SKSE::Trampoline& a_trampoline, PatchFactory&& a_makePatch)
+        {
+            const bool matches =
+                a_isAE ? BytesMatch(a_patch.address(), a_expectedAE) : BytesMatch(a_patch.address(), a_expectedSEVR);
+            if (!matches) {
+                logger::warn("actor value storage clear race crash fix: unexpected bytes at {} patch site, skipping"sv,
+                    a_siteName);
+                return;
+            }
+            auto p = a_makePatch();
+            p.ready();
+            a_patch.write_branch<5>(a_trampoline.allocate(p));
+        }
     }
 
     inline void Install()
@@ -94,62 +101,43 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         auto&      trampoline = SKSE::GetTrampoline();
         const bool isAE = REL::Module::IsAE();
 
-        // Shared engine internals (no address-library id; same layout in all 3 runtimes,
-        // only the concrete addresses differ).
         const std::uintptr_t resetFunc = REL::VariantOffset(0xC28D60, 0xCEC760, 0xC6DC90).address();
         const std::uintptr_t resetEmptyString = REL::VariantOffset(0x151F2A0, 0x1ACBCC0, 0x15965F0).address();
         const std::uintptr_t lockAddr = REL::VariantOffset(0x2F3A2B8, 0x319ACD8, 0x2FFF0D8).address();
         const std::uintptr_t unlockFunc = REL::VariantOffset(0xC075A0, 0xCC9390, 0xC42420).address();
 
-        // --- Fix 1: ClearBaseValues -- reset actorValues before UnlockWrite, not after ---
+        // Fix 1: ClearBaseValues -- reset actorValues before UnlockWrite, not after.
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38064, 39019), VAR_NUM(0x9D, 0x96, 0x9D) };
             REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38064, 39019), VAR_NUM(0xB6, 0xB3, 0xB6) };
-
-            const bool matches = isAE ? detail::BytesMatch(patch.address(), { 0x48, 0x8D, 0x0D }) :
-                                        detail::BytesMatch(patch.address(), { 0x49, 0x8B, 0xCE });
-            if (!matches) {
-                logger::warn("actor value storage clear race crash fix: unexpected bytes at ClearBaseValues patch site, skipping"sv);
-            } else {
-                detail::ResetBeforeUnlockPatch p(resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0);
-                p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
-            }
+            detail::InstallGuardedSite(
+                patch, { 0x49, 0x8B, 0xCE }, { 0x48, 0x8D, 0x0D }, isAE, "ClearBaseValues", trampoline, [&] {
+                    return detail::ResetBeforeUnlockPatch(
+                        resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0);
+                });
         }
 
-        // --- Fix 2: sibling wrapper -- same bug clearing LocalMap<Modifiers> at +0x10/+0x18
-        //     before tail-calling into ClearBaseValues. The signature check below fails
-        //     closed (skip+warn) if id 38071/39026 is stale or unresolved. ---
+        // Fix 2: sibling wrapper -- same bug clearing LocalMap<Modifiers> before
+        // tail-calling into ClearBaseValues.
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38071, 39026), VAR_NUM(0x9D, 0x96, 0x9D) };
             REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38071, 39026), VAR_NUM(0xA6, 0xA3, 0xA6) };
-
-            const bool matches = isAE ? detail::BytesMatch(patch.address(), { 0x48, 0x8D, 0x0D }) :
-                                        detail::BytesMatch(patch.address(), { 0x49, 0x8B, 0xCE });
-            if (!matches) {
-                logger::warn("actor value storage clear race crash fix: unexpected bytes at Modifiers-clear wrapper patch site, skipping"sv);
-            } else {
-                detail::ResetBeforeUnlockPatch p(resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0x10);
-                p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
-            }
+            detail::InstallGuardedSite(patch, { 0x49, 0x8B, 0xCE }, { 0x48, 0x8D, 0x0D }, isAE, "Modifiers-clear wrapper",
+                trampoline, [&] {
+                    return detail::ResetBeforeUnlockPatch(
+                        resetFunc, resetEmptyString, lockAddr, unlockFunc, resume.address(), 0x10);
+                });
         }
 
-        // --- Fix 3 (defensive backstop): SetBaseValue -- bail out on the torn state
-        //     Fix 1/2 close, in case any other path can still produce it ---
+        // Fix 3 (defensive backstop): SetBaseValue -- bail out on the torn state Fix 1/2
+        // close, in case any other path can still produce it.
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38062, 39017), VAR_NUM(0x4B, 0x4C, 0x4B) };
             REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38062, 39017), VAR_NUM(0x51, 0x52, 0x51) };
-
-            const bool matches = isAE ? detail::BytesMatch(patch.address(), { 0x48, 0x8B, 0x0F }) :
-                                        detail::BytesMatch(patch.address(), { 0x48, 0x8B, 0x0E });
-            if (!matches) {
-                logger::warn("actor value storage clear race crash fix: unexpected bytes at SetBaseValue patch site, skipping"sv);
-            } else {
-                detail::NullEntriesGuardPatch p(lockAddr, unlockFunc, resume.address(), isAE);
-                p.ready();
-                patch.write_branch<5>(trampoline.allocate(p));
-            }
+            detail::InstallGuardedSite(
+                patch, { 0x48, 0x8B, 0x0E }, { 0x48, 0x8B, 0x0F }, isAE, "SetBaseValue", trampoline, [&] {
+                    return detail::NullEntriesGuardPatch(lockAddr, unlockFunc, resume.address(), isAE);
+                });
         }
 
         logger::info("installed actor value storage clear race crash fix"sv);
