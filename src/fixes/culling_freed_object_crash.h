@@ -99,27 +99,9 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // A vftable pointer that itself lies in-module can still have had one slot
-                // clobbered with heap garbage (a real crash caught 2026-08-15: RAX in-module,
-                // [RAX+slot] read back 0x300000000). Validate the loaded slot value too, not
-                // just the vftable base -- but against the general loaded-image address range,
-                // not this module specifically: CommonLib's write_vfunc (used throughout this
-                // codebase, CommunityShaders, and the wider ecosystem) legitimately writes a
-                // pointer to a function living in the HOOKING PLUGIN's own DLL, not
-                // SkyrimVR.exe. On x64 Windows, loaded PE images land in a distinctly higher
-                // canonical range than heap allocations (heap pointers observed this session:
-                // 0x0000016a.../0x0000020x...; garbage pointers observed: 0x300000000 -- too
-                // low -- and 0x423A9729... -- non-canonical), so this range accepts any
-                // legitimately loaded module's code while still rejecting real corruption.
-                mov(r11, ptr[rax + a_slot]);
-                test(r11, r11);
-                jz(skipLbl);
-                mov(r10, 0x00007ff000000000ULL);
-                cmp(r11, r10);
-                jb(skipLbl);
-                mov(r10, 0x0000800000000000ULL);
-                cmp(r11, r10);
-                jae(skipLbl);
+                // An in-module vftable can still have had one slot clobbered with heap
+                // garbage; validate the loaded slot value too, not just the vftable base.
+                util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl);
 
                 // Valid vftable + valid slot: perform the original call, resume after it.
                 call(r11);
@@ -204,17 +186,7 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(fallbackLbl);
 
-                // Validate the loaded slot against the general loaded-image range, not this
-                // module specifically -- see the comment on the OnVisible Patch above.
-                mov(r11, ptr[rax + 0x10]);
-                test(r11, r11);
-                jz(fallbackLbl);
-                mov(r10, 0x00007ff000000000ULL);
-                cmp(r11, r10);
-                jb(fallbackLbl);
-                mov(r10, 0x0000800000000000ULL);
-                cmp(r11, r10);
-                jae(fallbackLbl);
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], fallbackLbl);
 
                 mov(rcx, rdi);
                 call(r11);
