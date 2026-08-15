@@ -19,6 +19,7 @@ set(headers ${headers}
 	src/fixes/conjuration_enchant_absorbs.h
 	src/fixes/create_armor_node_nullptr_crash.h
 	src/fixes/culling_freed_object_crash.h
+	src/fixes/havok_material_lookup_guard.h
 	src/fixes/double_perk_apply.h
 	src/fixes/equip_shout_event_spam.h
 	src/fixes/esl_cell_loading_bug.h
