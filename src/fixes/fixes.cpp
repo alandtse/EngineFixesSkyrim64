@@ -203,6 +203,15 @@ namespace Fixes
         if (Settings::Fixes::bWeaponBlockScaling.GetValue())
             WeaponBlockScaling::Install();
 
+        if (Settings::Fixes::bCullingFreedObjectCrash.GetValue())
+            CullingFreedObjectCrash::Install();
+
+        if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
+            SceneGraphDetachFreedCrash::Install();
+
+        if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
+            BatchRendererRenderPassArrayUAF::Install();
+
         // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
             AbilityConditionBug::Install();

@@ -2,34 +2,12 @@
 
 #include <algorithm>
 
-// Fix for use-after-free crashes in the cull traversal's per-object OnVisible
-// dispatch, exposed by Community Shaders background shader compilation.
-//
-// Background-compile removes the blocking precompile screen, which also gated world
-// rendering/culling during cell streaming. The cull traversal then runs while the
-// cell loader frees scene objects and calls object->OnVisible (NiAVObject vfunc 0x34)
-// on a freed-and-reused NiAVObject -> the vftable is heap garbage (a real vftable is
-// in .rdata) and the slot is null/garbage -> CTD. Debugger-confirmed (dbgeng attach
-// to live VR): object->vftable held a heap pointer ~0x1C0 bytes from the object.
-//
-// The dispatch is duplicated across the cull processes (BSCullingProcess,
-// NiCullingProcess, BSParabolicCullingProcess). Every site matches CALL [RAX+slot]
-// (RAX = object->vftable) immediately followed by CMP byte [reg+0x11D] (cull flag),
-// then a conditional OR/AND [object+0x10C] write. Each is caved to a guard that
-// validates the vftable lies inside the main module image: valid -> original call +
-// resume; freed -> jump to the converge point (the post-CMP JZ target), skipping both
-// the virtual call AND the [object+0x10C] write (a second UAF).
-//
-// Cross-runtime: OnVisible is NiAVObject vfunc 0x34. VR (1.4.15) inserts one extra
-// vfunc before it (SKYRIM_REL_VR_VIRTUAL), so its byte offset is 0x1A8 on VR vs 0x1A0
-// on SE/AE; the site addresses and converge targets were resolved per runtime. VR is
-// where this actually bites (stereo doubles cull traversals -> wider race window); the
-// SE/AE sites are covered for completeness (the renderpass-cache fix already let SE
-// survive the same storm, so the cull crash is rarer there).
-//
-// The 5-byte branch's trailing byte is dead code (the cave only jumps to absolute
-// targets), so no NOP fill is needed. R10 is volatile and not an argument register
-// (RCX/RDX/R8/R9), so it is safe to clobber for the range check.
+// Guards the cull traversal's OnVisible dispatch (NiAVObject vfunc 0x34, CALL [RAX+slot])
+// against a freed/reused vftable: validates it lies inside the main module image before
+// calling, else jumps past both the call and the following [object+0x10C] write. VR
+// inserts one extra vfunc before OnVisible, so the site byte offset is 0x1A8 vs 0x1A0 on
+// SE/AE. VR also has an ObjectLOD render/cull call (vfunc +0x80) with the same freed-object
+// signature, installed by a separately validated site below.
 
 namespace Fixes::CullingFreedObjectCrash
 {
@@ -42,11 +20,8 @@ namespace Fixes::CullingFreedObjectCrash
             std::span<const std::uint8_t> postCall;        // expected bytes from callOffset+0x6 to convergeOffset
         };
 
-        // Displaced post-call bytes for each site (CMP byte [reg+0x11D] plus the
-        // conditional OR/AND [object+0x10C] write, and in a few sites an inner
-        // branch besides). Validated in full, not just the CALL opcode, since a
-        // convergeOffset pointing at the wrong basic block would silently skip
-        // the wrong code on a freed object.
+        // Displaced post-call bytes per site, validated in full so a convergeOffset
+        // pointing at the wrong basic block can't silently skip the wrong code.
         inline constexpr std::uint8_t kPostVR0[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR1[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR2[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x24, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x18, 0x40, 0x84, 0xED, 0x75, 0x13, 0x40, 0x38, 0xA9, 0x1D, 0x01, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
@@ -69,7 +44,6 @@ namespace Fixes::CullingFreedObjectCrash
         inline constexpr std::uint8_t kPostSE4[] = { 0x80, 0xBF, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8B, 0xF4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xB9, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA3, 0xF4, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostSE5[] = { 0x80, 0xBF, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0x8B, 0xF4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04 };
 
-        // (callOffset, convergeOffset, postCall) per runtime. See the investigation notes.
         inline constexpr std::array<Site, 6> kSitesVR{ {
             { 0xCBFD24, 0xCBFD52, kPostVR0 },
             { 0xD99D3D, 0xD99D6B, kPostVR1 },
@@ -96,14 +70,28 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x132C78A, 0x132C7A3, kPostSE5 },
         } };
 
+        template <std::size_t N>
+        consteval bool SitesConsistent(const std::array<Site, N>& a_sites)
+        {
+            for (const auto& site : a_sites) {
+                if (site.convergeOffset != site.callOffset + 0x6 + site.postCall.size())
+                    return false;
+            }
+            return true;
+        }
+
+        static_assert(SitesConsistent(kSitesVR), "VR culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
+
         struct Patch final : Xbyak::CodeGenerator
         {
-            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
-                std::uintptr_t a_textBase, std::uintptr_t a_textEnd, std::uint32_t a_slot,
+            Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uint32_t a_slot,
                 std::uintptr_t a_postCall, std::uintptr_t a_converge)
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
 
+                // R10 is volatile and not an argument register, so it is safe to clobber here.
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(skipLbl);
@@ -111,24 +99,11 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // The base check above only proves RAX is *some* in-module vtable; a
-                // freed-and-reused object can carry a real, different vtable whose
-                // slot at this offset is null -- also validate the loaded target itself.
-                mov(r11, ptr[rax + a_slot]);
-                test(r11, r11);
-                jz(skipLbl);
-                mov(r10, a_textBase);
-                cmp(r11, r10);
-                jb(skipLbl);
-                mov(r10, a_textEnd);
-                cmp(r11, r10);
-                jae(skipLbl);
-
-                // Valid vftable + valid slot: perform the original call, resume after it.
-                call(r11);
+                // Valid vftable: perform the original call, resume after it.
+                call(ptr[rax + a_slot]);
                 jmp(ptr[rip + postAddr]);
 
-                // Freed object or bad slot: skip the call AND the [object+0x10C] write.
+                // Freed object: skip the call AND the [object+0x10C] write.
                 L(skipLbl);
                 jmp(ptr[rip + convAddr]);
 
@@ -151,20 +126,112 @@ namespace Fixes::CullingFreedObjectCrash
                    p[5] == static_cast<std::uint8_t>(a_slot >> 24);
         }
 
-        // Validates the displaced block from callOffset+0x6 up to convergeOffset
-        // against the site's recorded postCall bytes. Without this, a stale
-        // convergeOffset could still pass CallMatches and get patched to skip
-        // the wrong basic block on a freed object.
+        // A stale convergeOffset could still pass CallMatches, so validate the displaced
+        // block through convergeOffset too before patching.
         inline bool PostCallMatches(std::uintptr_t a_postCallAddr, std::span<const std::uint8_t> a_expected)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_postCallAddr);
             return std::equal(a_expected.begin(), a_expected.end(), p);
         }
 
-        inline void PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
-            std::uintptr_t a_base, std::uintptr_t a_end, std::uintptr_t a_textBase, std::uintptr_t a_textEnd)
+        // A separate ObjectLOD render/cull path calls a property-like object at vfunc +0x80.
+        // Unlike the OnVisible sites above, this function's clean freed-object path is an
+        // earlier common-success exit, so validate the complete call and post-call decision
+        // block explicitly before installing the cave.
+        inline constexpr std::uint8_t kObjectLODRenderPostVR[] = {
+            0x48, 0x85, 0xC0, 0x75, 0x09, 0x80, 0xBB, 0x90, 0x01, 0x00, 0x00,
+            0x0B, 0x75, 0xBF
+        };
+
+        inline std::size_t PatchObjectLODRenderSiteVR(std::uintptr_t a_base, std::uintptr_t a_end)
         {
-            auto& trampoline = SKSE::GetTrampoline();
+            constexpr std::uintptr_t kCallOffset = 0x13085EE;
+            constexpr std::uintptr_t kConvergeOffset = 0x13085C1;
+
+            REL::Relocation<std::uintptr_t> call{ REL::Offset{ kCallOffset } };
+            if (!CallMatches(call.address(), 0x80) ||
+                !PostCallMatches(call.address() + 0x6, kObjectLODRenderPostVR)) {
+                logger::warn("ObjectLOD render crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kCallOffset);
+                return 0;
+            }
+
+            Patch p{ a_base, a_end, 0x80, call.address() + 0x6,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kConvergeOffset } }.address() };
+            p.ready();
+            call.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed ObjectLOD render freed-object crash fix"sv);
+            return 1;
+        }
+
+        // The same ObjectLOD path first asks an auxiliary property at object+0x170 for its
+        // runtime type through vfunc +0x10. Invalid properties follow the function's existing
+        // null-property fallback; valid properties resume after the displaced call.
+        struct ObjectLODPropertyPatch final : Xbyak::CodeGenerator
+        {
+            ObjectLODPropertyPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume, std::uintptr_t a_fallback)
+            {
+                Xbyak::Label fallbackLbl, resumeAddr, fallbackAddr;
+
+                mov(rax, ptr[rdi]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(fallbackLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(fallbackLbl);
+
+                mov(rcx, rdi);
+                call(ptr[rax + 0x10]);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(fallbackLbl);
+                jmp(ptr[rip + fallbackAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(fallbackAddr);
+                dq(a_fallback);
+            }
+        };
+
+        inline std::size_t PatchObjectLODPropertySiteVR(std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            constexpr std::uintptr_t      kPatchOffset = 0x13085A1;
+            constexpr std::uintptr_t      kResumeOffset = 0x13085AA;
+            constexpr std::uintptr_t      kFallbackOffset = 0x13085C8;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x10,
+                0x48, 0x8D, 0x0D, 0xAF, 0x38, 0xE6, 0x01,
+                0x48, 0x3B, 0xC8, 0x0F, 0x94, 0xC0, 0x84, 0xC0, 0x74, 0x0D,
+                0x80, 0x7F, 0x78, 0x00, 0x75, 0x07,
+                0xB0, 0x01, 0xE9, 0x20, 0x01, 0x00, 0x00
+            };
+            static_assert(kPatchOffset + std::size(kExpected) == kFallbackOffset);
+
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("ObjectLOD property crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kPatchOffset);
+                return 0;
+            }
+
+            ObjectLODPropertyPatch p{ a_base, a_end,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed ObjectLOD property freed-object crash fix"sv);
+            return 1;
+        }
+
+        inline std::size_t PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
+            std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            auto&       trampoline = SKSE::GetTrampoline();
+            std::size_t installed = 0;
             for (const auto& site : a_sites) {
                 REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
                 if (!CallMatches(call.address(), a_slot)) {
@@ -175,27 +242,36 @@ namespace Fixes::CullingFreedObjectCrash
                     logger::warn("culling crash fix: unexpected bytes after call at {:X}, skipping site"sv, site.callOffset);
                     continue;
                 }
-                Patch p{ a_base, a_end, a_textBase, a_textEnd, a_slot, call.address() + 0x6,
+                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
                     REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
                 p.ready();
                 call.write_branch<5>(trampoline.allocate(p));
+                ++installed;
             }
+            return installed;
         }
     }
 
     inline void Install()
     {
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
-        const auto [textBase, textEnd] = util::GetTextSectionBounds();
+
+        std::size_t installed = 0;
 
         // OnVisible (NiAVObject vfunc 0x34) byte offset differs on VR (+1 vfunc).
-        if (REL::Module::IsVR())
-            detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd, textBase, textEnd);
-        else if (REL::Module::IsAE())
-            detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd, textBase, textEnd);
+        if (REL::Module::IsVR()) {
+            installed += detail::PatchSites(detail::kSitesVR, 0x1A8, moduleBase, moduleEnd);
+            installed += detail::PatchObjectLODPropertySiteVR(moduleBase, moduleEnd);
+            installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
+        } else if (REL::Module::IsAE())
+            installed += detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
         else
-            detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd, textBase, textEnd);
+            installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
-        logger::info("installed culling freed-object crash fix"sv);
+        if (installed > 0) {
+            logger::info("installed culling freed-object crash fix ({} site(s))"sv, installed);
+        } else {
+            logger::warn("culling freed-object crash fix: no sites matched, not installed"sv);
+        }
     }
 }
