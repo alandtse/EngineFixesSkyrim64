@@ -91,7 +91,7 @@ namespace Fixes::CullingFreedObjectCrash
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
 
-                // R10 is volatile and not an argument register, so it is safe to clobber here.
+                // R10/R11 are volatile and not argument registers, so they are safe to clobber here.
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(skipLbl);
@@ -99,8 +99,22 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // Valid vftable: perform the original call, resume after it.
-                call(ptr[rax + a_slot]);
+                // A vftable pointer that itself lies in-module can still have had one slot
+                // clobbered with heap garbage (a real crash caught 2026-08-15: RAX in-module,
+                // [RAX+slot] read back 0x300000000). Validate the loaded slot value too, not
+                // just the vftable base.
+                mov(r11, ptr[rax + a_slot]);
+                test(r11, r11);
+                jz(skipLbl);
+                mov(r10, a_moduleBase);
+                cmp(r11, r10);
+                jb(skipLbl);
+                mov(r10, a_moduleEnd);
+                cmp(r11, r10);
+                jae(skipLbl);
+
+                // Valid vftable + valid slot: perform the original call, resume after it.
+                call(r11);
                 jmp(ptr[rip + postAddr]);
 
                 // Freed object: skip the call AND the [object+0x10C] write.
@@ -182,8 +196,18 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(fallbackLbl);
 
+                mov(r11, ptr[rax + 0x10]);
+                test(r11, r11);
+                jz(fallbackLbl);
+                mov(r10, a_moduleBase);
+                cmp(r11, r10);
+                jb(fallbackLbl);
+                mov(r10, a_moduleEnd);
+                cmp(r11, r10);
+                jae(fallbackLbl);
+
                 mov(rcx, rdi);
-                call(ptr[rax + 0x10]);
+                call(r11);
                 jmp(ptr[rip + resumeAddr]);
 
                 L(fallbackLbl);
