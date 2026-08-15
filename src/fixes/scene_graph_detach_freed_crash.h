@@ -729,18 +729,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode clone child freed-object crash fix"sv);
         }
 
-        // NiNode::ProcessClone's own child-array virtual dispatch: a sibling site to
-        // PatchNiNodeCloneChildVR above, in the same clone-traversal family but a
-        // distinct function/call slot (vfunc 0xE8, not 0xB8). Live crash 2026-08-15
-        // 00:47 (soak with PR38's 8-site culling fix + our VisitCollisionObjectTree
-        // guard both active, ~9.5min uptime): RCX (child, read via [RDI+0x140] then
-        // indexed) already null-checked by the original code, but the object it
-        // points at had been freed and reused -- its own vftable field ([RCX]) read
-        // back a heap pointer (0x1FE6FE509C0) nowhere near the module image, so
-        // CALL [RAX+0xE8] jumped into unmapped memory. The call's return value is
-        // never consumed by the caller (the next instruction re-reads the loop
-        // bound from [RDI+0x14A] and continues), so an invalid vtable can skip the
-        // call entirely rather than needing a fake return value.
+        // NiNode::ProcessClone's own child-array virtual dispatch (vfunc 0xE8) on a child
+        // whose vftable may be freed/reused. The call's return value is never consumed by
+        // the caller, so an invalid vtable can skip the call entirely.
         struct NiNodeProcessCloneChildPatch final : Xbyak::CodeGenerator
         {
             NiNodeProcessCloneChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -748,11 +739,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
             {
                 Xbyak::Label invalidLbl, resumeAddr;
 
-                mov(rax, qword[rcx]);  // re-run displaced MOV RAX,[RCX]
-                mov(rdx, rsi);         // re-run displaced MOV RDX,RSI
+                mov(rax, qword[rcx]);
+                mov(rdx, rsi);
 
-                // Validate the child's vftable lies inside the main module image, same
-                // convention as every other guard in this file.
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(invalidLbl);
@@ -796,39 +785,26 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
         }
 
-        // NiAVObject::VisitCollisionObjectTree's entry guard (kSiteVR above) covers `this`
-        // being a freed/null node at entry -- but not a node that was VALID at entry whose
-        // children-array backing buffer (loaded from [node+0x140], a NiTArray/BSTArray data
-        // pointer) gets freed-and-reused mid-traversal by a different thread. Live crash
-        // 2026-08-14 23:50 (soak test with the entry guard already active): RCX read back
-        // 0x423A972942200000, a non-canonical address (bits 63-47 not sign-extended) --
-        // float-bit-pattern-reinterpreted-as-pointer garbage from reused memory, not a
-        // plausible heap pointer. A vtable-style module/.text bounds check doesn't apply
-        // here (this is a heap data pointer, not a code pointer), so this guard instead
-        // rejects non-canonical/null array-base pointers and null-substitutes the
-        // recursive call's `this` (the function already no-ops on `this == nullptr`).
-        //
-        // Original: MOV RCX,[RDI+0x140] (array base); MOV R8,RBP; MOV R9D,EBX; MOV RDX,RSI;
-        // MOV RCX,[RCX+R9*8] (crash: element read) -> CALL VisitCollisionObjectTree (recurse).
+        // The children-array data pointer (loaded from [node+0x140]) can be freed/reused
+        // mid-traversal even when the node itself is valid; it's a heap data pointer, not a
+        // code pointer, so reject non-canonical/null rather than module-bounds-checking it.
         struct VisitCollisionArrayPatch final : Xbyak::CodeGenerator
         {
             explicit VisitCollisionArrayPatch(std::uintptr_t a_resume)
             {
                 Xbyak::Label invalidLbl, resumeAddr;
 
-                mov(rcx, qword[rdi + 0x140]);  // re-run displaced MOV RCX,[RDI+0x140]
-                mov(r8, rbp);                  // re-run displaced MOV R8,RBP
-                mov(r9d, ebx);                 // re-run displaced MOV R9D,EBX
-                mov(rdx, rsi);                 // re-run displaced MOV RDX,RSI
+                mov(rcx, qword[rdi + 0x140]);
+                mov(r8, rbp);
+                mov(r9d, ebx);
+                mov(rdx, rsi);
 
-                // Reject null or non-canonical array base (freed/reused garbage).
                 test(rcx, rcx);
                 jz(invalidLbl);
                 mov(r10, 0x0000800000000000ULL);
                 cmp(rcx, r10);
                 jae(invalidLbl);
 
-                // Valid-looking base: perform the original indexed read, resume after it.
                 mov(rcx, ptr[rcx + r9 * 8]);
                 jmp(ptr[rip + resumeAddr]);
 
