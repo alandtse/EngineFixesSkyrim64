@@ -131,7 +131,10 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         // tail-calling into ClearBaseValues.
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38071, 39026), VAR_NUM(0x9D, 0x96, 0x9D) };
-            REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38071, 39026), VAR_NUM(0xA6, 0xA3, 0xA6) };
+            // Resume past both the displaced unlock call AND the wrapper's own Modifiers-key
+            // reset call (LEA RCX,[RDI+0x10]; LEA RDX,<empty string>; CALL resetFunc) -- our
+            // trampoline already ran an equivalent reset, so landing any earlier re-runs it.
+            REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38071, 39026), VAR_NUM(0xB6, 0xB3, 0xB6) };
             detail::InstallGuardedSite(patch, { 0x49, 0x8B, 0xCE }, { 0x48, 0x8D, 0x0D }, isAE, "Modifiers-clear wrapper",
                 trampoline, [&] {
                     return detail::ResetBeforeUnlockPatch(
