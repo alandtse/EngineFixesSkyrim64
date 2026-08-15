@@ -1,6 +1,6 @@
 #pragma once
 
-// MIT-licensed adaptation of Skyrim VR Havok Material Guard by Treatid.
+// GPL-3.0-or-later adaptation of Skyrim VR Havok Material Guard by Treatid.
 // Standalone source: https://github.com/Treatid2/SkyrimVR-Havok-Material-Guard
 
 #include <array>
