@@ -19,7 +19,6 @@ set(headers ${headers}
 	src/fixes/conjuration_enchant_absorbs.h
 	src/fixes/create_armor_node_nullptr_crash.h
 	src/fixes/culling_freed_object_crash.h
-	src/fixes/havok_material_lookup_guard.h
 	src/fixes/double_perk_apply.h
 	src/fixes/equip_shout_event_spam.h
 	src/fixes/esl_cell_loading_bug.h
@@ -28,6 +27,7 @@ set(headers ${headers}
 	src/fixes/get_keyword_item_count.h
 	src/fixes/gheap_leak_detection_crash.h
 	src/fixes/global_time.h
+	src/fixes/havok_material_lookup_guard.h
 	src/fixes/initialize_hit_data_nullptr_crash.h
 	src/fixes/lip_sync.h
 	src/fixes/memory_access_errors.h
