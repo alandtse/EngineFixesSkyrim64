@@ -46,21 +46,27 @@ namespace Fixes::ActorValueStorageClearRaceCrash
 
         // Bails out under lock on a torn `entries == nullptr && length != 0` state;
         // `length == 0` is the legitimate first-insert case and falls through unchanged.
+        // Bailing out returns via the function's own epilogue (a_exit), not a bare ret --
+        // the hook site sits well past a 5-register-push/0x140-byte stack frame, so a bare
+        // ret would pop the wrong value as the return address.
         struct NullEntriesGuardPatch final : Xbyak::CodeGenerator
         {
             NullEntriesGuardPatch(
                 std::uintptr_t a_lockAddr,
                 std::uintptr_t a_unlockFunc,
                 std::uintptr_t a_resume,
+                std::uintptr_t a_exit,
                 bool           a_isAE)
             {
-                Xbyak::Label continueLbl;
+                Xbyak::Label continueLbl, exitAddr;
                 const auto&  thisReg = a_isAE ? rdi : rsi;
 
                 mov(rax, qword[thisReg + 0x8]);  // entries
                 test(rax, rax);
                 jnz(continueLbl);
                 mov(rax, qword[thisReg]);  // actorValues._data
+                test(rax, rax);
+                jz(continueLbl);
                 movzx(eax, byte[rax]);
                 test(al, al);
                 jz(continueLbl);  // length == 0: legitimate first-insert, proceed normally
@@ -69,13 +75,16 @@ namespace Fixes::ActorValueStorageClearRaceCrash
                 mov(rcx, a_lockAddr);
                 mov(rax, a_unlockFunc);
                 call(rax);
-                ret();
+                jmp(ptr[rip + exitAddr]);
 
                 L(continueLbl);
                 mov(rcx, qword[thisReg]);  // re-run displaced: MOV RCX,[this]
                 mov(rbx, rcx);             // re-run displaced: MOV RBX,RCX
                 jmp(ptr[rip]);
                 dq(a_resume);
+
+                L(exitAddr);
+                dq(a_exit);
             }
         };
         template <typename PatchFactory>
@@ -101,10 +110,11 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         auto&      trampoline = SKSE::GetTrampoline();
         const bool isAE = REL::Module::IsAE();
 
-        const std::uintptr_t resetFunc = REL::VariantOffset(0xC28D60, 0xCEC760, 0xC6DC90).address();
-        const std::uintptr_t resetEmptyString = REL::VariantOffset(0x151F2A0, 0x1ACBCC0, 0x15965F0).address();
-        const std::uintptr_t lockAddr = REL::VariantOffset(0x2F3A2B8, 0x319ACD8, 0x2FFF0D8).address();
-        const std::uintptr_t unlockFunc = REL::VariantOffset(0xC075A0, 0xCC9390, 0xC42420).address();
+        const std::uintptr_t resetFunc = REL::Relocation<std::uintptr_t>{ RELOCATION_ID(67823, 69165) }.address();
+        const std::uintptr_t resetEmptyString =
+            REL::Relocation<std::uintptr_t>{ RELOCATION_ID(228343, 469508) }.address();
+        const std::uintptr_t lockAddr = REL::Relocation<std::uintptr_t>{ RELOCATION_ID(517485, 404014) }.address();
+        const std::uintptr_t unlockFunc = REL::Relocation<std::uintptr_t>{ RELOCATION_ID(66983, 68240) }.address();
 
         // Fix 1: ClearBaseValues -- reset actorValues before UnlockWrite, not after.
         {
@@ -134,9 +144,10 @@ namespace Fixes::ActorValueStorageClearRaceCrash
         {
             REL::Relocation<std::uintptr_t> patch{ RELOCATION_ID(38062, 39017), VAR_NUM(0x4B, 0x4C, 0x4B) };
             REL::Relocation<std::uintptr_t> resume{ RELOCATION_ID(38062, 39017), VAR_NUM(0x51, 0x52, 0x51) };
+            REL::Relocation<std::uintptr_t> exit{ RELOCATION_ID(38062, 39017), VAR_NUM(0x24F, 0x26B, 0x24F) };
             detail::InstallGuardedSite(
                 patch, { 0x48, 0x8B, 0x0E }, { 0x48, 0x8B, 0x0F }, isAE, "SetBaseValue", trampoline, [&] {
-                    return detail::NullEntriesGuardPatch(lockAddr, unlockFunc, resume.address(), isAE);
+                    return detail::NullEntriesGuardPatch(lockAddr, unlockFunc, resume.address(), exit.address(), isAE);
                 });
         }
 
