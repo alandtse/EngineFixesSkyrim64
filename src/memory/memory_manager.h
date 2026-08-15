@@ -29,37 +29,16 @@ namespace Memory::MemoryManager
                 a_self->p_Memory = nullptr;
             }
 
-            // VR: ported from EngineFixesVR (rollingrock). Spot-patch Ctor/Dtor in place rather than
-            // wholesale-replacing them.
-            //
-            // Vanilla VR uses a rotating-cookie sentinel for zero-size AutoScrapBuffers (XOR-rotates a
-            // global at 0x1430C1F78 by 0x10 on each zero-size Ctor; Dtor compares the stored slot to
-            // both the current and rotated cookie to decide skip-vs-free). We replace the cookie scheme
-            // with a simpler nullptr sentinel:
-            //   Ctor +0x1D..+0x32: cookie rotation → NOP. Falls through to +0x32
-            //     (mov [rcx], rdx) with rdx==size==0, so the slot is zeroed.
-            //   Dtor +0x12..+0x2F (29 bytes): cookie comparison → `xor rax,rax; cmp rbx,rax` + NOP fill,
-            //     and the jnz at +0x2F is flipped to jz, meaning "skip free if slot is null".
-            // The non-zero allocation paths in both Ctor and Dtor are unmodified — they still call
-            // GetThreadScrapHeap()->{Allocate,Deallocate}, which are TBB-redirected by ScrapHeap::Install().
-            //
-            // Why not the wholesale replace_func path used on SE/AE? Empirically wholesale corrupts
-            // the heap on VR while it ships fine on SE/AE. Static analysis shows the surrounding
-            // MemoryManager surface is structurally identical between SE and VR (same routing in
-            // Free, same cookie sentinel scheme at PTR_142f69ea8 / DAT_1430c1f78, same shutdown
-            // dispatcher), so the SE-vs-VR delta isn't visible at the instruction level — likely a
-            // runtime-only behavior difference (TBB internals, plugin load ordering, or a stack-RAII
-            // unwind/SEH detail not captured by Ghidra). The spot patch matches what EngineFixesVR
-            // ships and is community-validated for VR. If you can identify the runtime mechanism and
-            // make wholesale safe on VR, this branch should be removed.
+            // VR: spot-patch replaces the rotating-cookie zero-size sentinel with a simpler
+            // nullptr sentinel; wholesale replace_func (used on SE/AE) corrupts the VR heap.
             static void InstallVRSpotPatches()
             {
                 struct DtorPatch final : Xbyak::CodeGenerator
                 {
                     DtorPatch()
                     {
-                        xor_(rax, rax);  // 3 bytes: 48 33 C0
-                        cmp(rbx, rax);   // 3 bytes: 48 3B D8
+                        xor_(rax, rax);
+                        cmp(rbx, rax);
                     }
                 };
 
