@@ -785,18 +785,21 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
         }
 
-        // BSLight::AttachSubtree dispatches NiObject::AsNode() (vtable slot 0x18) on a
-        // node whose vftable may be freed/reused mid-traversal.
+        // BSLight::AttachSubtree dispatches NiObject::AsNode() (vtable slot 0x18) on a node
+        // whose vftable may be freed/reused mid-traversal. AE lacks the RDI stack-spill
+        // instruction present in VR/SE's displaced span, so the patch conditionally re-emits it.
         struct LightAttachSubtreeAsNodePatch final : Xbyak::CodeGenerator
         {
             LightAttachSubtreeAsNodePatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
-                std::uintptr_t a_resume)
+                std::uintptr_t a_resume, bool a_hasStackSpill)
             {
                 Xbyak::Label invalidLbl, resumeAddr;
 
                 mov(rax, qword[rbx]);
                 mov(rcx, rbx);
-                mov(qword[rsp + 0x40], rdi);
+                if (a_hasStackSpill) {
+                    mov(qword[rsp + 0x40], rdi);
+                }
 
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
@@ -819,9 +822,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
-        // Expected bytes at the hook point: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX
-        // (48 8B CB); MOV [RSP+0x40],RDI (48 89 7C 24 40); CALL [RAX+0x18] (FF 50 18).
-        inline bool LightAttachSubtreeSiteMatches(std::uintptr_t a_addr)
+        // VR/SE bytes: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB); MOV [RSP+0x40],RDI
+        // (48 89 7C 24 40); CALL [RAX+0x18] (FF 50 18).
+        inline bool LightAttachSubtreeSiteMatchesWithSpill(std::uintptr_t a_addr)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
             return p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x03 &&
@@ -830,22 +833,98 @@ namespace Fixes::SceneGraphDetachFreedCrash
                    p[11] == 0xFF && p[12] == 0x50 && p[13] == 0x18;
         }
 
-        inline void PatchLightAttachSubtreeAsNodeVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
+        // AE bytes: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB); CALL [RAX+0x18]
+        // (FF 50 18) -- no interleaved stack spill at this call site.
+        inline bool LightAttachSubtreeSiteMatchesNoSpill(std::uintptr_t a_addr)
         {
-            constexpr std::uintptr_t kHookOffset = 0x136397B;    // MOV RAX,[RBX]
-            constexpr std::uintptr_t kResumeOffset = 0x1363989;  // MOV RDI,RAX
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x03 &&
+                   p[3] == 0x48 && p[4] == 0x8B && p[5] == 0xCB &&
+                   p[6] == 0xFF && p[7] == 0x50 && p[8] == 0x18;
+        }
+
+        // When the AsNode() cast above misses (freed vftable faked to null, or a genuine
+        // non-node light), the function falls through to this second dispatch (vtable slot
+        // 0x38) on the same RBX -- whose vftable can also be freed/reused, and was never
+        // guarded before a live soak-test crash hit it.
+        struct LightAttachSubtreeFallbackPatch final : Xbyak::CodeGenerator
+        {
+            LightAttachSubtreeFallbackPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rax, qword[rbx]);
+                mov(rcx, rbx);
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x38], invalidLbl);
+
+                call(r11);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(invalidLbl);
+                xor_(rax, rax);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        // Byte-identical across VR/SE/AE: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB);
+        // CALL [RAX+0x38] (FF 50 38).
+        inline bool LightAttachSubtreeFallbackSiteMatches(std::uintptr_t a_addr)
+        {
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0x48 && p[1] == 0x8B && p[2] == 0x03 &&
+                   p[3] == 0x48 && p[4] == 0x8B && p[5] == 0xCB &&
+                   p[6] == 0xFF && p[7] == 0x50 && p[8] == 0x38;
+        }
+
+        inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
+        {
+            const bool           hasStackSpill = !REL::Module::IsAE();
+            const std::uintptr_t kHookOffset =
+                REL::Module::IsVR() ? 0x136397B : (REL::Module::IsAE() ? 0x150A6FB : 0x131DAFB);
+            const std::uintptr_t kResumeOffset =
+                REL::Module::IsVR() ? 0x1363989 : (REL::Module::IsAE() ? 0x150A704 : 0x131DB09);
+            const std::uintptr_t kFallbackHookOffset =
+                REL::Module::IsVR() ? 0x1363A7C : (REL::Module::IsAE() ? 0x150A7FA : 0x131DBFC);
+            const std::uintptr_t kFallbackResumeOffset =
+                REL::Module::IsVR() ? 0x1363A85 : (REL::Module::IsAE() ? 0x150A803 : 0x131DC05);
 
             REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
-            if (!LightAttachSubtreeSiteMatches(hook.address())) {
+            const bool                      matches = hasStackSpill ? LightAttachSubtreeSiteMatchesWithSpill(hook.address()) : LightAttachSubtreeSiteMatchesNoSpill(hook.address());
+            if (!matches) {
                 logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, kHookOffset);
                 return;
             }
 
             LightAttachSubtreeAsNodePatch p{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address(), hasStackSpill };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed BSLight::AttachSubtree AsNode guard"sv);
+
+            REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ kFallbackHookOffset } };
+            if (!LightAttachSubtreeFallbackSiteMatches(fallbackHook.address())) {
+                logger::warn(
+                    "BSLight::AttachSubtree fallback guard: unexpected bytes at {:X}, skipping"sv, kFallbackHookOffset);
+                return;
+            }
+
+            LightAttachSubtreeFallbackPatch fp{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackResumeOffset } }.address() };
+            fp.ready();
+            fallbackHook.write_branch<5>(SKSE::GetTrampoline().allocate(fp));
+            logger::info("installed BSLight::AttachSubtree fallback guard"sv);
         }
 
         // The children-array data pointer (loaded from [node+0x140]) can be freed/reused
@@ -941,6 +1020,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
         auto& trampoline = SKSE::GetTrampoline();
         entry.write_branch<5>(trampoline.allocate(p));
 
+        detail::PatchLightAttachSubtreeAsNode(moduleBase, moduleEnd);
+
         if (REL::Module::IsVR()) {
             detail::PatchFreedChildTraversalVR(moduleBase, moduleEnd);
             detail::PatchRecursiveNodeTraversalVR(moduleBase, moduleEnd);
@@ -950,7 +1031,6 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
             detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
             detail::PatchNiNodeProcessCloneChildVR(moduleBase, moduleEnd);
-            detail::PatchLightAttachSubtreeAsNodeVR(moduleBase, moduleEnd);
             detail::PatchVisitCollisionArrayVR();
         }
 
