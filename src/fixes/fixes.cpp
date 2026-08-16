@@ -234,14 +234,5 @@ namespace Fixes
 
         if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
             LockpickingMenuInitCrash::Install();
-
-        if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
-            BatchRendererRenderPassArrayUAF::Install();
-
-        if (Settings::Fixes::bCullingFreedObjectCrash.GetValue())
-            CullingFreedObjectCrash::Install();
-
-        if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
-            SceneGraphDetachFreedCrash::Install();
     }
 }
