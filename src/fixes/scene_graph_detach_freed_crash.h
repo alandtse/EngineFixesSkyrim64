@@ -703,15 +703,26 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchNiNodeCloneChildVR(std::uintptr_t a_moduleBase,
             std::uintptr_t                                 a_moduleEnd)
         {
-            constexpr std::uintptr_t      kPatchOffset = 0xC9C870;
-            constexpr std::uintptr_t      kPostCallOffset = 0xC9C87C;
-            constexpr std::uintptr_t      kNextChildOffset = 0xC9C894;
+            constexpr std::uintptr_t kPatchOffset = 0xC9C870;
+            constexpr std::uintptr_t kPostCallOffset = 0xC9C87C;
+            constexpr std::uintptr_t kNextChildOffset = 0xC9C894;
+            // Covers the full displaced region through kNextChildOffset, not just the call
+            // itself -- the invalid-child path jumps past the sibling-continuation block
+            // (ProcessClone dispatch + child-index bookkeeping) that follows the call, so it
+            // must be validated too before installing the branch.
             static constexpr std::uint8_t kExpected[] = {
-                0x48, 0x8B, 0x01,                   // mov rax,[rcx]
-                0x48, 0x8B, 0xD5,                   // mov rdx,rbp
-                0xFF, 0x90, 0xB8, 0x00, 0x00, 0x00  // call [rax+B8h]
+                0x48, 0x8B, 0x01,                          // mov rax,[rcx]
+                0x48, 0x8B, 0xD5,                          // mov rdx,rbp
+                0xFF, 0x90, 0xB8, 0x00, 0x00, 0x00,        // call [rax+B8h]
+                0x4D, 0x8B, 0x0E,                          // mov r9,[r14]
+                0x8B, 0xD3,                                // mov edx,ebx
+                0x4C, 0x8B, 0xC0,                          // mov r8,rax
+                0x49, 0x8B, 0xCE,                          // mov rcx,r14
+                0x48, 0x8B, 0xF8,                          // mov rdi,rax
+                0x41, 0xFF, 0x91, 0xE8, 0x01, 0x00, 0x00,  // call [r9+1E8h]
+                0x89, 0x5F, 0x38                           // mov [rdi+38h],ebx
             };
-            static_assert(kPatchOffset + std::size(kExpected) == kPostCallOffset);
+            static_assert(kPatchOffset + std::size(kExpected) == kNextChildOffset);
 
             REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
             const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());

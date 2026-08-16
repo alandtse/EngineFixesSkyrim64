@@ -178,7 +178,9 @@ namespace Fixes::CullingFreedObjectCrash
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(fallbackLbl);
-                mov(r10, a_moduleEnd);
+                // Reject vtables too close to the module end -- the eight-byte slot read at
+                // [rax + 0x10] must itself land fully inside the module, not just rax.
+                mov(r10, a_moduleEnd - 0x17);
                 cmp(rax, r10);
                 jae(fallbackLbl);
 
