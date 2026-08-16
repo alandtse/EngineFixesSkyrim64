@@ -19,6 +19,7 @@
     X(Bool, bCleanSKSECoSaves, true, "delete SKSE cosaves with no matching saves")
 
 #define EF_SETTINGS_FIXES(X)                                                                                                                                                                                             \
+    X(Bool, bAcousticSpaceListenerNullRigidBodyCrash, true, "fixes a crash when a Havok entity is removed from the world while the player camera has no collision body attached")                                        \
     X(Bool, bArcheryDownwardAiming, true, "fixes a bug where arrows don't fire properly if you're aiming downward while crouching on a ridge")                                                                           \
     X(Bool, bAnimationLoadSignedCrash, true, "fixes a misplaced used of a signed value in animation loading")                                                                                                            \
     X(Bool, bBethesdaNetCrash, true, "fixes the game crashing on startup if you live somewhere with special characters in the name")                                                                                     \
@@ -45,7 +46,9 @@
     X(Bool, bGlobalTime, true, "fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix")                                                                    \
     X(Bool, bInitializeHitDataNullPtrCrash, true, "fixes a crash on melee hit that unequipped the weapon at the same time")                                                                                              \
     X(Bool, bIsPlayerInRegionParentCellCheck, true, "(VR-only) fixes a crash in IsPlayerInRegion caused by missing parent-cell null checks that SE added but VR lacks")                                                  \
+    X(Bool, bKeyboardPollScancodeOOBCrash, true, "fixes a crash in BSWin32KeyboardDevice::Poll caused by an unbounded array index when DirectInput returns a malformed keyboard scancode")                               \
     X(Bool, bLightingShaderLandscapeTextureCrash, true, "(AE-only) fixes a crash in BSLightingShader::SetupMaterial's inlined landscape texture blending caused by binding a null texture pointer without a null check") \
+    X(Bool, bLightingShaderNullTextureCrash, true, "fixes a crash in BSLightingShader::SetupMaterial caused by binding a null texture pointer without a null check")                                                     \
     X(Bool, bLipSync, true, "fixes a bug causing lip sync to desync")                                                                                                                                                    \
     X(Bool, bMemoryAccessErrors, true, "fixes miscellaneous errors that are obscured by Skyrim's default allocator")                                                                                                     \
     X(Bool, bMO5STypo, true, "fixes a typo preventing the game from loading MO5S entries in ARMA forms")                                                                                                                 \
