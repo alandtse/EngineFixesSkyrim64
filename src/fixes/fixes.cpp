@@ -1,6 +1,7 @@
 #include "fixes.h"
 
 #include "ability_condition_bug.h"
+#include "acoustic_space_listener_null_rigidbody_crash.h"
 #include "actorvaluestorage_clear_race_crash.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
@@ -30,6 +31,9 @@
 #include "global_time.h"
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
+#include "keyboard_poll_scancode_oob_crash.h"
+#include "lighting_shader_landscape_texture_crash.h"
+#include "lighting_shader_null_texture_crash.h"
 #include "lip_sync.h"
 #include "lockpicking_menu_init_crash.h"
 #include "memory_access_errors.h"
@@ -55,6 +59,9 @@ namespace Fixes
 {
     void Install()
     {
+        if (Settings::Fixes::bAcousticSpaceListenerNullRigidBodyCrash.GetValue())
+            AcousticSpaceListenerNullRigidBodyCrash::Install();
+
         if (Settings::Fixes::bActorValueStorageClearRaceCrash.GetValue())
             ActorValueStorageClearRaceCrash::Install();
 
@@ -132,6 +139,15 @@ namespace Fixes
 
         if (Settings::Fixes::bIsPlayerInRegionParentCellCheck.GetValue())
             IsPlayerInRegionParentCellCheck::Install();
+
+        if (Settings::Fixes::bKeyboardPollScancodeOOBCrash.GetValue())
+            KeyboardPollScancodeOOBCrash::Install();
+
+        if (Settings::Fixes::bLightingShaderLandscapeTextureCrash.GetValue())
+            LightingShaderLandscapeTextureCrash::Install();
+
+        if (Settings::Fixes::bLightingShaderNullTextureCrash.GetValue())
+            LightingShaderNullTextureCrash::Install();
 
         if (Settings::Fixes::bLipSync.GetValue())
             LipSync::Install();
