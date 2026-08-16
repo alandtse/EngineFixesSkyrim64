@@ -682,7 +682,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(invalidLbl);
-                mov(r10, a_moduleEnd);
+                // Match the full-slot module-end validation tightened in the ObjectLOD
+                // property guard: [rax + 0xB8] reads eight bytes through vtable + 0xBF.
+                mov(r10, a_moduleEnd - 0xBF);
                 cmp(rax, r10);
                 jae(invalidLbl);
 
