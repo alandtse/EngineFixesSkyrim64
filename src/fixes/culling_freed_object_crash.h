@@ -91,7 +91,7 @@ namespace Fixes::CullingFreedObjectCrash
             {
                 Xbyak::Label skipLbl, postAddr, convAddr;
 
-                // R10 is volatile and not an argument register, so it is safe to clobber here.
+                // R10/R11 are volatile and not argument registers, so they are safe to clobber here.
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(skipLbl);
@@ -99,8 +99,12 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // Valid vftable: perform the original call, resume after it.
-                call(ptr[rax + a_slot]);
+                // An in-module vftable can still have had one slot clobbered with heap
+                // garbage; validate the loaded slot value too, not just the vftable base.
+                util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl);
+
+                // Valid vftable + valid slot: perform the original call, resume after it.
+                call(r11);
                 jmp(ptr[rip + postAddr]);
 
                 // Freed object: skip the call AND the [object+0x10C] write.
@@ -184,8 +188,10 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(fallbackLbl);
 
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], fallbackLbl);
+
                 mov(rcx, rdi);
-                call(ptr[rax + 0x10]);
+                call(r11);
                 jmp(ptr[rip + resumeAddr]);
 
                 L(fallbackLbl);
