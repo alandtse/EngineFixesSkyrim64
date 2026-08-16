@@ -4,6 +4,7 @@ set(headers ${headers}
 	src/fixes/ability_condition_bug.h
 	src/fixes/animation_load_signed_crash.h
 	src/fixes/archery_downward_aiming.h
+	src/fixes/batchrenderer_renderpass_array_uaf.h
 	src/fixes/bethesda_net_crash.h
 	src/fixes/buy_sell_stack_speech_gain.h
 	src/fixes/bgskeywordform_load_crash.h
@@ -17,6 +18,7 @@ set(headers ${headers}
 	src/fixes/climate_load.h
 	src/fixes/conjuration_enchant_absorbs.h
 	src/fixes/create_armor_node_nullptr_crash.h
+	src/fixes/culling_freed_object_crash.h
 	src/fixes/double_perk_apply.h
 	src/fixes/equip_shout_event_spam.h
 	src/fixes/esl_cell_loading_bug.h
@@ -37,6 +39,7 @@ set(headers ${headers}
 	src/fixes/removed_spellbook.h
 	src/fixes/save_screenshots.h
 	src/fixes/saved_havok_data_load_init.h
+	src/fixes/scene_graph_detach_freed_crash.h
 	src/fixes/shadow_scene_crash.h
 	src/fixes/shadowscenenode_nullptr_crash.h
 	src/fixes/texture_load_crash.h
@@ -68,5 +71,6 @@ set(headers ${headers}
 	src/patches/waterflow_animation.h
 	src/settings.h
 	src/settings_schema.h
+	src/util.h
 	src/warnings/warnings.h
 )
