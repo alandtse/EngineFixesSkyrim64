@@ -1,8 +1,11 @@
 #include "fixes.h"
 
 #include "ability_condition_bug.h"
+#include "acoustic_space_listener_null_rigidbody_crash.h"
+#include "actorvaluestorage_clear_race_crash.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
+#include "batchrenderer_renderpass_array_uaf.h"
 #include "bethesda_net_crash.h"
 #include "bgskeywordform_load_crash.h"
 #include "bslightingambientspecular.h"
@@ -19,6 +22,7 @@
 #include "console_save_deadlock.h"
 #include "copybonetransform_null_crash.h"
 #include "create_armor_node_nullptr_crash.h"
+#include "culling_freed_object_crash.h"
 #include "double_perk_apply.h"
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
@@ -30,6 +34,9 @@
 #include "havok_material_lookup_guard.h"
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
+#include "keyboard_poll_scancode_oob_crash.h"
+#include "lighting_shader_landscape_texture_crash.h"
+#include "lighting_shader_null_texture_crash.h"
 #include "lip_sync.h"
 #include "lockpicking_menu_init_crash.h"
 #include "memory_access_errors.h"
@@ -41,6 +48,7 @@
 #include "precomputed_paths.h"
 #include "removed_spellbook.h"
 #include "saved_havok_data_load_init.h"
+#include "scene_graph_detach_freed_crash.h"
 #include "shadow_scene_crash.h"
 #include "shadowscenenode_nullptr_crash.h"
 #include "sky_update_clouds_nullptr_crash.h"
@@ -55,6 +63,12 @@ namespace Fixes
 {
     void Install()
     {
+        if (Settings::Fixes::bAcousticSpaceListenerNullRigidBodyCrash.GetValue())
+            AcousticSpaceListenerNullRigidBodyCrash::Install();
+
+        if (Settings::Fixes::bActorValueStorageClearRaceCrash.GetValue())
+            ActorValueStorageClearRaceCrash::Install();
+
         if (Settings::Fixes::bArcheryDownwardAiming.GetValue())
             ArcheryDownwardAiming::Install();
 
@@ -130,6 +144,15 @@ namespace Fixes
         if (Settings::Fixes::bIsPlayerInRegionParentCellCheck.GetValue())
             IsPlayerInRegionParentCellCheck::Install();
 
+        if (Settings::Fixes::bKeyboardPollScancodeOOBCrash.GetValue())
+            KeyboardPollScancodeOOBCrash::Install();
+
+        if (Settings::Fixes::bLightingShaderLandscapeTextureCrash.GetValue())
+            LightingShaderLandscapeTextureCrash::Install();
+
+        if (Settings::Fixes::bLightingShaderNullTextureCrash.GetValue())
+            LightingShaderNullTextureCrash::Install();
+
         if (Settings::Fixes::bLipSync.GetValue())
             LipSync::Install();
 
@@ -180,6 +203,15 @@ namespace Fixes
 
         if (Settings::Fixes::bWeaponBlockScaling.GetValue())
             WeaponBlockScaling::Install();
+
+        if (Settings::Fixes::bCullingFreedObjectCrash.GetValue())
+            CullingFreedObjectCrash::Install();
+
+        if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
+            SceneGraphDetachFreedCrash::Install();
+
+        if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
+            BatchRendererRenderPassArrayUAF::Install();
 
         // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
