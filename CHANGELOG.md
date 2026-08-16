@@ -1,3 +1,32 @@
+## [7.4.9](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.8...v7.4.9) (2026-08-16)
+
+### Bug Fixes
+
+* actor value clear/set write-lock race crash ([#37](https://github.com/alandtse/EngineFixesSkyrim64/issues/37)) ([7d6ac8b](https://github.com/alandtse/EngineFixesSkyrim64/commit/7d6ac8b0404500076292976a0da3c16fc6f1f1f2)), closes [skyrim_vr_address_library#176](https://github.com/alandtse/skyrim_vr_address_library/issues/176) [skyrim_vr_address_library#176](https://github.com/alandtse/skyrim_vr_address_library/issues/176)
+* **ae:** null-check landscape blend textures ([#36](https://github.com/alandtse/EngineFixesSkyrim64/issues/36)) ([f59c1a7](https://github.com/alandtse/EngineFixesSkyrim64/commit/f59c1a74a7ebdd7c7a595d49516e6ec37bfd109f))
+* bounds-check keyboard poll scancode index ([#33](https://github.com/alandtse/EngineFixesSkyrim64/issues/33)) ([585a3a4](https://github.com/alandtse/EngineFixesSkyrim64/commit/585a3a4577a9ec121e1cb8424a21dd42c6eb3147))
+* null-check camera rigidbody in havok cb ([#34](https://github.com/alandtse/EngineFixesSkyrim64/issues/34)) ([ac309e4](https://github.com/alandtse/EngineFixesSkyrim64/commit/ac309e4d6ddfe9c2d40bf12126b9eccdd3ed6279))
+* null-check texture ptr in SetupTexture ([#35](https://github.com/alandtse/EngineFixesSkyrim64/issues/35)) ([8a9b7c0](https://github.com/alandtse/EngineFixesSkyrim64/commit/8a9b7c0b762f298ad74fb358e927f524378ce60b))
+* **vr:** guard Havok mesh materials ([#39](https://github.com/alandtse/EngineFixesSkyrim64/issues/39)) ([8141669](https://github.com/alandtse/EngineFixesSkyrim64/commit/814166985381855907514da1bd699bcf95525211))
+* **vr:** guard two new scene-graph UAF sites found via soak testing ([#47](https://github.com/alandtse/EngineFixesSkyrim64/issues/47)) ([a2d0ba8](https://github.com/alandtse/EngineFixesSkyrim64/commit/a2d0ba89a0c74d05e095058e4d4dfbaa642dab6c))
+* **vr:** harden streamed scene lifetime ([#38](https://github.com/alandtse/EngineFixesSkyrim64/issues/38)) ([1c94ef4](https://github.com/alandtse/EngineFixesSkyrim64/commit/1c94ef4f94d30986d1f57a0aa1097ad42fa2964d))
+* **vr:** validate loaded vtable slots, guard second AttachSubtree dispatch ([#48](https://github.com/alandtse/EngineFixesSkyrim64/issues/48)) ([1fb4cf3](https://github.com/alandtse/EngineFixesSkyrim64/commit/1fb4cf3d584e4109b01099b08b61a4d4867b6758)), closes [#43](https://github.com/alandtse/EngineFixesSkyrim64/issues/43)
+
+
+### New Settings
+
+* `[Fixes] bAcousticSpaceListenerNullRigidBodyCrash` (default `true`) — fixes a crash when a Havok entity is removed from the world while the player camera has no collision body attached
+* `[Fixes] bActorValueStorageClearRaceCrash` (default `true`) — fixes a race between clearing an actor's base value cache and setting a base value that can crash with a null-pointer write
+* `[Fixes] bBatchRendererRenderPassArrayUAF` (default `true`) — guards BSBatchRenderer render-pass array writes when a stale technique lookup resolves to a null-derived low address
+* `[Fixes] bCullingFreedObjectCrash` (default `true`) — guards cull traversal against dispatch through a scene object's freed or reused vftable during cell streaming
+* `[Fixes] bKeyboardPollScancodeOOBCrash` (default `true`) — fixes a crash in BSWin32KeyboardDevice::Poll caused by an unbounded array index when DirectInput returns a malformed keyboard scancode
+* `[Fixes] bLightingShaderLandscapeTextureCrash` (default `true`) — (AE-only) fixes a crash in BSLightingShader::SetupMaterial's inlined landscape texture blending caused by binding a null texture pointer without a null check
+* `[Fixes] bLightingShaderNullTextureCrash` (default `true`) — fixes a crash in BSLightingShader::SetupMaterial caused by binding a null texture pointer without a null check
+* `[Fixes] bSceneGraphDetachFreedCrash` (default `true`) — guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown
+* `[Fixes] bHavokMaterialLookupGuard` (default `true`) — (VR-only) validates compressed-mesh material lookup results before Skyrim dereferences the material table
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.4.8](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.7...v7.4.8) (2026-07-07)
 
 ### Bug Fixes

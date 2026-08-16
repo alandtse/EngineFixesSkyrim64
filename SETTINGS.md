@@ -17,6 +17,8 @@ a regression, disable the settings introduced at or after the first broken relea
 
 | Setting | Default | Since | Description |
 | --- | --- | --- | --- |
+| `bAcousticSpaceListenerNullRigidBodyCrash` | `true` | 7.4.9 | fixes a crash when a Havok entity is removed from the world while the player camera has no collision body attached |
+| `bActorValueStorageClearRaceCrash` | `true` | 7.4.9 | fixes a race between clearing an actor's base value cache and setting a base value that can crash with a null-pointer write |
 | `bArcheryDownwardAiming` | `true` | ≤ 7.0.20 | fixes a bug where arrows don't fire properly if you're aiming downward while crouching on a ridge |
 | `bAnimationLoadSignedCrash` | `true` | ≤ 7.0.20 | fixes a misplaced used of a signed value in animation loading |
 | `bBethesdaNetCrash` | `true` | ≤ 7.0.20 | fixes the game crashing on startup if you live somewhere with special characters in the name |
@@ -25,6 +27,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bBSLightingShaderForceAlphaTest` | `true` | ≤ 7.0.20 | fixes object LOD reflections by forcing alpha test flag on when NiAlphaProperty/AlphaTest is true |
 | `bBSLightingShaderParallaxBug` | `true` | ≤ 7.0.20 | fixes a bug causing the parallax technique to break if specular is not also set |
 | `bBSLightingShaderPropertyShadowMap` | `true` | ≤ 7.0.20 | fixes re-use of render passes when a light has multiple shadow map passes |
+| `bBatchRendererRenderPassArrayUAF` | `true` | 7.4.9 | guards BSBatchRenderer render-pass array writes when a stale technique lookup resolves to a null-derived low address |
 | `bBSTaskPoolNullVtableCrash` | `true` | 7.2.0 | fixes a crash in BSTaskPool when an actor is freed while a pathfinding task is still pending |
 | `bBSTempEffectNiRTTI` | `true` | ≤ 7.0.20 | fixes a bug where the NiRTTI for this object is not set properly |
 | `bCalendarSkipping` | `true` | ≤ 7.0.20 | fixes a bug where the game calendar effectively skips a year if you fast travel too far between 20:00 and 23:99 in-game |
@@ -33,6 +36,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bConjurationEnchantAbsorbs` | `true` | ≤ 7.0.20 | fixes a bug where spell absorption triggers on enchanted items using conjuration summons |
 | `bConsoleSaveDeadlock` | `true` | 7.4.7 | fixes a deadlock (permanent hang, no crash) when the console 'save' command executes off the main thread, e.g. issued programmatically via Console::ExecuteCommand |
 | `bCreateArmorNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes typo that may cause a crash somewhere in CreateArmorNode |
+| `bCullingFreedObjectCrash` | `true` | 7.4.9 | guards cull traversal against dispatch through a scene object's freed or reused vftable during cell streaming |
 | `bDoublePerkApply` | `true` | ≤ 7.0.20 | fixes NPC perks applying twice when you load a game |
 | `bEquipShoutEventSpam` | `true` | ≤ 7.0.20 | fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip |
 | `bESLCELLLoadBug` | `true` | ≤ 7.0.20 | fixes issues with interior cells created in ESL files |
@@ -43,6 +47,9 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bGlobalTime` | `true` | ≤ 7.0.20 | fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix |
 | `bInitializeHitDataNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash on melee hit that unequipped the weapon at the same time |
 | `bIsPlayerInRegionParentCellCheck` | `true` | 7.1.0 | (VR-only) fixes a crash in IsPlayerInRegion caused by missing parent-cell null checks that SE added but VR lacks |
+| `bKeyboardPollScancodeOOBCrash` | `true` | 7.4.9 | fixes a crash in BSWin32KeyboardDevice::Poll caused by an unbounded array index when DirectInput returns a malformed keyboard scancode |
+| `bLightingShaderLandscapeTextureCrash` | `true` | 7.4.9 | (AE-only) fixes a crash in BSLightingShader::SetupMaterial's inlined landscape texture blending caused by binding a null texture pointer without a null check |
+| `bLightingShaderNullTextureCrash` | `true` | 7.4.9 | fixes a crash in BSLightingShader::SetupMaterial caused by binding a null texture pointer without a null check |
 | `bLipSync` | `true` | ≤ 7.0.20 | fixes a bug causing lip sync to desync |
 | `bMemoryAccessErrors` | `true` | ≤ 7.0.20 | fixes miscellaneous errors that are obscured by Skyrim's default allocator |
 | `bMO5STypo` | `true` | ≤ 7.0.20 | fixes a typo preventing the game from loading MO5S entries in ARMA forms |
@@ -54,6 +61,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bRemovedSpellBook` | `true` | ≤ 7.0.20 | fixes a crash where learning a spell from a book that is later removed in another plugin causes a crash in the inventory |
 | `bSaveScreenshots` | `true` | ≤ 7.0.20 | fixes save screenshots being blank under certain configurations |
 | `bSavedHavokDataLoadInit` | `true` | ≤ 7.0.20 | fixes motion vectors for objects with saved havok data that differs significantly from their base state |
+| `bSceneGraphDetachFreedCrash` | `true` | 7.4.9 | guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown |
 | `bShadowSceneNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in shadowscenenode |
 | `bSkyUpdateCloudsNullPtrCrash` | `true` | 7.4.0 | fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods) |
 | `bStuckMouseButtons` | `true` | 7.1.0 | fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp |
@@ -66,6 +74,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bAbilityConditionBug` | `true` | 7.1.0 | (VR-only) fixes ability conditions being re-evaluated every frame; throttles evaluation per ActiveEffect to the engine's fActiveEffectConditionUpdateInterval |
 | `bBuySellStackSpeechGain` | `true` | 7.1.0 | (VR-only) fixes buying/selling a stack of items only granting speech XP for a single item |
 | `bCopyBoneTransformNullCrash` | `true` | 7.4.0 | (VR-only) fixes a null-pointer crash when an actor's animation references a bone name absent from its skeleton (modded/mismatched skeleton) |
+| `bHavokMaterialLookupGuard` | `true` | 7.4.9 | (VR-only) validates compressed-mesh material lookup results before Skyrim dereferences the material table |
 | `bShadowSceneCrash` | `true` | 7.1.0 | (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix |
 | `bLockpickingMenuInitCrash` | `true` | 7.4.4 | (VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame |
 | `bBSOpenVRHandIndexNullCrash` | `true` | 7.4.7 | (VR-only) guards BSOpenVR::GetTrackedDeviceIndexForHand against a null-pointer crash when the VR hand-device API is queried while the HMD is asleep / OpenVR is not initialized (no SteamVR null driver loaded) |
@@ -120,6 +129,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.4.9**: `bAcousticSpaceListenerNullRigidBodyCrash`, `bActorValueStorageClearRaceCrash`, `bBatchRendererRenderPassArrayUAF`, `bCullingFreedObjectCrash`, `bKeyboardPollScancodeOOBCrash`, `bLightingShaderLandscapeTextureCrash`, `bLightingShaderNullTextureCrash`, `bSceneGraphDetachFreedCrash`, `bHavokMaterialLookupGuard`
 - **7.4.7**: `bConsoleSaveDeadlock`, `bBSOpenVRHandIndexNullCrash`
 - **7.4.4**: `bLockpickingMenuInitCrash`
 - **7.4.0**: `bGetGameSettingNotFoundCrash`, `bSkyUpdateCloudsNullPtrCrash`, `bCopyBoneTransformNullCrash`
@@ -127,3 +137,4 @@ a regression, disable the settings introduced at or after the first broken relea
 - **7.2.0**: `bBSTaskPoolNullVtableCrash`
 - **7.1.0**: `bIsPlayerInRegionParentCellCheck`, `bStuckMouseButtons`, `bAbilityConditionBug`, `bBuySellStackSpeechGain`, `bShadowSceneCrash`, `bDupeAddonNodes`
 - **≤ 7.0.20**: `bVerboseLogging`, `bCleanSKSECoSaves`, `bArcheryDownwardAiming`, `bAnimationLoadSignedCrash`, `bBethesdaNetCrash`, `bBGSKeywordFormLoadCrash`, `bBSLightingAmbientSpecular`, `bBSLightingShaderForceAlphaTest`, `bBSLightingShaderParallaxBug`, `bBSLightingShaderPropertyShadowMap`, `bBSTempEffectNiRTTI`, `bCalendarSkipping`, `bCellInit`, `bClimateLoad`, `bConjurationEnchantAbsorbs`, `bCreateArmorNodeNullPtrCrash`, `bDoublePerkApply`, `bEquipShoutEventSpam`, `bESLCELLLoadBug`, `bFaceGenMorphDataHeadNullPtrCrash`, `bGetKeywordItemCount`, `bGHeapLeakDetectionCrash`, `bGlobalTime`, `bInitializeHitDataNullPtrCrash`, `bLipSync`, `bMemoryAccessErrors`, `bMO5STypo`, `bMusicOverlap`, `bNiControllerNoTarget`, `bNullProcessCrash`, `bPerkFragmentIsRunning`, `bPrecomputedPaths`, `bRemovedSpellBook`, `bSaveScreenshots`, `bSavedHavokDataLoadInit`, `bShadowSceneNodeNullPtrCrash`, `bTextureLoadCrash`, `bTorchLandscape`, `bTreeReflections`, `bVerticalLookSensitivity`, `bWeaponBlockScaling`, `bDisableChargenPrecache`, `bDisableSnowFlag`, `bEnableAchievementsWithMods`, `bFormCaching`, `bINISettingCollection`, `bMaxStdIO`, `bRegularQuicksaves`, `bSafeExit`, `bSaveAddedSoundCategories`, `iSaveGameMaxSize`, `bScrollingDoesntSwitchPOV`, `fSleepWaitTimeModifier`, `bTreeLodReferenceCaching`, `bWaterflowAnimation`, `fWaterflowSpeed`, `bOverrideMemoryManager`, `bOverrideScaleformAllocator`, `bOverrideRenderPassCache`, `bOverrideHavokMemorySystem`, `bReplaceImports`, `bTextureLoadFailed`, `bPrecomputedPathHasErrors`, `bRefHandleLimit`, `uRefrMainMenuLimit`, `uRefrLoadedGameLimit`, `bPrintDetailedPrecomputedPathInfo`, `bDisableTBB`
+
