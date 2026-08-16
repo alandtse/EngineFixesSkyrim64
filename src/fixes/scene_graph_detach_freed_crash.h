@@ -741,6 +741,122 @@ namespace Fixes::SceneGraphDetachFreedCrash
             patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed NiNode clone child freed-object crash fix"sv);
         }
+
+        // NiNode::ProcessClone's own child-array virtual dispatch (vfunc 0xE8) on a child
+        // whose vftable may be freed/reused. The call's return value is never consumed by
+        // the caller, so an invalid vtable can skip the call entirely.
+        struct NiNodeProcessCloneChildPatch final : Xbyak::CodeGenerator
+        {
+            NiNodeProcessCloneChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rax, qword[rcx]);
+                mov(rdx, rsi);
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(invalidLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(invalidLbl);
+
+                call(ptr[rax + 0xE8]);
+
+                L(invalidLbl);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchNiNodeProcessCloneChildVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
+        {
+            constexpr std::uintptr_t      kPatchOffset = 0xC9E410;
+            constexpr std::uintptr_t      kResumeOffset = 0xC9E41C;
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x01,                   // mov rax,[rcx]
+                0x48, 0x8B, 0xD6,                   // mov rdx,rsi
+                0xFF, 0x90, 0xE8, 0x00, 0x00, 0x00  // call [rax+E8h]
+            };
+            static_assert(kPatchOffset + std::size(kExpected) == kResumeOffset);
+
+            REL::Relocation<std::uintptr_t> patch{ REL::Offset{ kPatchOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(patch.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("NiNode ProcessClone child crash fix: unexpected bytes at {:X}, skipping site"sv,
+                    kPatchOffset);
+                return;
+            }
+
+            NiNodeProcessCloneChildPatch p{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
+        }
+
+        // The children-array data pointer (loaded from [node+0x140]) can be freed/reused
+        // mid-traversal even when the node itself is valid; it's a heap data pointer, not a
+        // code pointer, so reject non-canonical/null rather than module-bounds-checking it.
+        struct VisitCollisionArrayPatch final : Xbyak::CodeGenerator
+        {
+            explicit VisitCollisionArrayPatch(std::uintptr_t a_resume)
+            {
+                Xbyak::Label invalidLbl, resumeAddr;
+
+                mov(rcx, qword[rdi + 0x140]);
+                mov(r8, rbp);
+                mov(r9d, ebx);
+                mov(rdx, rsi);
+
+                test(rcx, rcx);
+                jz(invalidLbl);
+                mov(r10, 0x0000800000000000ULL);
+                cmp(rcx, r10);
+                jae(invalidLbl);
+
+                mov(rcx, ptr[rcx + r9 * 8]);
+                jmp(ptr[rip + resumeAddr]);
+
+                // Freed/reused array: substitute a null child (no-op for the recursive call).
+                L(invalidLbl);
+                xor_(rcx, rcx);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void PatchVisitCollisionArrayVR()
+        {
+            constexpr std::uintptr_t kHookOffset = 0xDFDD80;    // MOV RCX,[RDI+0x140]
+            constexpr std::uintptr_t kResumeOffset = 0xDFDD94;  // CALL VisitCollisionObjectTree
+
+            // MOV RCX,[RDI+0x140]; MOV R8,RBP; MOV R9D,EBX; MOV RDX,RSI.
+            static constexpr std::uint8_t kExpected[] = {
+                0x48, 0x8B, 0x8F, 0x40, 0x01, 0x00, 0x00,
+                0x4C, 0x8B, 0xC5,
+                0x44, 0x8B, 0xCB,
+                0x48, 0x8B, 0xD6
+            };
+
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
+            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+                logger::warn("VisitCollisionObjectTree array guard: unexpected bytes at {:X}, skipping"sv,
+                    kHookOffset);
+                return;
+            }
+
+            VisitCollisionArrayPatch p{ REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed VisitCollisionObjectTree array guard"sv);
+        }
     }
 
     inline void Install()
@@ -783,6 +899,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchObjectLODVisitorVR(moduleBase, moduleEnd);
             detail::PatchAdditionalObjectLODReadersVR(moduleBase, moduleEnd);
             detail::PatchNiNodeCloneChildVR(moduleBase, moduleEnd);
+            detail::PatchNiNodeProcessCloneChildVR(moduleBase, moduleEnd);
+            detail::PatchVisitCollisionArrayVR();
         }
 
         logger::info("installed scene-graph detach freed-object crash fix"sv);
