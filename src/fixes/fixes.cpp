@@ -2,6 +2,7 @@
 
 #include "ability_condition_bug.h"
 #include "acoustic_space_listener_null_rigidbody_crash.h"
+#include "actorvaluestorage_clear_race_crash.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "bethesda_net_crash.h"
@@ -60,6 +61,9 @@ namespace Fixes
     {
         if (Settings::Fixes::bAcousticSpaceListenerNullRigidBodyCrash.GetValue())
             AcousticSpaceListenerNullRigidBodyCrash::Install();
+
+        if (Settings::Fixes::bActorValueStorageClearRaceCrash.GetValue())
+            ActorValueStorageClearRaceCrash::Install();
 
         if (Settings::Fixes::bArcheryDownwardAiming.GetValue())
             ArcheryDownwardAiming::Install();

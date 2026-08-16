@@ -20,6 +20,7 @@
 
 #define EF_SETTINGS_FIXES(X)                                                                                                                                                                                             \
     X(Bool, bAcousticSpaceListenerNullRigidBodyCrash, true, "fixes a crash when a Havok entity is removed from the world while the player camera has no collision body attached")                                        \
+    X(Bool, bActorValueStorageClearRaceCrash, true, "fixes a race between clearing an actor's base value cache and setting a base value that can crash with a null-pointer write")                                       \
     X(Bool, bArcheryDownwardAiming, true, "fixes a bug where arrows don't fire properly if you're aiming downward while crouching on a ridge")                                                                           \
     X(Bool, bAnimationLoadSignedCrash, true, "fixes a misplaced used of a signed value in animation loading")                                                                                                            \
     X(Bool, bBethesdaNetCrash, true, "fixes the game crashing on startup if you live somewhere with special characters in the name")                                                                                     \
