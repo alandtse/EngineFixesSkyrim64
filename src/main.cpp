@@ -5,6 +5,7 @@
 #include "clean_cosaves.h"
 #include "fixes/bslightingshader_parallax_bug.h"
 #include "fixes/fixes.h"
+#include "fixes/havok_material_lookup_guard.h"
 #include "fixes/save_screenshots.h"
 #include "fixes/stuck_mouse_buttons.h"
 #include "fixes/tree_reflections.h"
@@ -43,6 +44,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
                 Warnings::WarnActiveRefrHandleCount(Settings::Warnings::uRefrMainMenuLimit.GetValue());
             }
             Patches::InstallDelayed();
+            Fixes::HavokMaterialLookupGuard::ReportRecoveries();
 
             auto timeElapsed = std::chrono::high_resolution_clock::now() - start;
             logger::info("time to main menu {}"sv, std::chrono::duration_cast<std::chrono::milliseconds>(timeElapsed).count());
@@ -51,6 +53,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
         }
     case SKSE::MessagingInterface::kPostLoadGame:
         {
+            Fixes::HavokMaterialLookupGuard::ReportRecoveries();
             if (Settings::Warnings::bRefHandleLimit.GetValue()) {
                 Warnings::WarnActiveRefrHandleCount(Settings::Warnings::uRefrLoadedGameLimit.GetValue());
             }
