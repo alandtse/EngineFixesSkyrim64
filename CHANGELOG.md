@@ -1,3 +1,9 @@
+## [7.5.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.9...v7.5.0) (2026-08-21)
+
+### Features
+
+* add support for AE 1.7.99 ([#51](https://github.com/alandtse/EngineFixesSkyrim64/issues/51)) ([eb98b33](https://github.com/alandtse/EngineFixesSkyrim64/commit/eb98b3337b2c6994e8a3cbdac94571fe848de59d))
+
 ## [7.4.9](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.8...v7.4.9) (2026-08-16)
 
 ### Bug Fixes
