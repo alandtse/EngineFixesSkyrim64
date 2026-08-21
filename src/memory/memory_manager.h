@@ -29,8 +29,48 @@ namespace Memory::MemoryManager
                 a_self->p_Memory = nullptr;
             }
 
+            // VR: spot-patch replaces the rotating-cookie zero-size sentinel with a simpler
+            // nullptr sentinel; wholesale replace_func (used on SE/AE) corrupts the VR heap.
+            static void InstallVRSpotPatches()
+            {
+                struct DtorPatch final : Xbyak::CodeGenerator
+                {
+                    DtorPatch()
+                    {
+                        xor_(rax, rax);
+                        cmp(rbx, rax);
+                    }
+                };
+
+                // AutoScrapBuffer::Ctor: NOP cookie rotation block [+0x1D..+0x32).
+                REL::Relocation<std::uintptr_t> ctorBase{ RELOCATION_ID(66853, 68108) };
+                REL::safe_fill(ctorBase.address() + 0x1D, REL::NOP, 0x32 - 0x1D);
+
+                // AutoScrapBuffer::Dtor: replace cookie compare [+0x12..+0x2F) with `xor rax,rax; cmp rbx,rax`,
+                // NOP-fill remainder.
+                REL::Relocation<std::uintptr_t> dtorBase{ RELOCATION_ID(66854, 68109) };
+                REL::safe_fill(dtorBase.address() + 0x12, REL::NOP, 0x2F - 0x12);
+
+                DtorPatch dp;
+                dp.ready();
+                assert(dp.getSize() <= 0x2F - 0x12);
+                REL::safe_write(
+                    dtorBase.address() + 0x12,
+                    std::span{ dp.getCode<const std::byte*>(), dp.getSize() });
+
+                // AutoScrapBuffer::Dtor: flip jnz (0x75) to jz (0x74) at +0x2F so the "skip free"
+                // branch fires when the slot is null (post-patch sentinel) instead of when it matches
+                // the cookie.
+                REL::safe_write<std::uint8_t>(dtorBase.address() + 0x2F, 0x74);
+            }
+
             static void Install()
             {
+                if (REL::Module::IsVR()) {
+                    InstallVRSpotPatches();
+                    return;
+                }
+
                 REL::Relocation ctor{ RELOCATION_ID(66853, 68108) };
                 REL::Relocation dtor{ RELOCATION_ID(66854, 68109) };
 
