@@ -100,7 +100,9 @@ namespace Fixes::MemoryAccessErrors
             Patch patch;
             patch.ready();
 
-            REL::Relocation target{ RELOCATION_ID(101499, 108496), VAR_NUM(0x1AFD, 0x1BED, 0x1C6D) };
+            // AE1799 recompile shifted this instruction from +0x1BED to +0x1BFD; verified via
+            // Ghidra decompile of both binaries (same `MOV R9,[RBP+...]`, no other layout change).
+            REL::Relocation target{ RELOCATION_ID(101499, 108496), VAR_NUM(0x1AFD, util::IsAE1799() ? 0x1BFD : 0x1BED, 0x1C6D) };
             target.write(std::span{ patch.getCode<const std::byte*>(), patch.getSize() });
         }
     }
