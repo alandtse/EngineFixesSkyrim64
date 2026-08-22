@@ -13,8 +13,10 @@ namespace Fixes::GlobalTime
             target.write(timerOffset);
         };
 
-        // BookMenu::vf4 — VR prologue differs, disp32 at func+0x990 vs SE func+0xA95
-        patch(RELOCATION_ID(50118, 51049), VAR_NUM(0xA91 + 0x4, 0xB70 + 0x4, 0x990));
+        // BookMenu::vf4 — VR prologue differs, disp32 at func+0x990 vs SE func+0xA95.
+        // AE1799 recompile shifted this instruction from +0xB70 to +0xC3E; verified via
+        // Ghidra decompile of both binaries (same `MOVSS XMM1,[rip+disp]` frame-timer read).
+        patch(RELOCATION_ID(50118, 51049), VAR_NUM(0xA91 + 0x4, (util::IsAE1799() ? 0xC3E : 0xB70) + 0x4, 0x990));
         // SleepWaitMenu::vf4 — VR already reads secondsSinceLastFrameRealTime directly; skip
         if (!REL::Module::IsVR()) {
             patch(RELOCATION_ID(51614, 52486), VAR_NUM(0x1BC + 0x4, 0x1BE + 0x4));

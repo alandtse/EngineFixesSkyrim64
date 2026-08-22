@@ -40,10 +40,13 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             a_site.write_branch<5>(a_trampoline.allocate(p));
         }
 
-        // AE: 4 sites inlined into BSLightingShader::SetupMaterial.
+        // AE: 4 sites inlined into BSLightingShader::SetupMaterial. The function itself
+        // moved from 0x14DC310 to 0x15485C0 on AE1799 (verified via Ghidra decompile of
+        // both binaries); the 4 internal site offsets are byte-for-byte unchanged.
         inline void InstallAE()
         {
-            REL::Relocation<std::uintptr_t> setupMaterial{ REL::Offset{ 0x14DC310 } };
+            const std::uintptr_t            base = util::IsAE1799() ? 0x15485C0 : 0x14DC310;
+            REL::Relocation<std::uintptr_t> setupMaterial{ REL::Offset{ base } };
             auto&                           trampoline = SKSE::GetTrampoline();
 
             const bool ok = SignatureMatches(setupMaterial.address() + 0x2E8, 0x40) &&
@@ -56,13 +59,13 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
                 return;
             }
 
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14DC310 + 0x2E8 } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x2E8 } }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14DC310 + 0x315 } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x315 } }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14DC310 + 0x36F } }, Xbyak::util::rcx,
+            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x36F } }, Xbyak::util::rcx,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ 0x14DC310 + 0x3DE } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x3DE } }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
 
             logger::info("installed lighting shader landscape texture crash fix (ae)"sv);

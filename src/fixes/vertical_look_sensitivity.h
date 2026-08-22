@@ -51,11 +51,14 @@ namespace Fixes::VerticalLookSensitivity
 
     inline void Install()
     {
+        // AE1799 recompile shifted two of these three call sites from +0x53 to +0x99
+        // (id 50914's +0x65 is unchanged); verified via Ghidra decompile of both binaries
+        // (identical `MULSS XMM3,[rip+disp]` against the same frame-timer global).
         using PairT = std::pair<REL::RelocationID, std::ptrdiff_t>;
         const std::array<PairT, 3> todo = {
             PairT{ RELOCATION_ID(49978, 50914), VAR_NUM(0x71, 0x65) },
-            PairT{ RELOCATION_ID(32370, 33119), VAR_NUM(0x5F, 0x53) },
-            PairT{ RELOCATION_ID(49839, 50770), VAR_NUM(0x5F, 0x53) },
+            PairT{ RELOCATION_ID(32370, 33119), VAR_NUM(0x5F, util::IsAE1799() ? 0x99 : 0x53) },
+            PairT{ RELOCATION_ID(49839, 50770), VAR_NUM(0x5F, util::IsAE1799() ? 0x99 : 0x53) },
         };
 
         auto& trampoline = SKSE::GetTrampoline();

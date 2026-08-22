@@ -138,7 +138,7 @@ extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
     v.AuthorName("aers");
     v.UsesAddressLibrary();
     v.UsesUpdatedStructs();
-    v.CompatibleVersions({ SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170, SKSE::RUNTIME_VR_1_4_15 });
+    v.CompatibleVersions({ SKSE::RUNTIME_SSE_1_5_97, SKSE::RUNTIME_SSE_1_6_1170, SKSE::RUNTIME_SSE_1_7_99, SKSE::RUNTIME_VR_1_4_15 });
 
     return v;
 }();

@@ -83,7 +83,11 @@ namespace Memory::MemoryManager
             REL::Relocation deallocate{ RELOCATION_ID(66861, 68117) };
             REL::Relocation size{ RELOCATION_ID(66849, 68100) };
 
-            allocate.replace_func(0x248, Allocate);
+            // a_count is just the int3-fill length for the displaced original function body;
+            // AE1799's recompile is one byte shorter (0x247 vs 0x248) -- cosmetic (the trampoline
+            // install itself doesn't depend on it), kept precise to avoid padding into the next
+            // function's first byte.
+            allocate.replace_func(util::IsAE1799() ? 0x247 : 0x248, Allocate);
             reallocate.replace_func(VAR_NUM(0xA7, 0x1F6), Reallocate);
             deallocate.replace_func(0x114, Deallocate);
             size.replace_func(VAR_NUM(0x12A, 0x156), Size);
