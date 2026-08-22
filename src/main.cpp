@@ -168,6 +168,19 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(const SKSE::Query
     return true;
 }
 
+// Native preload hook (SKSE >= 2.2.7, confirmed present in the AE/1.7.99 build). SKSE calls
+// this itself during its own PreInit phase if it finds the export -- an older SKSE build (or
+// VR's, if it hasn't picked up this feature) simply never calls it, and the third-party
+// d3dx9_42.dll path below remains the fallback. The g_isPreloaded guard means whichever path
+// fires first wins; the other becomes a harmless no-op.
+extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Preload(const SKSE::LoadInterface*)
+{
+    if (!g_isPreloaded)
+        Initialize();
+
+    return true;
+}
+
 extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
 {
     if (!g_isPreloaded) {
