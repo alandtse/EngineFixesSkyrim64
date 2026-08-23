@@ -227,6 +227,82 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
         }
+
+        // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast
+        // (`CALL [reg+0x58]`) and, when null, feeds it to GetNumSegments,
+        // FinalizeSegments, and a third accessor -- all 3 real crashes observed so far
+        // trace back to this one call site. Rather than keep guarding accessors one at a
+        // time as new ones turn up (BSSubIndexTriShape has ~7 of them sharing the same
+        // unguarded-`this` shape), guard the null pointer right where it's produced: on
+        // null, jump straight to the loop's per-item continue point, skipping every
+        // accessor call for that item -- exactly how an already-exhausted or
+        // out-of-range item is already handled elsewhere in this same loop.
+        struct CallerGuardInfo
+        {
+            REL::Version                version;
+            std::uintptr_t              hookRva;  // start of the displaced `MOV this,RAX; TEST flag,flag` pair
+            std::uintptr_t              skipRva;  // loop's per-item continue point
+            std::array<std::uint8_t, 6> displacedBytes;
+            std::uint8_t                displacedLen;  // 5 or 6; trailing bytes in displacedBytes are unused padding
+        };
+
+        inline constexpr CallerGuardInfo kSub1404B5090Runtimes[] = {
+            // SE: MOV RDI,RAX; TEST SIL,SIL
+            { SKSE::RUNTIME_SSE_1_5_97, 0x4B5111, 0x4B51E9, { 0x48, 0x8B, 0xF8, 0x40, 0x84, 0xF6 }, 6 },
+            // AE 1.6.1170: MOV R15,RAX; TEST SIL,SIL
+            { SKSE::RUNTIME_SSE_1_6_1170, 0x511151, 0x5112B9, { 0x4C, 0x8B, 0xF8, 0x40, 0x84, 0xF6 }, 6 },
+            // AE 1.7.99: MOV R15,RAX; TEST BL,BL (no REX needed on BL)
+            { SKSE::RUNTIME_SSE_1_7_99, 0x518DE1, 0x518F67, { 0x4C, 0x8B, 0xF8, 0x84, 0xDB, 0x00 }, 5 },
+            // VR: MOV RDI,RAX; TEST SIL,SIL
+            { SKSE::RUNTIME_VR_1_4_15, 0x4C51F1, 0x4C52C9, { 0x48, 0x8B, 0xF8, 0x40, 0x84, 0xF6 }, 6 },
+        };
+
+        struct CallerGuardPatch final : Xbyak::CodeGenerator
+        {
+            CallerGuardPatch(std::uintptr_t a_resume, std::uintptr_t a_skip, const std::uint8_t* a_bytes,
+                std::uint8_t a_len)
+            {
+                Xbyak::Label nullLbl, resumeAddr, skipAddr;
+
+                // RAX holds the vtable-cast result here -- replicate the exact displaced
+                // bytes verbatim below rather than re-encoding per-runtime register
+                // choices symbolically.
+                test(rax, rax);
+                jz(nullLbl);
+
+                for (std::uint8_t i = 0; i < a_len; ++i) {
+                    db(a_bytes[i]);
+                }
+                jmp(ptr[rip + resumeAddr]);
+
+                L(nullLbl);
+                jmp(ptr[rip + skipAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(skipAddr);
+                dq(a_skip);
+            }
+        };
+
+        inline void InstallCallerGuardForRuntime(const CallerGuardInfo& a_info)
+        {
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ a_info.hookRva } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
+            if (!std::equal(a_info.displacedBytes.begin(), a_info.displacedBytes.begin() + a_info.displacedLen,
+                    bytes)) {
+                logger::warn("skipping SubIndexTriShapeCreateNullCrash caller guard: unexpected bytes at {:X}"sv,
+                    a_info.hookRva);
+                return;
+            }
+
+            CallerGuardPatch p{ hook.address() + a_info.displacedLen,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_info.skipRva } }.address(), a_info.displacedBytes.data(),
+                a_info.displacedLen };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed SubIndexTriShapeCreateNullCrash caller guard"sv);
+        }
     }
 
     inline void Install()
@@ -253,6 +329,14 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
         for (const auto& info : detail::kGetNumSegmentsRuntimes) {
             if (currentVersion == info.version) {
                 detail::InstallGetNumSegmentsGuardForRuntime(info);
+                matched = true;
+                break;
+            }
+        }
+
+        for (const auto& info : detail::kSub1404B5090Runtimes) {
+            if (currentVersion == info.version) {
+                detail::InstallCallerGuardForRuntime(info);
                 matched = true;
                 break;
             }
