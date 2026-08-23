@@ -14,10 +14,11 @@
 // 2. Two separate callers (`sub_1404B5090`, `FUN_140518fa0`/equivalents -- the latter via
 //    `BGSDistantObjectBlock::GetMesh`'s own vtable-cast chain) each produce their own
 //    null `this` through different unguarded vtable casts, then feed it to whichever of
-//    FinalizeSegments/GetNumSegments/RecomputeSegmentData a flag bit selects. Each
-//    accessor is guarded at its own entry, which covers every caller (including
-//    `sub_1404B5090`'s, which also gets a caller-side guard as defense in depth since
-//    it's the call site every real crash so far has gone through).
+//    FinalizeSegments/GetNumSegments/RecomputeSegmentData/RefreshSegmentActiveFlag/
+//    ClearSegmentActiveFlag a flag bit selects. Each accessor is guarded at its own
+//    entry, which covers every caller (including `sub_1404B5090`'s, which also gets a
+//    caller-side guard as defense in depth since it's the call site every real crash so
+//    far has gone through).
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -144,13 +145,13 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             }
         };
 
-        inline void InstallFinalizeSegmentsGuardForRuntime(const FinalizeSegmentsInfo& a_info)
+        inline void InstallNullThisAtOffsetGuardForRuntime(const FinalizeSegmentsInfo& a_info, std::string_view a_name)
         {
             REL::Relocation<std::uintptr_t> hook{ REL::Offset{ a_info.entryRva } };
             const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
             const auto                      expected = FinalizeSegmentsExpectedBytes(a_info.runtimeDataOffset);
             if (!std::equal(expected.begin(), expected.end(), bytes)) {
-                logger::warn("skipping SubIndexTriShapeCreateNullCrash FinalizeSegments guard: unexpected bytes at {:X}"sv,
+                logger::warn("skipping SubIndexTriShapeCreateNullCrash {} guard: unexpected bytes at {:X}"sv, a_name,
                     a_info.entryRva);
                 return;
             }
@@ -158,8 +159,27 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             FinalizeSegmentsPatch p{ hook.address() + expected.size(), a_info.runtimeDataOffset };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash FinalizeSegments guard"sv);
+            logger::info("installed SubIndexTriShapeCreateNullCrash {} guard"sv, a_name);
         }
+
+        // RefreshSegmentActiveFlag and ClearSegmentActiveFlag share sub_1404B5090's and
+        // FUN_140518fa0's unguarded `this`, same as the three accessors above. Both are
+        // void and reach the same `MOV RAX,[RCX+offset]` load two harmless
+        // index-computing instructions into the function, so the guard reuses
+        // FinalizeSegments' shape: null `this` -> `ret` before that load.
+        inline constexpr FinalizeSegmentsInfo kRefreshSegmentActiveFlagRuntimes[] = {
+            { SKSE::RUNTIME_SSE_1_5_97, 0xD593E6, 0x160 },
+            { SKSE::RUNTIME_SSE_1_6_1170, 0xE31136, 0x160 },
+            { SKSE::RUNTIME_SSE_1_7_99, 0xFF65A6, 0x160 },
+            { SKSE::RUNTIME_VR_1_4_15, 0xDA24F6, 0x1A0 },
+        };
+
+        inline constexpr FinalizeSegmentsInfo kClearSegmentActiveFlagRuntimes[] = {
+            { SKSE::RUNTIME_SSE_1_5_97, 0xD59416, 0x160 },
+            { SKSE::RUNTIME_SSE_1_6_1170, 0xE31166, 0x160 },
+            { SKSE::RUNTIME_SSE_1_7_99, 0xFF65D6, 0x160 },
+            { SKSE::RUNTIME_VR_1_4_15, 0xDA2526, 0x1A0 },
+        };
 
         // GetNumSegments: `return this->nonSegmented ? 1 : this->numSegments;`. A null
         // `this` here returns 0, matching how a real object with numSegments == 0 would
@@ -381,7 +401,23 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
 
         for (const auto& info : detail::kFinalizeSegmentsRuntimes) {
             if (currentVersion == info.version) {
-                detail::InstallFinalizeSegmentsGuardForRuntime(info);
+                detail::InstallNullThisAtOffsetGuardForRuntime(info, "FinalizeSegments"sv);
+                matched = true;
+                break;
+            }
+        }
+
+        for (const auto& info : detail::kRefreshSegmentActiveFlagRuntimes) {
+            if (currentVersion == info.version) {
+                detail::InstallNullThisAtOffsetGuardForRuntime(info, "RefreshSegmentActiveFlag"sv);
+                matched = true;
+                break;
+            }
+        }
+
+        for (const auto& info : detail::kClearSegmentActiveFlagRuntimes) {
+            if (currentVersion == info.version) {
+                detail::InstallNullThisAtOffsetGuardForRuntime(info, "ClearSegmentActiveFlag"sv);
                 matched = true;
                 break;
             }
