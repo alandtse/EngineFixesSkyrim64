@@ -2,8 +2,8 @@
 
 namespace Fixes::LightingShaderLandscapeTextureCrash
 {
-    // AE inlines this landscape-blend helper into SetupMaterial (4 sites patched via raw
-    // offsets); SE/VR call it standalone (id 100588).
+    // AE inlines this landscape-blend helper into SetupMaterial (4 sites, resolved via
+    // BSLightingShader's vtable); SE/VR call it standalone (id 100588).
     namespace detail
     {
         inline constexpr std::uintptr_t kDisplacedBytes = 0x7;
@@ -40,13 +40,16 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             a_site.write_branch<5>(a_trampoline.allocate(p));
         }
 
-        // AE: 4 sites inlined into BSLightingShader::SetupMaterial. The function itself
-        // moved from 0x14DC310 to 0x15485C0 on AE1799; the 4 internal site offsets are
-        // byte-for-byte unchanged.
+        // AE: 4 sites inlined into BSLightingShader::SetupMaterial. SetupMaterial's own
+        // absolute address moves every AE point release (differs between 1.6.1170 and
+        // 1.7.99), but its internal layout -- and therefore these 4 patch sites' offsets
+        // -- does not.
         inline void InstallAE()
         {
-            const std::uintptr_t            base = util::IsAE1799() ? 0x15485C0 : 0x14DC310;
-            REL::Relocation<std::uintptr_t> setupMaterial{ REL::Offset{ base } };
+            REL::Relocation<std::uintptr_t> vtbl{ RE::BSLightingShader::VTABLE[0] };
+            const auto                      setupMaterialAddr =
+                *reinterpret_cast<std::uintptr_t*>(vtbl.address() + sizeof(void*) * 4);
+            REL::Relocation<std::uintptr_t> setupMaterial{ setupMaterialAddr };
             auto&                           trampoline = SKSE::GetTrampoline();
 
             const bool ok = SignatureMatches(setupMaterial.address() + 0x2E8, 0x40) &&
@@ -59,13 +62,13 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
                 return;
             }
 
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x2E8 } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ setupMaterial.address() + 0x2E8 }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x315 } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ setupMaterial.address() + 0x315 }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x36F } }, Xbyak::util::rcx,
+            InstallSite(REL::Relocation<std::uintptr_t>{ setupMaterial.address() + 0x36F }, Xbyak::util::rcx,
                 Xbyak::util::rax, trampoline);
-            InstallSite(REL::Relocation<std::uintptr_t>{ REL::Offset{ base + 0x3DE } }, Xbyak::util::rax,
+            InstallSite(REL::Relocation<std::uintptr_t>{ setupMaterial.address() + 0x3DE }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
 
             logger::info("installed lighting shader landscape texture crash fix (ae)"sv);
