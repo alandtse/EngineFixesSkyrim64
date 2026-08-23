@@ -11,10 +11,13 @@
 //    return null under memory pressure (e.g. heavy LOD streaming). CreateFromShapeData's
 //    own caller already tolerates a null return (it has a fallback-allocate path), so
 //    returning null cleanly here is a safe, non-crashing outcome.
-// 2. sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast and feeds
-//    it to FinalizeSegments, GetNumSegments, or a third accessor depending on a flag
-//    bit. Several more BSSubIndexTriShape accessors share this same unguarded-`this`
-//    shape, so the guard sits at the loop's `this` assignment, covering all of them.
+// 2. Two separate callers (`sub_1404B5090`, `FUN_140518fa0`/equivalents -- the latter via
+//    `BGSDistantObjectBlock::GetMesh`'s own vtable-cast chain) each produce their own
+//    null `this` through different unguarded vtable casts, then feed it to whichever of
+//    FinalizeSegments/GetNumSegments/RecomputeSegmentData a flag bit selects. Each
+//    accessor is guarded at its own entry, which covers every caller (including
+//    `sub_1404B5090`'s, which also gets a caller-side guard as defense in depth since
+//    it's the call site every real crash so far has gone through).
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -224,6 +227,72 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
         }
 
+        // RecomputeSegmentData is void and, on a null `this`, safely no-ops the same way
+        // FinalizeSegments does. SE/VR have an extra `SUB RSP,0x8` prologue AE1170/AE1799
+        // lack; the hook sits at the true entry (before either instruction), so the null
+        // path can `ret` immediately without touching the stack on any runtime.
+        struct RecomputeSegmentDataInfo
+        {
+            REL::Version                 version;
+            std::uintptr_t               entryRva;
+            std::array<std::uint8_t, 11> displacedBytes;
+            std::uint8_t                 displacedLen;  // 7 (AE1170/AE1799) or 11 (SE/VR)
+        };
+
+        inline constexpr RecomputeSegmentDataInfo kRecomputeSegmentDataRuntimes[] = {
+            // SE: SUB RSP,0x8; CMP byte ptr[RCX+0x170],0
+            { SKSE::RUNTIME_SSE_1_5_97, 0xD59430,
+                { 0x48, 0x83, 0xEC, 0x08, 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 11 },
+            // AE 1.6.1170: CMP byte ptr[RCX+0x170],0 (no SUB RSP)
+            { SKSE::RUNTIME_SSE_1_6_1170, 0xE31180, { 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 7 },
+            // AE 1.7.99: CMP byte ptr[RCX+0x170],0 (no SUB RSP)
+            { SKSE::RUNTIME_SSE_1_7_99, 0xFF65F0, { 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 7 },
+            // VR: SUB RSP,0x8; CMP byte ptr[RCX+0x1B0],0
+            { SKSE::RUNTIME_VR_1_4_15, 0xDA2540,
+                { 0x48, 0x83, 0xEC, 0x08, 0x80, 0xB9, 0xB0, 0x01, 0x00, 0x00, 0x00 }, 11 },
+        };
+
+        struct RecomputeSegmentDataPatch final : Xbyak::CodeGenerator
+        {
+            RecomputeSegmentDataPatch(std::uintptr_t a_resume, const std::uint8_t* a_bytes, std::uint8_t a_len)
+            {
+                Xbyak::Label nullLbl, resumeAddr;
+
+                test(rcx, rcx);
+                jz(nullLbl);
+
+                for (std::uint8_t i = 0; i < a_len; ++i) {
+                    db(a_bytes[i]);
+                }
+                jmp(ptr[rip + resumeAddr]);
+
+                L(nullLbl);
+                ret();
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void InstallRecomputeSegmentDataGuardForRuntime(const RecomputeSegmentDataInfo& a_info)
+        {
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ a_info.entryRva } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
+            if (!std::equal(a_info.displacedBytes.begin(), a_info.displacedBytes.begin() + a_info.displacedLen,
+                    bytes)) {
+                logger::warn(
+                    "skipping SubIndexTriShapeCreateNullCrash RecomputeSegmentData guard: unexpected bytes at {:X}"sv,
+                    a_info.entryRva);
+                return;
+            }
+
+            RecomputeSegmentDataPatch p{ hook.address() + a_info.displacedLen, a_info.displacedBytes.data(),
+                a_info.displacedLen };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed SubIndexTriShapeCreateNullCrash RecomputeSegmentData guard"sv);
+        }
+
         // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast
         // (`CALL [reg+0x58]`) and, when null, feeds it to GetNumSegments,
         // FinalizeSegments, or a third accessor depending on a flag bit -- all 3 real
@@ -329,6 +398,14 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
         for (const auto& info : detail::kSub1404B5090Runtimes) {
             if (currentVersion == info.version) {
                 detail::InstallCallerGuardForRuntime(info);
+                matched = true;
+                break;
+            }
+        }
+
+        for (const auto& info : detail::kRecomputeSegmentDataRuntimes) {
+            if (currentVersion == info.version) {
+                detail::InstallRecomputeSegmentDataGuardForRuntime(info);
                 matched = true;
                 break;
             }
