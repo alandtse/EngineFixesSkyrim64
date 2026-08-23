@@ -81,7 +81,9 @@ namespace Memory::ScaleformAllocator
 
         inline void Install()
         {
-            REL::Relocation target{ RELOCATION_ID(80300, 82323), VAR_NUM(0xED, 0x170) };
+            // AE1799 recompile shifted this call site from +0x170 to +0x16C; same CALL
+            // target, no other layout change.
+            REL::Relocation target{ RELOCATION_ID(80300, 82323), VAR_NUM(0xED, util::IsAE1799() ? 0x16C : 0x170) };
             Init::hook = target.write_call<5>(Init::thunk);
         }
     }
