@@ -1,3 +1,22 @@
+## [7.6.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.5.0...v7.6.0) (2026-08-23)
+
+### Features
+
+* add native SKSEPlugin_Preload export ([#54](https://github.com/alandtse/EngineFixesSkyrim64/issues/54)) ([77a7d95](https://github.com/alandtse/EngineFixesSkyrim64/commit/77a7d956d5ec5de83df61a9a0531085324471230))
+
+### Bug Fixes
+
+* **ae1799:** correct offsets, bump CommonLib ([#53](https://github.com/alandtse/EngineFixesSkyrim64/issues/53)) ([b848eab](https://github.com/alandtse/EngineFixesSkyrim64/commit/b848eab4e1ed0ed035c729c533bee32d8cf23cda))
+* null-check EffectShaderData texture pointer ([#57](https://github.com/alandtse/EngineFixesSkyrim64/issues/57)) ([31a2483](https://github.com/alandtse/EngineFixesSkyrim64/commit/31a248320058b6bc050b4e3b450cbf18d5678f1f))
+* **shader:** resolve AE texture patch via vtable ([#52](https://github.com/alandtse/EngineFixesSkyrim64/issues/52)) ([23794f2](https://github.com/alandtse/EngineFixesSkyrim64/commit/23794f253ae85be5b4b6e7ce54b4115bc5176102))
+
+
+### New Settings
+
+* `[Fixes] bEffectShaderDataNullTextureCrash` (default `true`) — fixes a crash when an effect shader has a null base or palette texture assigned
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.5.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.4.9...v7.5.0) (2026-08-21)
 
 ### Features
