@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 
-// Three independent sources of a null BSSubIndexTriShape* reaching unguarded code:
+// Two independent sources of a null BSSubIndexTriShape* reaching unguarded code:
 //
 // 1. CreateFromShapeData allocates the shape object, then uses the result completely
 //    unguarded: a segment-population loop, an unconditional finalize call, a virtual
@@ -11,12 +11,10 @@
 //    return null under memory pressure (e.g. heavy LOD streaming). CreateFromShapeData's
 //    own caller already tolerates a null return (it has a fallback-allocate path), so
 //    returning null cleanly here is a safe, non-crashing outcome.
-// 2. FinalizeSegments and 3. GetNumSegments are two of the same unguarded caller's two
-//    branches (`sub_1404B5090`, plus a second caller, `FUN_140518fa0`/equivalents):
-//    both pull `this` from the same unguarded vtable/array lookup that can yield null
-//    (e.g. an out-of-range or freed segment index), then call one or the other
-//    depending on a flag bit. Both are guarded independently since they're separate
-//    function entry points.
+// 2. sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast and feeds
+//    it to FinalizeSegments, GetNumSegments, or a third accessor depending on a flag
+//    bit. Several more BSSubIndexTriShape accessors share this same unguarded-`this`
+//    shape, so the guard sits at the loop's `this` assignment, covering all of them.
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -96,10 +94,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
 
         // FinalizeSegments has 5 call sites; only one is CreateFromShapeData's (guarded
         // above). The other 4 pull `this` from an unguarded vtable/array lookup that can
-        // also yield null. FinalizeSegments only ever writes into its own object's
-        // members and returns void, so skipping the whole call on a null `this` is safe
-        // for every caller -- guarding its own entry covers all 5 sites (and any future
-        // ones) with a single hook, instead of auditing each call site individually.
+        // also yield null. It only writes into its own object's members and returns
+        // void, so a null `this` can safely no-op at its own entry, covering all 5 sites.
         struct FinalizeSegmentsInfo
         {
             REL::Version   version;
@@ -230,13 +226,10 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
 
         // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast
         // (`CALL [reg+0x58]`) and, when null, feeds it to GetNumSegments,
-        // FinalizeSegments, and a third accessor -- all 3 real crashes observed so far
-        // trace back to this one call site. Rather than keep guarding accessors one at a
-        // time as new ones turn up (BSSubIndexTriShape has ~7 of them sharing the same
-        // unguarded-`this` shape), guard the null pointer right where it's produced: on
-        // null, jump straight to the loop's per-item continue point, skipping every
-        // accessor call for that item -- exactly how an already-exhausted or
-        // out-of-range item is already handled elsewhere in this same loop.
+        // FinalizeSegments, or a third accessor depending on a flag bit -- all 3 real
+        // crashes observed so far trace back to this one call site. On null, this jumps
+        // straight to the loop's per-item continue point, the same landing spot an
+        // out-of-range or already-exhausted item already uses elsewhere in this loop.
         struct CallerGuardInfo
         {
             REL::Version                version;
@@ -264,9 +257,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             {
                 Xbyak::Label nullLbl, resumeAddr, skipAddr;
 
-                // RAX holds the vtable-cast result here -- replicate the exact displaced
-                // bytes verbatim below rather than re-encoding per-runtime register
-                // choices symbolically.
+                // RAX holds the vtable-cast result here. The displaced bytes below are
+                // replicated verbatim since the register they use differs per runtime.
                 test(rax, rax);
                 jz(nullLbl);
 
