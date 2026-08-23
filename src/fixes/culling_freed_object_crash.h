@@ -62,8 +62,7 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x151A01A, 0x151A033, kPostAE6 },
         } };
         // AE1799 recompile relocated all 6 containing functions (each byte-identical
-        // internally, same length, just moved); verified via Ghidra decompile of both
-        // binaries -- every call site and its full post-call block match exactly.
+        // internally, same length, just moved).
         inline constexpr std::array<Site, 7> kSitesAE1799{ {
             { 0xF0482D, 0xF0485B, kPostAE0 },
             { 0xF049A1, 0xF049E3, kPostAE1 },

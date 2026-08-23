@@ -41,8 +41,8 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
         }
 
         // AE: 4 sites inlined into BSLightingShader::SetupMaterial. The function itself
-        // moved from 0x14DC310 to 0x15485C0 on AE1799 (verified via Ghidra decompile of
-        // both binaries); the 4 internal site offsets are byte-for-byte unchanged.
+        // moved from 0x14DC310 to 0x15485C0 on AE1799; the 4 internal site offsets are
+        // byte-for-byte unchanged.
         inline void InstallAE()
         {
             const std::uintptr_t            base = util::IsAE1799() ? 0x15485C0 : 0x14DC310;
