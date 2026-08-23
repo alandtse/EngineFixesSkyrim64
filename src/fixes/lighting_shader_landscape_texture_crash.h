@@ -3,8 +3,7 @@
 namespace Fixes::LightingShaderLandscapeTextureCrash
 {
     // AE inlines this landscape-blend helper into SetupMaterial (4 sites, resolved via
-    // BSLightingShader's vtable so the fix survives AE point releases moving
-    // SetupMaterial's absolute address); SE/VR call it standalone (id 100588).
+    // BSLightingShader's vtable); SE/VR call it standalone (id 100588).
     namespace detail
     {
         inline constexpr std::uintptr_t kDisplacedBytes = 0x7;
@@ -41,11 +40,10 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             a_site.write_branch<5>(a_trampoline.allocate(p));
         }
 
-        // AE: 4 sites inlined into BSLightingShader::SetupMaterial. Resolved via the
-        // vtable (slot 4) rather than a hardcoded raw offset: SetupMaterial's own
-        // absolute address moves every AE point release (confirmed different between
-        // 1.6.1170 and 1.7.99), but its internal layout -- and therefore these 4
-        // patch sites' offsets -- has not.
+        // AE: 4 sites inlined into BSLightingShader::SetupMaterial. SetupMaterial's own
+        // absolute address moves every AE point release (differs between 1.6.1170 and
+        // 1.7.99), but its internal layout -- and therefore these 4 patch sites' offsets
+        // -- does not.
         inline void InstallAE()
         {
             REL::Relocation<std::uintptr_t> vtbl{ RE::BSLightingShader::VTABLE[0] };
