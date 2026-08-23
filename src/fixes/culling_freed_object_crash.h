@@ -61,6 +61,17 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x1519C38, 0x1519C66, kPostAE5 },
             { 0x151A01A, 0x151A033, kPostAE6 },
         } };
+        // AE1799 recompile relocated all 6 containing functions (each byte-identical
+        // internally, same length, just moved).
+        inline constexpr std::array<Site, 7> kSitesAE1799{ {
+            { 0xF0482D, 0xF0485B, kPostAE0 },
+            { 0xF049A1, 0xF049E3, kPostAE1 },
+            { 0xFED9BC, 0xFED9EA, kPostAE2 },
+            { 0xFEDAAB, 0xFEDADE, kPostAE3 },
+            { 0x15868CE, 0x15868FC, kPostAE4 },
+            { 0x1586948, 0x1586976, kPostAE5 },
+            { 0x1586D2A, 0x1586D43, kPostAE6 },
+        } };
         inline constexpr std::array<Site, 6> kSitesSE{ {
             { 0xC794D4, 0xC79502, kPostSE0 },
             { 0xD50E37, 0xD50E65, kPostSE1 },
@@ -82,6 +93,7 @@ namespace Fixes::CullingFreedObjectCrash
 
         static_assert(SitesConsistent(kSitesVR), "VR culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesAE1799), "AE1799 culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
 
         struct Patch final : Xbyak::CodeGenerator
@@ -272,7 +284,8 @@ namespace Fixes::CullingFreedObjectCrash
             installed += detail::PatchObjectLODPropertySiteVR(moduleBase, moduleEnd);
             installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
-            installed += detail::PatchSites(detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+            installed += detail::PatchSites(
+                util::IsAE1799() ? detail::kSitesAE1799 : detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
         else
             installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
