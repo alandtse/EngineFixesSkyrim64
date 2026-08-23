@@ -65,7 +65,7 @@
     X(Bool, bSavedHavokDataLoadInit, true, "fixes motion vectors for objects with saved havok data that differs significantly from their base state")                                                                    \
     X(Bool, bSceneGraphDetachFreedCrash, true, "guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown")                                                                       \
     X(Bool, bShadowSceneNodeNullPtrCrash, true, "fixes a crash in shadowscenenode")                                                                                                                                      \
-    X(Bool, bSubIndexTriShapeCreateNullCrash, true, "fixes a rare crash when a mesh/LOD sub-shape allocation fails under memory pressure (e.g. during heavy LOD streaming)")                                             \
+    X(Bool, bSubIndexTriShapeCreateNullCrash, true, "fixes rare crashes when a mesh/LOD sub-shape is null: an allocation failure under memory pressure, or an out-of-range/freed segment lookup")                        \
     X(Bool, bSkyUpdateCloudsNullPtrCrash, true, "fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods)")                       \
     X(Bool, bStuckMouseButtons, true, "fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp")                                                                                        \
     X(Bool, bTextureLoadCrash, true, "fixes a crash in 1.5.97 when a texture load fails (D6DDDA), this behavior is built-in to 1.6.1170; also logs texture load errors")                                                 \
