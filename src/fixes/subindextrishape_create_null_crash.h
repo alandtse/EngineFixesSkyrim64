@@ -3,22 +3,10 @@
 #include <array>
 #include <cstdint>
 
-// Two independent sources of a null BSSubIndexTriShape* reaching unguarded code:
-//
-// 1. CreateFromShapeData allocates the shape object, then uses the result completely
-//    unguarded: a segment-population loop, an unconditional finalize call, a virtual
-//    call through its vtable, and a shaderProperty field write. The allocator can
-//    return null under memory pressure (e.g. heavy LOD streaming). CreateFromShapeData's
-//    own caller already tolerates a null return (it has a fallback-allocate path), so
-//    returning null cleanly here is a safe, non-crashing outcome.
-// 2. Two separate callers (`sub_1404B5090`, `FUN_140518fa0`/equivalents -- the latter via
-//    `BGSDistantObjectBlock::GetMesh`'s own vtable-cast chain) each produce their own
-//    null `this` through different unguarded vtable casts, then feed it to whichever of
-//    FinalizeSegments/GetNumSegments/RecomputeSegmentData/RefreshSegmentActiveFlag/
-//    ClearSegmentActiveFlag a flag bit selects. Each accessor is guarded at its own
-//    entry, which covers every caller (including `sub_1404B5090`'s, which also gets a
-//    caller-side guard as defense in depth since it's the call site every real crash so
-//    far has gone through).
+// Two independent sources of a null BSSubIndexTriShape*: CreateFromShapeData's own
+// allocation can return null under memory pressure, and separate unguarded vtable casts
+// elsewhere can each produce a null `this` before reaching one of this file's accessors.
+// Guarding each accessor at its own entry covers every caller.
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -62,10 +50,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
                 jmp(ptr[rip + resumeAddr]);
 
                 L(nullLbl);
-                // RAX is already 0 here (that's why we branched); jumping straight into
-                // the epilogue's ADD RSP is correct without touching any other register --
-                // the callee-saved pops that follow restore them from the stack regardless
-                // of what CreateFromShapeData did to them before this point.
+                // RAX is already 0 here; the callee-saved pops after the epilogue's ADD RSP
+                // restore other registers from the stack regardless, so jumping straight in is safe.
                 jmp(ptr[rip + epilogueAddr]);
 
                 L(resumeAddr);
@@ -96,10 +82,9 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash guard"sv);
         }
 
-        // FinalizeSegments has 5 call sites; only one is CreateFromShapeData's (guarded
-        // above). The other 4 pull `this` from an unguarded vtable/array lookup that can
-        // also yield null. It only writes into its own object's members and returns
-        // void, so a null `this` can safely no-op at its own entry, covering all 5 sites.
+        // The non-CreateFromShapeData call sites pull `this` from an unguarded lookup that
+        // can yield null; it's void and only touches its own members, so a null `this`
+        // can safely no-op at entry.
         struct FinalizeSegmentsInfo
         {
             REL::Version   version;
@@ -135,9 +120,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
                 jmp(ptr[rip + resumeAddr]);
 
                 L(nullLbl);
-                // FinalizeSegments is a leaf function (no prologue, no locals) --
-                // returning here is exactly equivalent to letting it run to completion
-                // on a no-op object.
+                // Leaf function, no prologue/locals -- returning here is equivalent to
+                // letting it finish on a no-op object.
                 ret();
 
                 L(resumeAddr);
@@ -162,11 +146,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash {} guard"sv, a_name);
         }
 
-        // RefreshSegmentActiveFlag and ClearSegmentActiveFlag share sub_1404B5090's and
-        // FUN_140518fa0's unguarded `this`, same as the three accessors above. Both are
-        // void and reach the same `MOV RAX,[RCX+offset]` load two harmless
-        // index-computing instructions into the function, so the guard reuses
-        // FinalizeSegments' shape: null `this` -> `ret` before that load.
+        // Same unguarded-`this` sources as FinalizeSegments above, reaching the same
+        // `MOV RAX,[RCX+offset]` load, so this guard reuses its shape.
         inline constexpr FinalizeSegmentsInfo kRefreshSegmentActiveFlagRuntimes[] = {
             { SKSE::RUNTIME_SSE_1_5_97, 0xD593E6, 0x160 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE31136, 0x160 },
@@ -181,9 +162,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_VR_1_4_15, 0xDA2526, 0x1A0 },
         };
 
-        // GetNumSegments: `return this->nonSegmented ? 1 : this->numSegments;`. A null
-        // `this` here returns 0, matching how a real object with numSegments == 0 would
-        // behave -- callers already treat "0 segments" as a normal, no-op result.
+        // GetNumSegments returns `nonSegmented ? 1 : numSegments`; a null `this` returning
+        // 0 matches how a real zero-segment object already behaves.
         struct GetNumSegmentsInfo
         {
             REL::Version   version;
@@ -247,10 +227,9 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
         }
 
-        // RecomputeSegmentData is void and, on a null `this`, safely no-ops the same way
-        // FinalizeSegments does. SE/VR have an extra `SUB RSP,0x8` prologue AE1170/AE1799
-        // lack; the hook sits at the true entry (before either instruction), so the null
-        // path can `ret` immediately without touching the stack on any runtime.
+        // Void, safe to no-op on null like FinalizeSegments. SE/VR have an extra
+        // `SUB RSP,0x8` prologue AE1170/AE1799 lack; hooking the true entry lets the null
+        // path `ret` immediately on every runtime.
         struct RecomputeSegmentDataInfo
         {
             REL::Version                 version;
@@ -313,12 +292,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash RecomputeSegmentData guard"sv);
         }
 
-        // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast
-        // (`CALL [reg+0x58]`) and, when null, feeds it to GetNumSegments,
-        // FinalizeSegments, or a third accessor depending on a flag bit -- all 3 real
-        // crashes observed so far trace back to this one call site. On null, this jumps
-        // straight to the loop's per-item continue point, the same landing spot an
-        // out-of-range or already-exhausted item already uses elsewhere in this loop.
+        // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast; on
+        // null, jump to the loop's own per-item continue point instead of calling in.
         struct CallerGuardInfo
         {
             REL::Version                version;
