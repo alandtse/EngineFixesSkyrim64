@@ -49,8 +49,8 @@ namespace Fixes::BSLightingShaderParallaxBug
             return;
         }
 
-        // AE1799 recompile shifted this instruction from +0xB5D to +0xB7F; verified via
-        // Ghidra decompile of both binaries (identical `TEST EAX,0x21c00`, no other layout change).
+        // AE1799 recompile shifted this instruction from +0xB5D to +0xB7F (identical
+        // `TEST EAX,0x21c00`, no other layout change).
         REL::Relocation target{ RELOCATION_ID(100565, 107300), VAR_NUM(0x577, util::IsAE1799() ? 0xB7F : 0xB5D, 0x652) };
 
         detail::Patch p(target.address());

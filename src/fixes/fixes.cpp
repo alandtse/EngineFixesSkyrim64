@@ -53,6 +53,7 @@
 #include "shadowscenenode_nullptr_crash.h"
 #include "sky_update_clouds_nullptr_crash.h"
 #include "stuck_mouse_buttons.h"
+#include "subindextrishape_create_null_crash.h"
 #include "texture_load_crash.h"
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
@@ -188,6 +189,9 @@ namespace Fixes
 
         if (Settings::Fixes::bSkyUpdateCloudsNullPtrCrash.GetValue())
             SkyUpdateCloudsNullPtrCrash::Install();
+
+        if (Settings::Fixes::bSubIndexTriShapeCreateNullCrash.GetValue())
+            SubIndexTriShapeCreateNullCrash::Install();
 
         if (Settings::Fixes::bTextureLoadCrash.GetValue())
             TextureLoadCrash::Install();

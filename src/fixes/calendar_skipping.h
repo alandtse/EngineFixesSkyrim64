@@ -33,8 +33,8 @@ namespace Fixes::CalendarSkipping
             PairT{ RELOCATION_ID(13183, 13328), 0xE2 },
             PairT{ RELOCATION_ID(35565, 36564), VAR_NUM(0x24D, 0x266, 0x2bf) },
             PairT{ RELOCATION_ID(35567, 36566), 0x3A },
-            // AE1799 recompile shifted this call site from +0x282 to +0x268; verified via
-            // Ghidra decompile of both binaries (same Calendar::Update callee).
+            // AE1799 recompile shifted this call site from +0x282 to +0x268 (same
+            // Calendar::Update callee).
             PairT{ RELOCATION_ID(39373, 40445), VAR_NUM(0x2B1, util::IsAE1799() ? 0x268 : 0x282, 0x29f) },
             PairT{ RELOCATION_ID(39410, 40485), VAR_NUM(0x78, 0x78, 0x86) },
         };

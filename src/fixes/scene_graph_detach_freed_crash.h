@@ -27,7 +27,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
 
         inline constexpr Site kSiteVR{ 0xDFDCF0 };
         // NiAVObject::VisitCollisionObjectTree moved from 0xE87DF0 to 0x104D4C0 on AE1799
-        // (verified via Ghidra decompile of both binaries -- identical entry prologue).
+        // (identical entry prologue).
         inline constexpr Site kSiteAE{ 0xE87DF0 };
         inline constexpr Site kSiteAE1799{ 0x104D4C0 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
@@ -907,9 +907,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
             const bool hasStackSpill = !REL::Module::IsAE();
-            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799 (verified via
-            // Ghidra decompile of both binaries -- identical AsNode/fallback dispatch shape,
-            // no stack spill on AE either way).
+            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799 (identical
+            // AsNode/fallback dispatch shape, no stack spill on AE either way).
             const bool           isAe1799 = REL::Module::IsAE() && util::IsAE1799();
             const std::uintptr_t kHookOffset = REL::Module::IsVR() ? 0x136397B :
                                                isAe1799            ? 0x1576164 :

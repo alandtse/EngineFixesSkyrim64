@@ -63,8 +63,8 @@ namespace Fixes::BSLightingAmbientSpecular
         materialTarget.write_fill(REL::NOP, 0x20);
 
         // add new code to BSLightingShader::SetupGeometry
-        // AE1799 recompile shifted this instruction from +0x1271 to +0x1293; verified via
-        // Ghidra decompile of both binaries (identical `TEST dword[R13+0x94],0x200`).
+        // AE1799 recompile shifted this instruction from +0x1271 to +0x1293 (identical
+        // `TEST dword[R13+0x94],0x200`).
         const REL::Relocation geometryTarget{ RELOCATION_ID(100565, 107300), VAR_NUM(0xBAD, util::IsAE1799() ? 0x1293 : 0x1271, 0xC59) };
         const REL::Relocation constant{ RELOCATION_ID(513256, 390997) };
 
