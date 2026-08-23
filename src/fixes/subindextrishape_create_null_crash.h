@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 
-// Two independent sources of a null BSSubIndexTriShape* reaching unguarded code:
+// Three independent sources of a null BSSubIndexTriShape* reaching unguarded code:
 //
 // 1. CreateFromShapeData allocates the shape object, then uses the result completely
 //    unguarded: a segment-population loop, an unconditional finalize call, a virtual
@@ -11,9 +11,12 @@
 //    return null under memory pressure (e.g. heavy LOD streaming). CreateFromShapeData's
 //    own caller already tolerates a null return (it has a fallback-allocate path), so
 //    returning null cleanly here is a safe, non-crashing outcome.
-// 2. FinalizeSegments has 4 other call sites that pull `this` from an unguarded
-//    vtable/array lookup that can also yield null (e.g. an out-of-range or freed
-//    segment index).
+// 2. FinalizeSegments and 3. GetNumSegments are two of the same unguarded caller's two
+//    branches (`sub_1404B5090`, plus a second caller, `FUN_140518fa0`/equivalents):
+//    both pull `this` from the same unguarded vtable/array lookup that can yield null
+//    (e.g. an out-of-range or freed segment index), then call one or the other
+//    depending on a flag bit. Both are guarded independently since they're separate
+//    function entry points.
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -158,6 +161,72 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed SubIndexTriShapeCreateNullCrash FinalizeSegments guard"sv);
         }
+
+        // GetNumSegments: `return this->nonSegmented ? 1 : this->numSegments;`. A null
+        // `this` here returns 0, matching how a real object with numSegments == 0 would
+        // behave -- callers already treat "0 segments" as a normal, no-op result.
+        struct GetNumSegmentsInfo
+        {
+            REL::Version   version;
+            std::uintptr_t entryRva;
+            std::uintptr_t nonSegmentedOffset;  // +0x171 SE/AE, +0x1B1 VR
+            std::uintptr_t numSegmentsOffset;   // +0x168 SE/AE, +0x1A8 VR
+        };
+
+        inline constexpr GetNumSegmentsInfo kGetNumSegmentsRuntimes[] = {
+            { SKSE::RUNTIME_SSE_1_5_97, 0x4B66A0, 0x171, 0x168 },
+            { SKSE::RUNTIME_SSE_1_6_1170, 0x5129A0, 0x171, 0x168 },
+            { SKSE::RUNTIME_SSE_1_7_99, 0x51A6C0, 0x171, 0x168 },
+            { SKSE::RUNTIME_VR_1_4_15, 0x4C6780, 0x1B1, 0x1A8 },
+        };
+
+        // CMP byte ptr [RCX+disp32],0 (80 B9 <disp32 LE> 00) + MOV EAX,1 (B8 01 00 00 00).
+        inline std::array<std::uint8_t, 12> GetNumSegmentsExpectedBytes(std::uintptr_t a_nonSegmentedOffset)
+        {
+            const auto disp = static_cast<std::uint32_t>(a_nonSegmentedOffset);
+            return { 0x80, 0xB9, static_cast<std::uint8_t>(disp), static_cast<std::uint8_t>(disp >> 8),
+                static_cast<std::uint8_t>(disp >> 16), static_cast<std::uint8_t>(disp >> 24), 0x00, 0xB8, 0x01, 0x00,
+                0x00, 0x00 };
+        }
+
+        struct GetNumSegmentsPatch final : Xbyak::CodeGenerator
+        {
+            GetNumSegmentsPatch(std::uintptr_t a_resume, std::uintptr_t a_nonSegmentedOffset)
+            {
+                Xbyak::Label nullLbl, resumeAddr;
+
+                test(rcx, rcx);
+                jz(nullLbl);
+
+                cmp(byte[rcx + a_nonSegmentedOffset], 0);  // replicate displaced CMP
+                mov(eax, 1);                               // replicate displaced MOV EAX,1
+                jmp(ptr[rip + resumeAddr]);
+
+                L(nullLbl);
+                xor_(eax, eax);  // return 0 segments
+                ret();
+
+                L(resumeAddr);
+                dq(a_resume);
+            }
+        };
+
+        inline void InstallGetNumSegmentsGuardForRuntime(const GetNumSegmentsInfo& a_info)
+        {
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ a_info.entryRva } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(hook.address());
+            const auto                      expected = GetNumSegmentsExpectedBytes(a_info.nonSegmentedOffset);
+            if (!std::equal(expected.begin(), expected.end(), bytes)) {
+                logger::warn("skipping SubIndexTriShapeCreateNullCrash GetNumSegments guard: unexpected bytes at {:X}"sv,
+                    a_info.entryRva);
+                return;
+            }
+
+            GetNumSegmentsPatch p{ hook.address() + expected.size(), a_info.nonSegmentedOffset };
+            p.ready();
+            hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+            logger::info("installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
+        }
     }
 
     inline void Install()
@@ -176,6 +245,14 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
         for (const auto& info : detail::kFinalizeSegmentsRuntimes) {
             if (currentVersion == info.version) {
                 detail::InstallFinalizeSegmentsGuardForRuntime(info);
+                matched = true;
+                break;
+            }
+        }
+
+        for (const auto& info : detail::kGetNumSegmentsRuntimes) {
+            if (currentVersion == info.version) {
+                detail::InstallGetNumSegmentsGuardForRuntime(info);
                 matched = true;
                 break;
             }
