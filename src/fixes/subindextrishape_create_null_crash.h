@@ -3,10 +3,8 @@
 #include <array>
 #include <cstdint>
 
-// Two independent sources of a null BSSubIndexTriShape*: CreateFromShapeData's own
-// allocation can return null under memory pressure, and separate unguarded vtable casts
-// elsewhere can each produce a null `this` before reaching one of this file's accessors.
-// Guarding each accessor at its own entry covers every caller.
+// Guards each accessor at its own entry: covers both CreateFromShapeData's own
+// allocation and separate unguarded vtable casts elsewhere that can reach these accessors.
 namespace Fixes::SubIndexTriShapeCreateNullCrash
 {
     namespace detail
@@ -146,8 +144,6 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             logger::info("installed SubIndexTriShapeCreateNullCrash {} guard"sv, a_name);
         }
 
-        // Same unguarded-`this` sources as FinalizeSegments above, reaching the same
-        // `MOV RAX,[RCX+offset]` load, so this guard reuses its shape.
         inline constexpr FinalizeSegmentsInfo kRefreshSegmentActiveFlagRuntimes[] = {
             { SKSE::RUNTIME_SSE_1_5_97, 0xD593E6, 0x160 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE31136, 0x160 },
