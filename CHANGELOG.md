@@ -1,3 +1,18 @@
+## [7.6.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.0...v7.6.1) (2026-08-24)
+
+### Bug Fixes
+
+* correct VR flags02 offset in havok load init ([#60](https://github.com/alandtse/EngineFixesSkyrim64/issues/60)) ([2fa607c](https://github.com/alandtse/EngineFixesSkyrim64/commit/2fa607cb9e64884711ce4cb83f01a3318c416f93))
+* null-check BSSubIndexTriShape alloc/accessors ([#58](https://github.com/alandtse/EngineFixesSkyrim64/issues/58)) ([d6afc29](https://github.com/alandtse/EngineFixesSkyrim64/commit/d6afc291f15c0b353ce5441356660c05c3963bc2))
+* **vr:** correct weapon block scaling patch site ([#59](https://github.com/alandtse/EngineFixesSkyrim64/issues/59)) ([bbb579f](https://github.com/alandtse/EngineFixesSkyrim64/commit/bbb579f693c0ff2ae95dc36d79e3797098572336))
+
+
+### New Settings
+
+* `[Fixes] bSubIndexTriShapeCreateNullCrash` (default `true`) — fixes rare crashes when a mesh/LOD sub-shape is null: an allocation failure under memory pressure, or an out-of-range/freed segment lookup during terrain/water LOD updates
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.6.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.5.0...v7.6.0) (2026-08-23)
 
 ### Features
