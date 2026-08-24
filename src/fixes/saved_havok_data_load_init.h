@@ -15,7 +15,9 @@ namespace Fixes::SavedHavokDataLoadInit
                         FlagForPrevWorldResetDownwards(childPtr);
                 }
             }
-            REL::RelocateMember<std::uint8_t>(a_self, 0x109, 0x120) |= 0x40;
+            // NiAVObject's flags02 byte sits at a different offset on VR (+0x18 shifted);
+            // SE and AE (including 1.7.99) share the same offset.
+            REL::RelocateMember<std::uint8_t>(a_self, 0x109, 0x121) |= 0x40;
         }
 
         inline void NiAVObject_Update(RE::NiAVObject* a_self, RE::NiUpdateData* a_data)
