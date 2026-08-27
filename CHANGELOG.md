@@ -1,3 +1,9 @@
+## [7.6.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.1...v7.6.2) (2026-08-27)
+
+### Bug Fixes
+
+* order alpha-test guards ([#50](https://github.com/alandtse/EngineFixesSkyrim64/issues/50)) ([f9682ef](https://github.com/alandtse/EngineFixesSkyrim64/commit/f9682efd493cccc25d5f6143e67be4aaa3a66eed))
+
 ## [7.6.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.0...v7.6.1) (2026-08-24)
 
 ### Bug Fixes
