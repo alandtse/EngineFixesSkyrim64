@@ -26,7 +26,10 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline constexpr std::uintptr_t kPrologueLen = 9;
 
         inline constexpr Site kSiteVR{ 0xDFDCF0 };
+        // NiAVObject::VisitCollisionObjectTree moved from 0xE87DF0 to 0x104D4C0 on AE1799
+        // (identical entry prologue).
         inline constexpr Site kSiteAE{ 0xE87DF0 };
+        inline constexpr Site kSiteAE1799{ 0x104D4C0 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
 
         struct Patch final : Xbyak::CodeGenerator
@@ -903,15 +906,26 @@ namespace Fixes::SceneGraphDetachFreedCrash
 
         inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
-            const bool           hasStackSpill = !REL::Module::IsAE();
-            const std::uintptr_t kHookOffset =
-                REL::Module::IsVR() ? 0x136397B : (REL::Module::IsAE() ? 0x150A6FB : 0x131DAFB);
-            const std::uintptr_t kResumeOffset =
-                REL::Module::IsVR() ? 0x1363989 : (REL::Module::IsAE() ? 0x150A704 : 0x131DB09);
-            const std::uintptr_t kFallbackHookOffset =
-                REL::Module::IsVR() ? 0x1363A7C : (REL::Module::IsAE() ? 0x150A7FA : 0x131DBFC);
-            const std::uintptr_t kFallbackResumeOffset =
-                REL::Module::IsVR() ? 0x1363A85 : (REL::Module::IsAE() ? 0x150A803 : 0x131DC05);
+            const bool hasStackSpill = !REL::Module::IsAE();
+            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799 (identical
+            // AsNode/fallback dispatch shape, no stack spill on AE either way).
+            const bool           isAe1799 = REL::Module::IsAE() && util::IsAE1799();
+            const std::uintptr_t kHookOffset = REL::Module::IsVR() ? 0x136397B :
+                                               isAe1799            ? 0x1576164 :
+                                               REL::Module::IsAE() ? 0x150A6FB :
+                                                                     0x131DAFB;
+            const std::uintptr_t kResumeOffset = REL::Module::IsVR() ? 0x1363989 :
+                                                 isAe1799            ? 0x157616D :
+                                                 REL::Module::IsAE() ? 0x150A704 :
+                                                                       0x131DB09;
+            const std::uintptr_t kFallbackHookOffset = REL::Module::IsVR() ? 0x1363A7C :
+                                                       isAe1799            ? 0x15761C7 :
+                                                       REL::Module::IsAE() ? 0x150A7FA :
+                                                                             0x131DBFC;
+            const std::uintptr_t kFallbackResumeOffset = REL::Module::IsVR() ? 0x1363A85 :
+                                                         isAe1799            ? 0x15761D0 :
+                                                         REL::Module::IsAE() ? 0x150A803 :
+                                                                               0x131DC05;
 
             REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
             const bool                      matches = hasStackSpill ? LightAttachSubtreeSiteMatchesWithSpill(hook.address()) : LightAttachSubtreeSiteMatchesNoSpill(hook.address());
@@ -1006,7 +1020,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-                           REL::Module::IsAE() ? detail::kSiteAE :
+                           REL::Module::IsAE() ? (util::IsAE1799() ? detail::kSiteAE1799 : detail::kSiteAE) :
                                                  detail::kSiteSE;
 
         REL::Relocation<std::uintptr_t> entry{ REL::Offset{ site.entryOffset } };

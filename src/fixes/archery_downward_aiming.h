@@ -24,7 +24,9 @@ namespace Fixes::ArcheryDownwardAiming
 
     inline void Install()
     {
-        REL::Relocation target{ RELOCATION_ID(42852, 44027), VAR_NUM(0x3E9, 0x434) };
+        // AE1799 recompile shifted this call site from +0x434 to +0x445 (same CALL
+        // target, no other layout change).
+        REL::Relocation target{ RELOCATION_ID(42852, 44027), VAR_NUM(0x3E9, util::IsAE1799() ? 0x445 : 0x434) };
         detail::Projectile::_Move = target.write_call<5>(detail::Projectile::Move);
 
         logger::info("installed archery downward aiming fix"sv);

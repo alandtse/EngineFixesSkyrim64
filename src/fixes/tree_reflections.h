@@ -44,8 +44,13 @@ namespace Fixes::TreeReflections
             return;
         }
 
-        REL::Relocation target{ RELOCATION_ID(100771, 107551), VAR_NUM(0x37, 0x35) };
-        detail::Patch   p(target.address());
+        // AE1799's address-library id 107551 (BSDistantTreeShader::Func2) resolves to 0 --
+        // Bethesda's own generator renumbered it to 527785 for this release. Same function
+        // at the same +0x35 offset (the JZ this patches); only the id changed.
+        REL::Relocation<std::uintptr_t> target = util::IsAE1799() ?
+                                                     REL::Relocation<std::uintptr_t>{ REL::ID(527785), 0x35 } :
+                                                     REL::Relocation<std::uintptr_t>{ RELOCATION_ID(100771, 107551), VAR_NUM(0x37, 0x35) };
+        detail::Patch                   p(target.address());
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();

@@ -2,6 +2,15 @@
 
 namespace util
 {
+    // AE point releases from 1.6.353 through 1.6.1170 (and GOG's 1.6.1179) share one call-site
+    // byte layout; 1.7.99 was recompiled with different codegen, shifting individual
+    // instruction offsets (and occasionally address-library ids) inside otherwise-unchanged
+    // functions. Fixes with a hardcoded AE offset/id must branch on this, not just on IsAE().
+    inline bool IsAE1799()
+    {
+        return REL::Module::IsAtLeast(SKSE::RUNTIME_SSE_1_7_99);
+    }
+
     // Main-module image bounds [base, end). Used by the freed-object crash guards to
     // validate that a dispatched vtable pointer lies inside the executable's .rdata
     // (a live vftable is in-module; a freed object's is null or heap garbage).

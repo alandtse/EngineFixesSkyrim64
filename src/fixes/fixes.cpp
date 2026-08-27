@@ -24,6 +24,7 @@
 #include "create_armor_node_nullptr_crash.h"
 #include "culling_freed_object_crash.h"
 #include "double_perk_apply.h"
+#include "effectshaderdata_null_texture_crash.h"
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
 #include "facegen_morphdatahead_nullptr_crash.h"
@@ -53,6 +54,7 @@
 #include "shadowscenenode_nullptr_crash.h"
 #include "sky_update_clouds_nullptr_crash.h"
 #include "stuck_mouse_buttons.h"
+#include "subindextrishape_create_null_crash.h"
 #include "texture_load_crash.h"
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
@@ -116,6 +118,9 @@ namespace Fixes
 
         if (Settings::Fixes::bDoublePerkApply.GetValue())
             DoublePerkApply::Install();
+
+        if (Settings::Fixes::bEffectShaderDataNullTextureCrash.GetValue())
+            EffectShaderDataNullTextureCrash::Install();
 
         if (Settings::Fixes::bEquipShoutEventSpam.GetValue())
             EquipShoutEventSpam::Install();
@@ -188,6 +193,9 @@ namespace Fixes
 
         if (Settings::Fixes::bSkyUpdateCloudsNullPtrCrash.GetValue())
             SkyUpdateCloudsNullPtrCrash::Install();
+
+        if (Settings::Fixes::bSubIndexTriShapeCreateNullCrash.GetValue())
+            SubIndexTriShapeCreateNullCrash::Install();
 
         if (Settings::Fixes::bTextureLoadCrash.GetValue())
             TextureLoadCrash::Install();

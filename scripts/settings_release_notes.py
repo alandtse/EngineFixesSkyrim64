@@ -162,7 +162,6 @@ def mode_full(rows, next_version):
     for label in sorted(by_version, key=sort_key, reverse=True):
         keys = ", ".join(f"`{r['key']}`" for r in by_version[label])
         lines.append(f"- **{label}**: {keys}")
-    lines.append("")
     return "\n".join(lines)
 
 

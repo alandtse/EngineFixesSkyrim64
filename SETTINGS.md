@@ -38,6 +38,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bCreateArmorNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes typo that may cause a crash somewhere in CreateArmorNode |
 | `bCullingFreedObjectCrash` | `true` | 7.4.9 | guards cull traversal against dispatch through a scene object's freed or reused vftable during cell streaming |
 | `bDoublePerkApply` | `true` | ≤ 7.0.20 | fixes NPC perks applying twice when you load a game |
+| `bEffectShaderDataNullTextureCrash` | `true` | 7.6.0 | fixes a crash when an effect shader has a null base or palette texture assigned |
 | `bEquipShoutEventSpam` | `true` | ≤ 7.0.20 | fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip |
 | `bESLCELLLoadBug` | `true` | ≤ 7.0.20 | fixes issues with interior cells created in ESL files |
 | `bFaceGenMorphDataHeadNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in face morphing, possibly related to decapitations |
@@ -63,6 +64,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bSavedHavokDataLoadInit` | `true` | ≤ 7.0.20 | fixes motion vectors for objects with saved havok data that differs significantly from their base state |
 | `bSceneGraphDetachFreedCrash` | `true` | 7.4.9 | guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown |
 | `bShadowSceneNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in shadowscenenode |
+| `bSubIndexTriShapeCreateNullCrash` | `true` | 7.6.1 | fixes rare crashes when a mesh/LOD sub-shape is null: an allocation failure under memory pressure, or an out-of-range/freed segment lookup during terrain/water LOD updates |
 | `bSkyUpdateCloudsNullPtrCrash` | `true` | 7.4.0 | fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods) |
 | `bStuckMouseButtons` | `true` | 7.1.0 | fixes stuck mouse buttons when a new menu opened and the old menu didn't receive MouseUp |
 | `bTextureLoadCrash` | `true` | ≤ 7.0.20 | fixes a crash in 1.5.97 when a texture load fails (D6DDDA), this behavior is built-in to 1.6.1170; also logs texture load errors |
@@ -129,6 +131,8 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.6.1**: `bSubIndexTriShapeCreateNullCrash`
+- **7.6.0**: `bEffectShaderDataNullTextureCrash`
 - **7.4.9**: `bAcousticSpaceListenerNullRigidBodyCrash`, `bActorValueStorageClearRaceCrash`, `bBatchRendererRenderPassArrayUAF`, `bCullingFreedObjectCrash`, `bKeyboardPollScancodeOOBCrash`, `bLightingShaderLandscapeTextureCrash`, `bLightingShaderNullTextureCrash`, `bSceneGraphDetachFreedCrash`, `bHavokMaterialLookupGuard`
 - **7.4.7**: `bConsoleSaveDeadlock`, `bBSOpenVRHandIndexNullCrash`
 - **7.4.4**: `bLockpickingMenuInitCrash`
