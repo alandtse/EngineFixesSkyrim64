@@ -6,6 +6,7 @@
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "batchrenderer_renderpass_array_uaf.h"
+#include "batchrenderer_shader_technique_uaf.h"
 #include "bethesda_net_crash.h"
 #include "bgskeywordform_load_crash.h"
 #include "bslightingambientspecular.h"
@@ -220,6 +221,9 @@ namespace Fixes
 
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();
+
+        if (Settings::Fixes::bBatchRendererShaderTechniqueUAF.GetValue())
+            BatchRendererShaderTechniqueUAF::Install();
 
         // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
