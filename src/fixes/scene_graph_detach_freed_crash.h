@@ -30,6 +30,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
         // (identical entry prologue).
         inline constexpr Site kSiteAE{ 0xE87DF0 };
         inline constexpr Site kSiteAE1799{ 0x104D4C0 };
+        // 1.7.104 moved VisitCollisionObjectTree again, +0x260 past AE1799 (identical entry
+        // prologue and body length, 0xCB bytes -- same relocation the culling guard sites saw).
+        inline constexpr Site kSiteAE1104{ 0x104D720 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
 
         struct Patch final : Xbyak::CodeGenerator
@@ -1020,7 +1023,9 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-                           REL::Module::IsAE() ? (util::IsAE1799() ? detail::kSiteAE1799 : detail::kSiteAE) :
+                           REL::Module::IsAE() ? (util::IsAE1104()    ? detail::kSiteAE1104 :
+                                                     util::IsAE1799() ? detail::kSiteAE1799 :
+                                                                        detail::kSiteAE) :
                                                  detail::kSiteSE;
 
         REL::Relocation<std::uintptr_t> entry{ REL::Offset{ site.entryOffset } };

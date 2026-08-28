@@ -11,6 +11,14 @@ namespace util
         return REL::Module::IsAtLeast(SKSE::RUNTIME_SSE_1_7_99);
     }
 
+    // 1.7.104 recompiled again, shifting the culling/scene-graph freed-object guard call
+    // sites a further +0x260 bytes past their 1.7.99 layout (byte-identical internally,
+    // same length, just moved again). No RUNTIME_SSE_1_7_104 constant exists yet upstream.
+    inline bool IsAE1104()
+    {
+        return REL::Module::IsAtLeast(REL::Version{ 1, 7, 104, 0 });
+    }
+
     // Main-module image bounds [base, end). Used by the freed-object crash guards to
     // validate that a dispatched vtable pointer lies inside the executable's .rdata
     // (a live vftable is in-module; a freed object's is null or heap garbage).

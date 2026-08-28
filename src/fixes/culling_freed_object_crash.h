@@ -72,6 +72,17 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x1586948, 0x1586976, kPostAE5 },
             { 0x1586D2A, 0x1586D43, kPostAE6 },
         } };
+        // 1.7.104 relocated the same 7 sites a further +0x260 bytes past AE1799 (verified
+        // byte-identical postCall blocks at the new offsets).
+        inline constexpr std::array<Site, 7> kSitesAE1104{ {
+            { 0xF04A8D, 0xF04ABB, kPostAE0 },
+            { 0xF04C01, 0xF04C43, kPostAE1 },
+            { 0xFEDC1C, 0xFEDC4A, kPostAE2 },
+            { 0xFEDD0B, 0xFEDD3E, kPostAE3 },
+            { 0x1586B2E, 0x1586B5C, kPostAE4 },
+            { 0x1586BA8, 0x1586BD6, kPostAE5 },
+            { 0x1586F8A, 0x1586FA3, kPostAE6 },
+        } };
         inline constexpr std::array<Site, 6> kSitesSE{ {
             { 0xC794D4, 0xC79502, kPostSE0 },
             { 0xD50E37, 0xD50E65, kPostSE1 },
@@ -94,6 +105,7 @@ namespace Fixes::CullingFreedObjectCrash
         static_assert(SitesConsistent(kSitesVR), "VR culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE1799), "AE1799 culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesAE1104), "AE1104 culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
 
         struct Patch final : Xbyak::CodeGenerator
@@ -285,7 +297,10 @@ namespace Fixes::CullingFreedObjectCrash
             installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
             installed += detail::PatchSites(
-                util::IsAE1799() ? detail::kSitesAE1799 : detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+                util::IsAE1104() ? detail::kSitesAE1104 :
+                util::IsAE1799() ? detail::kSitesAE1799 :
+                                   detail::kSitesAE,
+                0x1A0, moduleBase, moduleEnd);
         else
             installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
