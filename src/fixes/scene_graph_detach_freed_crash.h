@@ -921,22 +921,28 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
             const bool hasStackSpill = !REL::Module::IsAE();
-            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799 (identical
-            // AsNode/fallback dispatch shape, no stack spill on AE either way).
+            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799, then a
+            // further +0x260 on AE1104 (identical AsNode/fallback dispatch shape throughout;
+            // no stack spill on AE at any tier).
             const bool           isAe1799 = REL::Module::IsAE() && util::IsAE1799();
+            const bool           isAe1104 = REL::Module::IsAE() && util::IsAE1104();
             const std::uintptr_t kHookOffset = REL::Module::IsVR() ? 0x136397B :
+                                               isAe1104            ? 0x15763C4 :
                                                isAe1799            ? 0x1576164 :
                                                REL::Module::IsAE() ? 0x150A6FB :
                                                                      0x131DAFB;
             const std::uintptr_t kResumeOffset = REL::Module::IsVR() ? 0x1363989 :
+                                                 isAe1104            ? 0x15763CD :
                                                  isAe1799            ? 0x157616D :
                                                  REL::Module::IsAE() ? 0x150A704 :
                                                                        0x131DB09;
             const std::uintptr_t kFallbackHookOffset = REL::Module::IsVR() ? 0x1363A7C :
+                                                       isAe1104            ? 0x1576427 :
                                                        isAe1799            ? 0x15761C7 :
                                                        REL::Module::IsAE() ? 0x150A7FA :
                                                                              0x131DBFC;
             const std::uintptr_t kFallbackResumeOffset = REL::Module::IsVR() ? 0x1363A85 :
+                                                         isAe1104            ? 0x1576430 :
                                                          isAe1799            ? 0x15761D0 :
                                                          REL::Module::IsAE() ? 0x150A803 :
                                                                                0x131DC05;
