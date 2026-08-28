@@ -1,5 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <optional>
+#include <span>
+
 namespace util
 {
     // AE point releases from 1.6.353 through 1.6.1170 (and GOG's 1.6.1179) share one call-site
@@ -28,6 +32,33 @@ namespace util
         const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
         const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
         return { base, base + nt->OptionalHeader.SizeOfImage };
+    }
+
+    // Scans [a_base, a_end) for a_pattern, requiring exactly one match (ambiguous ->
+    // nullopt, same as not-found). Relocation-resilient fallback for a hardcoded guard-site
+    // offset that goes stale on a newer Skyrim recompile: AE point releases have repeatedly
+    // relocated whole functions/call sites without altering their internal bytes
+    // (1.6.1170 -> 1.7.99 -> 1.7.104), so re-finding the known byte sequence is safer than
+    // hand-deriving a new hardcoded offset every time Bethesda ships a patch.
+    inline std::optional<std::uintptr_t> FindUniqueSignature(
+        std::span<const std::uint8_t> a_pattern, std::uintptr_t a_base, std::uintptr_t a_end)
+    {
+        if (a_pattern.empty() || a_end <= a_base || a_end - a_base < a_pattern.size()) {
+            return std::nullopt;
+        }
+
+        const auto*                   begin = reinterpret_cast<const std::uint8_t*>(a_base);
+        const auto*                   last = reinterpret_cast<const std::uint8_t*>(a_end) - a_pattern.size();
+        std::optional<std::uintptr_t> found;
+        for (const auto* p = begin; p <= last; ++p) {
+            if (std::equal(a_pattern.begin(), a_pattern.end(), p)) {
+                if (found) {
+                    return std::nullopt;
+                }
+                found = reinterpret_cast<std::uintptr_t>(p);
+            }
+        }
+        return found;
     }
 
     // Validates a loaded vtable slot against the general loaded-image address range rather

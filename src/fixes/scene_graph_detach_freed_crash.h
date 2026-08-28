@@ -35,6 +35,17 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline constexpr Site kSiteAE1104{ 0x104D720 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
 
+        // First 32 bytes of VisitCollisionObjectTree's entry on AE (prologue + JZ rel32 +
+        // the following stack-spill instructions), captured at the 1.7.104 site. AE
+        // recompiles have relocated this function as a unit without altering its bytes
+        // (1.6.1170 -> 1.7.99 -> 1.7.104), so this doubles as a relocation-resilient
+        // fallback signature for AE versions newer than any hardcoded Site above.
+        inline constexpr std::uint8_t kEntrySignatureAE[] = {
+            0x48, 0x85, 0xC9, 0x0F, 0x84, 0xC1, 0x00, 0x00, 0x00,
+            0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18,
+            0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xF9, 0x48, 0x89, 0x5C, 0x24, 0x30
+        };
+
         struct Patch final : Xbyak::CodeGenerator
         {
             Patch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -1028,29 +1039,46 @@ namespace Fixes::SceneGraphDetachFreedCrash
                                                                         detail::kSiteAE) :
                                                  detail::kSiteSE;
 
-        REL::Relocation<std::uintptr_t> entry{ REL::Offset{ site.entryOffset } };
+        std::uintptr_t entryAddr = REL::Relocation<std::uintptr_t>{ REL::Offset{ site.entryOffset } }.address();
 
         // Verify the displaced prologue is TEST RCX,RCX; JZ rel32 (48 85 C9 0F 84 ..)
         // before caving it; guards against offset drift corrupting the function entry.
-        const auto* bytes = reinterpret_cast<const std::uint8_t*>(entry.address());
-        if (!(bytes[0] == 0x48 && bytes[1] == 0x85 && bytes[2] == 0xC9 &&
-                bytes[3] == 0x0F && bytes[4] == 0x84)) {
+        auto prologueMatches = [](std::uintptr_t a_addr) {
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0x48 && p[1] == 0x85 && p[2] == 0xC9 && p[3] == 0x0F && p[4] == 0x84;
+        };
+
+        if (!prologueMatches(entryAddr)) {
+            // Hardcoded offset is stale (likely a newer AE recompile) -- fall back to a
+            // whole-module scan for the function's known entry bytes on AE.
+            if (REL::Module::IsAE()) {
+                if (auto found = util::FindUniqueSignature(detail::kEntrySignatureAE, moduleBase, moduleEnd)) {
+                    entryAddr = *found;
+                    logger::info(
+                        "scene-graph detach crash fix: site at {:X} not at known offset; located via signature scan at {:X}"sv,
+                        site.entryOffset, entryAddr - moduleBase);
+                }
+            }
+        }
+
+        if (!prologueMatches(entryAddr)) {
             logger::warn("scene-graph detach crash fix: unexpected prologue at {:X}, skipping"sv,
                 site.entryOffset);
             return;
         }
+        const auto* bytes = reinterpret_cast<const std::uint8_t*>(entryAddr);
 
         // Decode the JZ rel32 (bytes 5-8) to derive the exit address directly from the
         // validated prologue, rather than trusting a separately-hardcoded offset.
         std::int32_t rel32;
         std::memcpy(&rel32, bytes + 5, sizeof(rel32));
-        const auto exit = entry.address() + detail::kPrologueLen + rel32;
+        const auto exit = entryAddr + detail::kPrologueLen + rel32;
 
-        detail::Patch p{ moduleBase, moduleEnd, entry.address() + detail::kPrologueLen, exit };
+        detail::Patch p{ moduleBase, moduleEnd, entryAddr + detail::kPrologueLen, exit };
         p.ready();
 
         auto& trampoline = SKSE::GetTrampoline();
-        entry.write_branch<5>(trampoline.allocate(p));
+        REL::Relocation<std::uintptr_t>{ entryAddr }.write_branch<5>(trampoline.allocate(p));
 
         detail::PatchLightAttachSubtreeAsNode(moduleBase, moduleEnd);
 

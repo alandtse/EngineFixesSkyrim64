@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
+#include <vector>
 
 // Guards the cull traversal's OnVisible dispatch (NiAVObject vfunc 0x34, CALL [RAX+slot])
 // against a freed/reused vftable: validates it lies inside the main module image before
@@ -259,25 +261,51 @@ namespace Fixes::CullingFreedObjectCrash
             return 1;
         }
 
+        // Locates a site whose hardcoded offset no longer matches (a newer Skyrim recompile
+        // likely relocated it) by scanning the module for its call+postCall bytes, which
+        // prior AE recompiles have preserved verbatim across relocations. Returns the call
+        // instruction's address, or nullopt if no unique match exists.
+        inline std::optional<std::uintptr_t> LocateSiteBySignature(
+            const Site& a_site, std::uint32_t a_slot, std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            std::vector<std::uint8_t> pattern;
+            pattern.reserve(6 + a_site.postCall.size());
+            pattern.push_back(0xFF);
+            pattern.push_back(0x90);
+            pattern.push_back(static_cast<std::uint8_t>(a_slot));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 8));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 16));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 24));
+            pattern.insert(pattern.end(), a_site.postCall.begin(), a_site.postCall.end());
+            return util::FindUniqueSignature(pattern, a_base, a_end);
+        }
+
         inline std::size_t PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
             std::uintptr_t a_base, std::uintptr_t a_end)
         {
             auto&       trampoline = SKSE::GetTrampoline();
             std::size_t installed = 0;
             for (const auto& site : a_sites) {
-                REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
-                if (!CallMatches(call.address(), a_slot)) {
-                    logger::warn("culling crash fix: unexpected bytes at {:X}, skipping site"sv, site.callOffset);
-                    continue;
+                std::uintptr_t callAddr = REL::Relocation<std::uintptr_t>{ REL::Offset{ site.callOffset } }.address();
+
+                if (!CallMatches(callAddr, a_slot) || !PostCallMatches(callAddr + 0x6, site.postCall)) {
+                    auto found = LocateSiteBySignature(site, a_slot, a_base, a_end);
+                    if (!found) {
+                        logger::warn("culling crash fix: unexpected bytes at {:X} and no unique signature match, skipping site"sv,
+                            site.callOffset);
+                        continue;
+                    }
+                    callAddr = *found;
+                    logger::info(
+                        "culling crash fix: site at {:X} not at known offset; located via signature scan at {:X}"sv,
+                        site.callOffset, callAddr - a_base);
                 }
-                if (!PostCallMatches(call.address() + 0x6, site.postCall)) {
-                    logger::warn("culling crash fix: unexpected bytes after call at {:X}, skipping site"sv, site.callOffset);
-                    continue;
-                }
-                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
-                    REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
+
+                // convergeOffset == callOffset + 0x6 + postCall.size() is a compile-time
+                // invariant (see SitesConsistent), so it holds regardless of which path found callAddr.
+                Patch p{ a_base, a_end, a_slot, callAddr + 0x6, callAddr + 0x6 + site.postCall.size() };
                 p.ready();
-                call.write_branch<5>(trampoline.allocate(p));
+                REL::Relocation<std::uintptr_t>{ callAddr }.write_branch<5>(trampoline.allocate(p));
                 ++installed;
             }
             return installed;
