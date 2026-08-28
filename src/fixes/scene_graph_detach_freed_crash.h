@@ -35,6 +35,14 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline constexpr Site kSiteAE1104{ 0x104D720 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
 
+        // See kSitesAE_ByVersion in culling_freed_object_crash.h for why this is a table:
+        // a future recompile is a new kSiteAEx.y.z + one row here, not a new IsAEXXXX().
+        inline constexpr std::array<util::VersionedValue<Site>, 3> kSiteAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kSiteAE },
+            { REL::Version{ 1, 7, 99, 0 }, kSiteAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kSiteAE1104 },
+        } };
+
         // First 32 bytes of VisitCollisionObjectTree's entry on AE (prologue + JZ rel32 +
         // the following stack-spill instructions), captured at the 1.7.104 site. AE
         // recompiles have relocated this function as a unit without altering its bytes
@@ -918,57 +926,57 @@ namespace Fixes::SceneGraphDetachFreedCrash
                    p[6] == 0xFF && p[7] == 0x50 && p[8] == 0x38;
         }
 
+        struct AttachSubtreeOffsets
+        {
+            std::uintptr_t hook;
+            std::uintptr_t resume;
+            std::uintptr_t fallbackHook;
+            std::uintptr_t fallbackResume;
+        };
+
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeVR{ 0x136397B, 0x1363989, 0x1363A7C, 0x1363A85 };
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeSE{ 0x131DAFB, 0x131DB09, 0x131DBFC, 0x131DC05 };
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeAE{ 0x150A6FB, 0x150A704, 0x150A7FA, 0x150A803 };
+        // Moved to 0x1576130 (function start) on AE1799, then a further +0x260 on AE1104
+        // (identical AsNode/fallback dispatch shape throughout; no stack spill on AE at
+        // any tier). See kSiteAE_ByVersion above for why this is a table.
+        inline constexpr AttachSubtreeOffsets                                      kAttachSubtreeAE1799{ 0x1576164, 0x157616D, 0x15761C7, 0x15761D0 };
+        inline constexpr AttachSubtreeOffsets                                      kAttachSubtreeAE1104{ 0x15763C4, 0x15763CD, 0x1576427, 0x1576430 };
+        inline constexpr std::array<util::VersionedValue<AttachSubtreeOffsets>, 3> kAttachSubtreeAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kAttachSubtreeAE },
+            { REL::Version{ 1, 7, 99, 0 }, kAttachSubtreeAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kAttachSubtreeAE1104 },
+        } };
+
         inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
-            const bool hasStackSpill = !REL::Module::IsAE();
-            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799, then a
-            // further +0x260 on AE1104 (identical AsNode/fallback dispatch shape throughout;
-            // no stack spill on AE at any tier).
-            const bool           isAe1799 = REL::Module::IsAE() && util::IsAE1799();
-            const bool           isAe1104 = REL::Module::IsAE() && util::IsAE1104();
-            const std::uintptr_t kHookOffset = REL::Module::IsVR() ? 0x136397B :
-                                               isAe1104            ? 0x15763C4 :
-                                               isAe1799            ? 0x1576164 :
-                                               REL::Module::IsAE() ? 0x150A6FB :
-                                                                     0x131DAFB;
-            const std::uintptr_t kResumeOffset = REL::Module::IsVR() ? 0x1363989 :
-                                                 isAe1104            ? 0x15763CD :
-                                                 isAe1799            ? 0x157616D :
-                                                 REL::Module::IsAE() ? 0x150A704 :
-                                                                       0x131DB09;
-            const std::uintptr_t kFallbackHookOffset = REL::Module::IsVR() ? 0x1363A7C :
-                                                       isAe1104            ? 0x1576427 :
-                                                       isAe1799            ? 0x15761C7 :
-                                                       REL::Module::IsAE() ? 0x150A7FA :
-                                                                             0x131DBFC;
-            const std::uintptr_t kFallbackResumeOffset = REL::Module::IsVR() ? 0x1363A85 :
-                                                         isAe1104            ? 0x1576430 :
-                                                         isAe1799            ? 0x15761D0 :
-                                                         REL::Module::IsAE() ? 0x150A803 :
-                                                                               0x131DC05;
+            const bool  hasStackSpill = !REL::Module::IsAE();
+            const auto& offsets = REL::Module::IsVR() ? kAttachSubtreeVR :
+                                  REL::Module::IsAE() ? util::SelectForVersion(kAttachSubtreeAE_ByVersion) :
+                                                        kAttachSubtreeSE;
 
-            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ offsets.hook } };
             const bool                      matches = hasStackSpill ? LightAttachSubtreeSiteMatchesWithSpill(hook.address()) : LightAttachSubtreeSiteMatchesNoSpill(hook.address());
             if (!matches) {
-                logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, kHookOffset);
+                logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, offsets.hook);
                 return;
             }
 
             LightAttachSubtreeAsNodePatch p{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address(), hasStackSpill };
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.resume } }.address(), hasStackSpill };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed BSLight::AttachSubtree AsNode guard"sv);
 
-            REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ kFallbackHookOffset } };
+            REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ offsets.fallbackHook } };
             if (!LightAttachSubtreeFallbackSiteMatches(fallbackHook.address())) {
                 logger::warn(
-                    "BSLight::AttachSubtree fallback guard: unexpected bytes at {:X}, skipping"sv, kFallbackHookOffset);
+                    "BSLight::AttachSubtree fallback guard: unexpected bytes at {:X}, skipping"sv, offsets.fallbackHook);
                 return;
             }
 
             LightAttachSubtreeFallbackPatch fp{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackResumeOffset } }.address() };
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.fallbackResume } }.address() };
             fp.ready();
             fallbackHook.write_branch<5>(SKSE::GetTrampoline().allocate(fp));
             logger::info("installed BSLight::AttachSubtree fallback guard"sv);
@@ -1040,9 +1048,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-                           REL::Module::IsAE() ? (util::IsAE1104()    ? detail::kSiteAE1104 :
-                                                     util::IsAE1799() ? detail::kSiteAE1799 :
-                                                                        detail::kSiteAE) :
+                           REL::Module::IsAE() ? util::SelectForVersion(detail::kSiteAE_ByVersion) :
                                                  detail::kSiteSE;
 
         std::uintptr_t entryAddr = REL::Relocation<std::uintptr_t>{ REL::Offset{ site.entryOffset } }.address();

@@ -108,6 +108,17 @@ namespace Fixes::CullingFreedObjectCrash
         static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE1799), "AE1799 culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE1104), "AE1104 culling site converge offsets must match validated block lengths");
+
+        // AE point-release layout, by the lowest game version it applies to (ascending).
+        // Bethesda has recompiled these 7 sites twice so far (1.6.1170 -> 1.7.99 -> 1.7.104),
+        // always relocating them as a unit without altering their bytes -- if that holds for
+        // a future patch too, fixing it is just adding one more row here (plus a new
+        // kSitesAEx.y.z table above), no new IsAEXXXX() helper or ternary branch needed.
+        inline constexpr std::array<util::VersionedValue<std::array<Site, 7>>, 3> kSitesAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kSitesAE },
+            { REL::Version{ 1, 7, 99, 0 }, kSitesAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kSitesAE1104 },
+        } };
         static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
 
         struct Patch final : Xbyak::CodeGenerator
@@ -325,10 +336,7 @@ namespace Fixes::CullingFreedObjectCrash
             installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
             installed += detail::PatchSites(
-                util::IsAE1104() ? detail::kSitesAE1104 :
-                util::IsAE1799() ? detail::kSitesAE1799 :
-                                   detail::kSitesAE,
-                0x1A0, moduleBase, moduleEnd);
+                util::SelectForVersion(detail::kSitesAE_ByVersion), 0x1A0, moduleBase, moduleEnd);
         else
             installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 

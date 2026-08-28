@@ -15,12 +15,33 @@ namespace util
         return REL::Module::IsAtLeast(SKSE::RUNTIME_SSE_1_7_99);
     }
 
-    // 1.7.104 recompiled again, shifting the culling/scene-graph freed-object guard call
-    // sites a further +0x260 bytes past their 1.7.99 layout (byte-identical internally,
-    // same length, just moved again). No RUNTIME_SSE_1_7_104 constant exists yet upstream.
-    inline bool IsAE1104()
+    // One version-gated value. A guard whose offsets/bytes shift on every AE recompile
+    // stores its per-version values as a table of these instead of a growing IsAEXXXX()
+    // ternary chain -- supporting a future Skyrim patch is then just appending one row.
+    template <class T>
+    struct VersionedValue
     {
-        return REL::Module::IsAtLeast(REL::Version{ 1, 7, 104, 0 });
+        REL::Version minVersion;
+        T            value;
+    };
+
+    // Picks the value with the highest minVersion <= the running game's version.
+    // a_table must be sorted ascending by minVersion, and its first entry's minVersion
+    // should be the oldest layout the table covers (its own value is never version-gated).
+    template <class T, std::size_t N>
+    [[nodiscard]] const T& SelectForVersion(const std::array<VersionedValue<T>, N>& a_table)
+    {
+        static_assert(N >= 1, "must provide at least 1 versioned value");
+        const auto version = REL::Module::get().version();
+        const T*   best = std::addressof(a_table.front().value);
+        for (const auto& entry : a_table) {
+            if (version >= entry.minVersion) {
+                best = std::addressof(entry.value);
+            } else {
+                break;
+            }
+        }
+        return *best;
     }
 
     // Main-module image bounds [base, end). Used by the freed-object crash guards to
