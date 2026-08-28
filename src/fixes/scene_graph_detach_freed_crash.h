@@ -4,14 +4,7 @@
 #include <cstdint>
 #include <cstring>
 
-// Guards the recursive scene-graph visitor (get-children dispatch CALL [RAX+0x18]) against
-// a freed/null node's vftable during cell teardown. The visitor re-enters itself at every
-// depth, so one guard at its entry (before `TEST RCX,RCX; JZ <exit>`) covers the whole
-// subtree walk: valid vftable resumes the original prologue, null/freed takes the same
-// pre-existing exit. VR additionally has several other cell-teardown traversals (child-array
-// iteration, recursive node visits, multibound helpers, ObjectLOD readers, NiNode cloning)
-// that reach the same class of freed-vftable dispatch through different call sites; each is
-// guarded below with the same range-check-then-cave-or-continue pattern.
+// Guards several scene-graph teardown traversals against freed/null-vftable dispatch on child nodes.
 
 namespace Fixes::SceneGraphDetachFreedCrash
 {
@@ -26,20 +19,21 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline constexpr std::uintptr_t kPrologueLen = 9;
 
         inline constexpr Site kSiteVR{ 0xDFDCF0 };
-        // NiAVObject::VisitCollisionObjectTree moved from 0xE87DF0 to 0x104D4C0 on AE1799
-        // (identical entry prologue).
+        // VisitCollisionObjectTree moved from 0xE87DF0 to 0x104D4C0 on AE1799.
         inline constexpr Site kSiteAE{ 0xE87DF0 };
         inline constexpr Site kSiteAE1799{ 0x104D4C0 };
-        // 1.7.104 moved VisitCollisionObjectTree again, +0x260 past AE1799 (identical entry
-        // prologue and body length, 0xCB bytes -- same relocation the culling guard sites saw).
+        // 1.7.104 moved it again, +0x260 past AE1799.
         inline constexpr Site kSiteAE1104{ 0x104D720 };
         inline constexpr Site kSiteSE{ 0xDA8D70 };
 
-        // First 32 bytes of VisitCollisionObjectTree's entry on AE (prologue + JZ rel32 +
-        // the following stack-spill instructions), captured at the 1.7.104 site. AE
-        // recompiles have relocated this function as a unit without altering its bytes
-        // (1.6.1170 -> 1.7.99 -> 1.7.104), so this doubles as a relocation-resilient
-        // fallback signature for AE versions newer than any hardcoded Site above.
+        // See kSitesAE_ByVersion in culling_freed_object_crash.h for why this is a table.
+        inline constexpr std::array<util::VersionedValue<Site>, 3> kSiteAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kSiteAE },
+            { REL::Version{ 1, 7, 99, 0 }, kSiteAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kSiteAE1104 },
+        } };
+
+        // Relocation-resilient fallback signature for AE versions newer than any hardcoded Site above.
         inline constexpr std::uint8_t kEntrySignatureAE[] = {
             0x48, 0x85, 0xC9, 0x0F, 0x84, 0xC1, 0x00, 0x00, 0x00,
             0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18,
@@ -57,8 +51,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 test(rcx, rcx);
                 jz(exitLbl);
 
-                // Validate the node's vftable lies inside the main module image. RAX/R10 are
-                // volatile and not argument registers, so they're safe to clobber here.
+                // Validate the node's vftable lies inside the main module image.
                 mov(rax, ptr[rcx]);
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
@@ -81,8 +74,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
-        // A second cell-teardown traversal calls vfunc +0x18 on each child before recursing;
-        // skip a child whose vftable isn't in the module image and continue the loop.
+        // A second cell-teardown traversal calls vfunc +0x18 on each child before recursing.
         struct ChildPatch final : Xbyak::CodeGenerator
         {
             ChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -136,8 +128,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         inline void PatchFreedChildTraversalVR(std::uintptr_t a_moduleBase,
             std::uintptr_t                                    a_moduleEnd)
         {
-            // Validate each complete block crossed by its invalid-child path, not just the
-            // six displaced bytes; the next-child offset begins right after each sequence.
+            // Validate each complete block crossed by its invalid-child path, not just the displaced call.
             static constexpr std::uint8_t kTraversal410Expected[] = {
                 0x48, 0x8B, 0x01, 0xFF, 0x50, 0x18,
                 0x48, 0x85, 0xC0, 0x74, 0x0B, 0x48, 0x8B, 0xC8,
@@ -195,10 +186,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // A third recursive scene traversal dispatches twice through the same node: +0x10
-        // before its type/owner work and +0x18 before descending into children. Both
-        // invalid-vftable paths use the function's existing epilogue, avoiding every later
-        // read from that node.
+        // A third recursive scene traversal dispatches twice through the same node (+0x10, +0x18).
         struct RecursiveNodePatchRdx final : Xbyak::CodeGenerator
         {
             RecursiveNodePatchRdx(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -271,10 +259,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             static constexpr std::uint8_t kSecondExpected[] = {
                 0x48, 0x8B, 0x07, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x18
             };
-            // Both guarded calls execute after the function's single
-            // sub rsp,0x40 prologue and before its common add rsp,0x40
-            // epilogue; no intervening instruction adjusts RSP. Validate the
-            // complete shared epilogue before either exceptional path uses it.
+            // Validate the complete shared epilogue before either exceptional path uses it.
             static constexpr std::uint8_t kExitExpected[] = {
                 0x48, 0x8B, 0x5C, 0x24, 0x70,
                 0x48, 0x83, 0xC4, 0x40,
@@ -308,10 +293,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed recursive scene-node freed-object crash fix (2 sites)"sv);
         }
 
-        // The multibound/water scene helper is reached from the same cell teardown traversal
-        // with an auxiliary scene object in RDX. Every normal path in this helper returns
-        // zero, so rejecting a null/freed argument at entry has the same failure semantics
-        // as its existing internal checks.
+        // The multibound/water scene helper is reached from the same teardown traversal, auxiliary object in RDX.
         struct MultiBoundHelperPatch final : Xbyak::CodeGenerator
         {
             MultiBoundHelperPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -330,8 +312,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 cmp(rax, r10);
                 jae(invalidLbl);
 
-                // Replicate the complete six-byte prologue displaced by the
-                // five-byte branch, then resume at the first body instruction.
+                // Replicate the displaced prologue, then resume at the first body instruction.
                 push(rbx);
                 sub(rsp, 0x20);
                 jmp(ptr[rip + resumeAddr]);
@@ -374,10 +355,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed multibound scene helper freed-object crash fix"sv);
         }
 
-        // Three recursive multibound callers invoke +0x18 on their scene-node input right
-        // after consulting the guarded helper above; the helper validates its own RDX
-        // argument but not the caller's RCX node. Invalid inputs reproduce a null virtual
-        // result and resume at the caller's native post-call null check.
+        // Three multibound callers invoke +0x18 on the caller's own node, which the helper above doesn't validate.
         struct MultiBoundCallerPatch final : Xbyak::CodeGenerator
         {
             MultiBoundCallerPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -464,10 +442,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking a node's
-        // children. Guarding the function's entry covers both its initial dispatch and every
-        // descendant visit; its native null-input path returns zero, which is also the safe
-        // result here.
+        // This recursive ObjectLOD visitor invokes vfunc +0x38 before walking a node's children.
         struct ObjectLODVisitorPatch final : Xbyak::CodeGenerator
         {
             ObjectLODVisitorPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -534,10 +509,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed ObjectLOD recursive visitor freed-object crash fix"sv);
         }
 
-        // Two more ObjectLOD readers: one walks a linked parent chain and dispatches +0x10
-        // twice on a matching node; the other is a two-function child-array family that
-        // dispatches +0x38 and, on the fallback path, +0x18. Each exceptional path uses the
-        // reader's existing no-match/next-child continuation.
+        // Two more ObjectLOD readers: a linked-chain walker (+0x10) and a child-array family (+0x38/+0x18).
         struct ObjectLODReaderDispatchPatch final : Xbyak::CodeGenerator
         {
             ObjectLODReaderDispatchPatch(std::uintptr_t a_moduleBase,
@@ -683,10 +655,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 installed);
         }
 
-        // NiNode::ProcessClone walks the source node's child array and invokes ProcessClone
-        // (vfunc +0xB8) on every non-null child. The native loop already skips null source
-        // children, leaving the preallocated destination slot empty; treat a non-image
-        // vftable identically, then continue with the sibling.
+        // NiNode::ProcessClone invokes ProcessClone (vfunc +0xB8) on every non-null child.
         struct NiNodeCloneChildPatch final : Xbyak::CodeGenerator
         {
             NiNodeCloneChildPatch(std::uintptr_t a_moduleBase,
@@ -699,8 +668,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(invalidLbl);
-                // Match the full-slot module-end validation tightened in the ObjectLOD
-                // property guard: [rax + 0xB8] reads eight bytes through vtable + 0xBF.
+                // [rax + 0xB8] reads eight bytes through vtable + 0xBF.
                 mov(r10, a_moduleEnd - 0xBF);
                 cmp(rax, r10);
                 jae(invalidLbl);
@@ -725,10 +693,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             constexpr std::uintptr_t kPatchOffset = 0xC9C870;
             constexpr std::uintptr_t kPostCallOffset = 0xC9C87C;
             constexpr std::uintptr_t kNextChildOffset = 0xC9C894;
-            // Covers the full displaced region through kNextChildOffset, not just the call
-            // itself -- the invalid-child path jumps past the sibling-continuation block
-            // (ProcessClone dispatch + child-index bookkeeping) that follows the call, so it
-            // must be validated too before installing the branch.
+            // Covers the full displaced region through kNextChildOffset, not just the call itself.
             static constexpr std::uint8_t kExpected[] = {
                 0x48, 0x8B, 0x01,                          // mov rax,[rcx]
                 0x48, 0x8B, 0xD5,                          // mov rdx,rbp
@@ -759,9 +724,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode clone child freed-object crash fix"sv);
         }
 
-        // NiNode::ProcessClone's own child-array virtual dispatch (vfunc 0xE8) on a child
-        // whose vftable may be freed/reused. The call's return value is never consumed by
-        // the caller, so an invalid vtable can skip the call entirely.
+        // NiNode::ProcessClone's own child-array dispatch (vfunc 0xE8); return value unused, so skip is safe.
         struct NiNodeProcessCloneChildPatch final : Xbyak::CodeGenerator
         {
             NiNodeProcessCloneChildPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -815,9 +778,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
         }
 
-        // BSLight::AttachSubtree dispatches NiObject::AsNode() (vtable slot 0x18) on a node
-        // whose vftable may be freed/reused mid-traversal. AE lacks the RDI stack-spill
-        // instruction present in VR/SE's displaced span, so the patch conditionally re-emits it.
+        // BSLight::AttachSubtree dispatches AsNode() (slot 0x18); AE lacks VR/SE's RDI stack-spill.
         struct LightAttachSubtreeAsNodePatch final : Xbyak::CodeGenerator
         {
             LightAttachSubtreeAsNodePatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -852,8 +813,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
-        // VR/SE bytes: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB); MOV [RSP+0x40],RDI
-        // (48 89 7C 24 40); CALL [RAX+0x18] (FF 50 18).
+        // VR/SE: mov rax,[rbx]; mov rcx,rbx; mov [rsp+0x40],rdi; call [rax+0x18].
         inline bool LightAttachSubtreeSiteMatchesWithSpill(std::uintptr_t a_addr)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
@@ -863,8 +823,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                    p[11] == 0xFF && p[12] == 0x50 && p[13] == 0x18;
         }
 
-        // AE bytes: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB); CALL [RAX+0x18]
-        // (FF 50 18) -- no interleaved stack spill at this call site.
+        // AE: mov rax,[rbx]; mov rcx,rbx; call [rax+0x18] -- no interleaved stack spill.
         inline bool LightAttachSubtreeSiteMatchesNoSpill(std::uintptr_t a_addr)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
@@ -873,10 +832,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                    p[6] == 0xFF && p[7] == 0x50 && p[8] == 0x18;
         }
 
-        // When the AsNode() cast above misses (freed vftable faked to null, or a genuine
-        // non-node light), the function falls through to this second dispatch (vtable slot
-        // 0x38) on the same RBX -- whose vftable can also be freed/reused, and was never
-        // guarded before a live soak-test crash hit it.
+        // When AsNode() misses, the function falls through to a second dispatch (slot 0x38) on the same RBX.
         struct LightAttachSubtreeFallbackPatch final : Xbyak::CodeGenerator
         {
             LightAttachSubtreeFallbackPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -908,8 +864,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             }
         };
 
-        // Byte-identical across VR/SE/AE: MOV RAX,[RBX] (48 8B 03); MOV RCX,RBX (48 8B CB);
-        // CALL [RAX+0x38] (FF 50 38).
+        // Byte-identical across VR/SE/AE: mov rax,[rbx]; mov rcx,rbx; call [rax+0x38].
         inline bool LightAttachSubtreeFallbackSiteMatches(std::uintptr_t a_addr)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
@@ -918,65 +873,61 @@ namespace Fixes::SceneGraphDetachFreedCrash
                    p[6] == 0xFF && p[7] == 0x50 && p[8] == 0x38;
         }
 
+        struct AttachSubtreeOffsets
+        {
+            std::uintptr_t hook;
+            std::uintptr_t resume;
+            std::uintptr_t fallbackHook;
+            std::uintptr_t fallbackResume;
+        };
+
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeVR{ 0x136397B, 0x1363989, 0x1363A7C, 0x1363A85 };
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeSE{ 0x131DAFB, 0x131DB09, 0x131DBFC, 0x131DC05 };
+        inline constexpr AttachSubtreeOffsets kAttachSubtreeAE{ 0x150A6FB, 0x150A704, 0x150A7FA, 0x150A803 };
+        // Moved to 0x1576130 on AE1799, then a further +0x260 on AE1104.
+        inline constexpr AttachSubtreeOffsets                                      kAttachSubtreeAE1799{ 0x1576164, 0x157616D, 0x15761C7, 0x15761D0 };
+        inline constexpr AttachSubtreeOffsets                                      kAttachSubtreeAE1104{ 0x15763C4, 0x15763CD, 0x1576427, 0x1576430 };
+        inline constexpr std::array<util::VersionedValue<AttachSubtreeOffsets>, 3> kAttachSubtreeAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kAttachSubtreeAE },
+            { REL::Version{ 1, 7, 99, 0 }, kAttachSubtreeAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kAttachSubtreeAE1104 },
+        } };
+
         inline void PatchLightAttachSubtreeAsNode(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
-            const bool hasStackSpill = !REL::Module::IsAE();
-            // BSLight::AttachSubtree moved from 0x150A610 to 0x1576130 on AE1799, then a
-            // further +0x260 on AE1104 (identical AsNode/fallback dispatch shape throughout;
-            // no stack spill on AE at any tier).
-            const bool           isAe1799 = REL::Module::IsAE() && util::IsAE1799();
-            const bool           isAe1104 = REL::Module::IsAE() && util::IsAE1104();
-            const std::uintptr_t kHookOffset = REL::Module::IsVR() ? 0x136397B :
-                                               isAe1104            ? 0x15763C4 :
-                                               isAe1799            ? 0x1576164 :
-                                               REL::Module::IsAE() ? 0x150A6FB :
-                                                                     0x131DAFB;
-            const std::uintptr_t kResumeOffset = REL::Module::IsVR() ? 0x1363989 :
-                                                 isAe1104            ? 0x15763CD :
-                                                 isAe1799            ? 0x157616D :
-                                                 REL::Module::IsAE() ? 0x150A704 :
-                                                                       0x131DB09;
-            const std::uintptr_t kFallbackHookOffset = REL::Module::IsVR() ? 0x1363A7C :
-                                                       isAe1104            ? 0x1576427 :
-                                                       isAe1799            ? 0x15761C7 :
-                                                       REL::Module::IsAE() ? 0x150A7FA :
-                                                                             0x131DBFC;
-            const std::uintptr_t kFallbackResumeOffset = REL::Module::IsVR() ? 0x1363A85 :
-                                                         isAe1104            ? 0x1576430 :
-                                                         isAe1799            ? 0x15761D0 :
-                                                         REL::Module::IsAE() ? 0x150A803 :
-                                                                               0x131DC05;
+            const bool  hasStackSpill = !REL::Module::IsAE();
+            const auto& offsets = REL::Module::IsVR() ? kAttachSubtreeVR :
+                                  REL::Module::IsAE() ? util::SelectForVersion(kAttachSubtreeAE_ByVersion) :
+                                                        kAttachSubtreeSE;
 
-            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ kHookOffset } };
+            REL::Relocation<std::uintptr_t> hook{ REL::Offset{ offsets.hook } };
             const bool                      matches = hasStackSpill ? LightAttachSubtreeSiteMatchesWithSpill(hook.address()) : LightAttachSubtreeSiteMatchesNoSpill(hook.address());
             if (!matches) {
-                logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, kHookOffset);
+                logger::warn("BSLight::AttachSubtree AsNode guard: unexpected bytes at {:X}, skipping"sv, offsets.hook);
                 return;
             }
 
             LightAttachSubtreeAsNodePatch p{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address(), hasStackSpill };
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.resume } }.address(), hasStackSpill };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed BSLight::AttachSubtree AsNode guard"sv);
 
-            REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ kFallbackHookOffset } };
+            REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ offsets.fallbackHook } };
             if (!LightAttachSubtreeFallbackSiteMatches(fallbackHook.address())) {
                 logger::warn(
-                    "BSLight::AttachSubtree fallback guard: unexpected bytes at {:X}, skipping"sv, kFallbackHookOffset);
+                    "BSLight::AttachSubtree fallback guard: unexpected bytes at {:X}, skipping"sv, offsets.fallbackHook);
                 return;
             }
 
             LightAttachSubtreeFallbackPatch fp{ a_moduleBase, a_moduleEnd,
-                REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackResumeOffset } }.address() };
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.fallbackResume } }.address() };
             fp.ready();
             fallbackHook.write_branch<5>(SKSE::GetTrampoline().allocate(fp));
             logger::info("installed BSLight::AttachSubtree fallback guard"sv);
         }
 
-        // The children-array data pointer (loaded from [node+0x140]) can be freed/reused
-        // mid-traversal even when the node itself is valid; it's a heap data pointer, not a
-        // code pointer, so reject non-canonical/null rather than module-bounds-checking it.
+        // The children-array pointer ([node+0x140]) is heap data, not code -- reject non-canonical/null.
         struct VisitCollisionArrayPatch final : Xbyak::CodeGenerator
         {
             explicit VisitCollisionArrayPatch(std::uintptr_t a_resume)
@@ -1040,23 +991,19 @@ namespace Fixes::SceneGraphDetachFreedCrash
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         const auto& site = REL::Module::IsVR() ? detail::kSiteVR :
-                           REL::Module::IsAE() ? (util::IsAE1104()    ? detail::kSiteAE1104 :
-                                                     util::IsAE1799() ? detail::kSiteAE1799 :
-                                                                        detail::kSiteAE) :
+                           REL::Module::IsAE() ? util::SelectForVersion(detail::kSiteAE_ByVersion) :
                                                  detail::kSiteSE;
 
         std::uintptr_t entryAddr = REL::Relocation<std::uintptr_t>{ REL::Offset{ site.entryOffset } }.address();
 
-        // Verify the displaced prologue is TEST RCX,RCX; JZ rel32 (48 85 C9 0F 84 ..)
-        // before caving it; guards against offset drift corrupting the function entry.
+        // Verify the displaced prologue is test rcx,rcx; jz rel32 before caving it.
         auto prologueMatches = [](std::uintptr_t a_addr) {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
             return p[0] == 0x48 && p[1] == 0x85 && p[2] == 0xC9 && p[3] == 0x0F && p[4] == 0x84;
         };
 
         if (!prologueMatches(entryAddr)) {
-            // Hardcoded offset is stale (likely a newer AE recompile) -- fall back to a
-            // whole-module scan for the function's known entry bytes on AE.
+            // Hardcoded offset is stale -- fall back to a whole-module signature scan.
             if (REL::Module::IsAE()) {
                 if (auto found = util::FindUniqueSignature(detail::kEntrySignatureAE, moduleBase, moduleEnd)) {
                     entryAddr = *found;
@@ -1074,8 +1021,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
         }
         const auto* bytes = reinterpret_cast<const std::uint8_t*>(entryAddr);
 
-        // Decode the JZ rel32 (bytes 5-8) to derive the exit address directly from the
-        // validated prologue, rather than trusting a separately-hardcoded offset.
+        // Decode the JZ rel32 to derive the exit address from the validated prologue.
         std::int32_t rel32;
         std::memcpy(&rel32, bytes + 5, sizeof(rel32));
         const auto exit = entryAddr + detail::kPrologueLen + rel32;

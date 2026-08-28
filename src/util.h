@@ -6,26 +6,38 @@
 
 namespace util
 {
-    // AE point releases from 1.6.353 through 1.6.1170 (and GOG's 1.6.1179) share one call-site
-    // byte layout; 1.7.99 was recompiled with different codegen, shifting individual
-    // instruction offsets (and occasionally address-library ids) inside otherwise-unchanged
-    // functions. Fixes with a hardcoded AE offset/id must branch on this, not just on IsAE().
+    // True from 1.7.99 on; AE codegen shifted offsets/ids starting here.
     inline bool IsAE1799()
     {
         return REL::Module::IsAtLeast(SKSE::RUNTIME_SSE_1_7_99);
     }
 
-    // 1.7.104 recompiled again, shifting the culling/scene-graph freed-object guard call
-    // sites a further +0x260 bytes past their 1.7.99 layout (byte-identical internally,
-    // same length, just moved again). No RUNTIME_SSE_1_7_104 constant exists yet upstream.
-    inline bool IsAE1104()
+    // Per-version value for a guard whose offsets/bytes shift across AE recompiles.
+    template <class T>
+    struct VersionedValue
     {
-        return REL::Module::IsAtLeast(REL::Version{ 1, 7, 104, 0 });
+        REL::Version minVersion;
+        T            value;
+    };
+
+    // a_table must be sorted ascending by minVersion; returns the highest entry <= running version.
+    template <class T, std::size_t N>
+    [[nodiscard]] const T& SelectForVersion(const std::array<VersionedValue<T>, N>& a_table)
+    {
+        static_assert(N >= 1, "must provide at least 1 versioned value");
+        const auto version = REL::Module::get().version();
+        const T*   best = std::addressof(a_table.front().value);
+        for (const auto& entry : a_table) {
+            if (version >= entry.minVersion) {
+                best = std::addressof(entry.value);
+            } else {
+                break;
+            }
+        }
+        return *best;
     }
 
-    // Main-module image bounds [base, end). Used by the freed-object crash guards to
-    // validate that a dispatched vtable pointer lies inside the executable's .rdata
-    // (a live vftable is in-module; a freed object's is null or heap garbage).
+    // Main-module [base, end); used to validate a dispatched vtable pointer is in-module.
     inline std::pair<std::uintptr_t, std::uintptr_t> GetModuleImageBounds()
     {
         const auto  base = REL::Module::get().base();
@@ -34,12 +46,7 @@ namespace util
         return { base, base + nt->OptionalHeader.SizeOfImage };
     }
 
-    // Scans [a_base, a_end) for a_pattern, requiring exactly one match (ambiguous ->
-    // nullopt, same as not-found). Relocation-resilient fallback for a hardcoded guard-site
-    // offset that goes stale on a newer Skyrim recompile: AE point releases have repeatedly
-    // relocated whole functions/call sites without altering their internal bytes
-    // (1.6.1170 -> 1.7.99 -> 1.7.104), so re-finding the known byte sequence is safer than
-    // hand-deriving a new hardcoded offset every time Bethesda ships a patch.
+    // Relocation-resilient fallback: finds a_pattern's one unique match in [a_base, a_end).
     inline std::optional<std::uintptr_t> FindUniqueSignature(
         std::span<const std::uint8_t> a_pattern, std::uintptr_t a_base, std::uintptr_t a_end)
     {
@@ -61,10 +68,7 @@ namespace util
         return found;
     }
 
-    // Validates a loaded vtable slot against the general loaded-image address range rather
-    // than this module specifically -- write_vfunc can legitimately point into the hooking
-    // plugin's own DLL, not just the game executable. Result left in r11; jumps to
-    // a_invalid on null or out-of-range.
+    // Validates a slot against the general loaded-image range (not just this module); result in r11.
     inline void EmitLoadedSlotGuard(Xbyak::CodeGenerator& a_gen, const Xbyak::Address& a_slotAddr,
         const Xbyak::Label& a_invalid)
     {
