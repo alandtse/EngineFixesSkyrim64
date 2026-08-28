@@ -4,66 +4,83 @@
 #include <array>
 #include <cstdint>
 
-// Guards BSBatchRenderer's per-pass shader-technique dispatch (BSShader vfunc 0x10,
-// SetupTechnique) against a freed/reused shader whose vtable pointer or SetupTechnique slot
-// got reused by TBB's allocator (bOverrideMemoryManager routes through TBB, removing
-// vanilla's incidental same-type-reuse protection; CommunityShaders' background shader
-// compilation removes the blocking gate that used to serialize this race). Confirmed via a
-// live 1.7.104 crash: wild jump through BSSkyShader's vtable during initial shadow-scene
-// shader setup, matching this exact call site. AE inlines the dispatch directly into
-// BSBatchRenderer::SetupAndDrawPass; SE/VR call it through a small BeginPass helper instead
-// -- same bug, different host function, so each gets its own Site/Patch shape.
-
+// Guards BSBatchRenderer::SetupAndDrawPass's several independent shader-pointer dispatches against a freed/reused vtable.
 namespace Fixes::BatchRendererShaderTechniqueUAF
 {
     namespace detail
     {
-        // AE (all tiers): SetupAndDrawPass inlines "MOV RAX,[RDI]; MOV EDX,EBX" (5 bytes) at
-        // entry+0x82, immediately followed by "MOV RCX,RDI; CALL [RAX+0x10]" at entry+0x87.
-        // The function's own existing "technique setup failed" bail-out sits at entry+0x332
-        // in every tier (resets the last-shader/last-technique cache, then returns) -- reused
-        // here instead of inventing a new exit path.
+        // AE: mov rdi,[rcx]; mov r14,[rcx+0x10] at entry+0x34 loads the shader pointer RDI feeds downstream.
         struct SiteAE
         {
             std::uintptr_t entry;
         };
 
-        inline constexpr std::uintptr_t kAECallDelta = 0x82;
+        inline constexpr std::uintptr_t kAECallDelta = 0x34;
         inline constexpr std::uintptr_t kAEBailDelta = 0x332;
-        inline constexpr std::uint8_t   kExpectedAE[] = { 0x48, 0x8B, 0x07, 0x8B, 0xD3 };
-        static_assert(std::size(kExpectedAE) == 5, "AE displaced block must be exactly 5 bytes for the E9 patch");
+        inline constexpr std::uint8_t   kExpectedAE[] = { 0x48, 0x8B, 0x39, 0x4C, 0x8B, 0x71, 0x10 };
+        static_assert(std::size(kExpectedAE) == 7, "AE displaced block must land on a real instruction boundary");
 
         inline constexpr SiteAE kSetupAndDrawPassAE{ 0x14F3DC0 };      // 1.6.353 - 1.6.1170
         inline constexpr SiteAE kSetupAndDrawPassAE1799{ 0x15600E0 };  // 1.7.99+
         inline constexpr SiteAE kSetupAndDrawPassAE1104{ 0x1560340 };  // 1.7.104+
 
-        // See kSitesAE_ByVersion in culling_freed_object_crash.h for why this is a table:
-        // a future recompile is a new kSetupAndDrawPassAEx.y.z + one row here.
+        // See kSitesAE_ByVersion in culling_freed_object_crash.h for why this is a table.
         inline constexpr std::array<util::VersionedValue<SiteAE>, 3> kSetupAndDrawPassAE_ByVersion{ {
             { REL::Version{ 1, 6, 353, 0 }, kSetupAndDrawPassAE },
             { REL::Version{ 1, 7, 99, 0 }, kSetupAndDrawPassAE1799 },
             { REL::Version{ 1, 7, 104, 0 }, kSetupAndDrawPassAE1104 },
         } };
 
-        // SE/VR: BeginPass calls through the shader vtable directly -- "MOV RAX,[RBX]; CALL
-        // [RAX+0x10]" (6 bytes) -- rather than inlining it into SetupAndDrawPass. Resume is
-        // right after the call (TEST AL,AL); bail is the function's own null-technique reset.
+        // SE/VR: mov r14,[rcx]; movzx r15d,r8b loads the shader pointer near entry; bail is the function's epilogue.
         struct SiteSEVR
         {
             std::uintptr_t callOffset;
             std::uintptr_t bailOffset;
         };
 
-        inline constexpr std::uint8_t kExpectedSEVR[] = { 0x48, 0x8B, 0x03, 0xFF, 0x50, 0x10 };
+        inline constexpr std::uint8_t kExpectedSEVR[] = { 0x4C, 0x8B, 0x31, 0x45, 0x0F, 0xB6, 0xF8 };
+        static_assert(std::size(kExpectedSEVR) == 7, "SE/VR displaced block must land on a real instruction boundary");
 
-        inline constexpr SiteSEVR kBeginPassSE{ 0x1308707, 0x130872E };
-        inline constexpr SiteSEVR kBeginPassVR{ 0x1349962, 0x134997B };
+        inline constexpr SiteSEVR kSetupAndDrawPassSE{ 0x130845C, 0x1308504 };
+        inline constexpr SiteSEVR kSetupAndDrawPassVR{ 0x134969C, 0x1349747 };
 
-        // Validates the shader's vtable pointer lies inside the main module image, and that
-        // the loaded SetupTechnique slot itself is a plausible code pointer, before calling
-        // through it. AE re-executes the displaced MOV pair and resumes at the original call
-        // site (which reloads RAX itself); SE/VR execute the call directly since the resume
-        // point is the post-call TEST AL,AL.
+        // Defense in depth: a concurrent free can land between the entry guard and this later SetupMaterial dispatch.
+        inline constexpr std::uintptr_t kAEMaterialCallDelta = 0xC2;
+        inline constexpr std::uint8_t   kExpectedAEMaterial[] = {
+            0x48, 0x8B, 0x07, 0x48, 0x8B, 0xD3, 0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x20
+        };
+        static_assert(std::size(kExpectedAEMaterial) == 12, "AE material displaced block must land on a real instruction boundary");
+
+        // SE/VR: mov rax,[r14]; mov rdx,rdi/rcx; mov rcx,r14; call [rax+0x20].
+        inline constexpr std::uint8_t kExpectedSEVRMaterial[] = {
+            0x49, 0x8B, 0x06, 0x48, 0x8B, 0xD7, 0x49, 0x8B, 0xCE, 0xFF, 0x50, 0x20
+        };
+        static_assert(std::size(kExpectedSEVRMaterial) == 12, "SE/VR material displaced block must land on a real instruction boundary");
+
+        inline constexpr std::uintptr_t kSetupMaterialCallSE = 0x13084B2;
+        inline constexpr std::uintptr_t kSetupMaterialCallVR = 0x13496F5;
+
+        // Likely culprit: restores technique on the PREVIOUS frame's cached shader, only null-checked.
+        inline constexpr std::uintptr_t kAERestoreCallDelta = 0x62;
+        inline constexpr std::uintptr_t kAERestoreResumeDelta = 0x6A;
+        inline constexpr std::uintptr_t kAERestoreBailDelta = 0x6D;
+        inline constexpr std::uint8_t   kExpectedAERestore[] = { 0x48, 0x85, 0xC9, 0x74, 0x06, 0x48, 0x8B, 0x01 };
+        static_assert(std::size(kExpectedAERestore) == 8, "AE restore displaced block must land on a real instruction boundary");
+
+        // SE/VR: same shape, same site inside BeginPass (not SetupAndDrawPass).
+        struct SiteRestoreSEVR
+        {
+            std::uintptr_t callOffset;
+            std::uintptr_t resumeOffset;
+            std::uintptr_t bailOffset;
+        };
+        inline constexpr std::uint8_t kExpectedSEVRRestore[] = { 0x48, 0x85, 0xC9, 0x74, 0x0C, 0x48, 0x8B, 0x01 };
+        static_assert(std::size(kExpectedSEVRRestore) == 8, "SE/VR restore displaced block must land on a real instruction boundary");
+
+        inline constexpr SiteRestoreSEVR kRestoreCallSE{ 0x13086DB, 0x13086E3, 0x13086EC };
+        inline constexpr SiteRestoreSEVR kRestoreCallVR{ 0x1349933, 0x134993B, 0x1349944 };
+
+        // Validates the shader's vtable pointer is in-module before any downstream dispatch through it runs.
         struct PatchAE final : Xbyak::CodeGenerator
         {
             PatchAE(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -71,16 +88,16 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             {
                 Xbyak::Label skipLbl, resumeAddr, bailAddr;
 
-                mov(rax, ptr[rdi]);
-                mov(edx, ebx);
+                mov(rdi, ptr[rcx]);
+                mov(r14, ptr[rcx + 0x10]);
 
+                mov(rax, ptr[rdi]);
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(skipLbl);
                 mov(r10, a_moduleEnd);
                 cmp(rax, r10);
                 jae(skipLbl);
-                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], skipLbl);
 
                 jmp(ptr[rip + resumeAddr]);
 
@@ -101,7 +118,39 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             {
                 Xbyak::Label skipLbl, resumeAddr, bailAddr;
 
-                mov(rax, ptr[rbx]);
+                mov(r14, ptr[rcx]);
+                movzx(r15d, r8b);
+
+                mov(rax, ptr[r14]);
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(skipLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(skipLbl);
+
+                jmp(ptr[rip + resumeAddr]);
+
+                L(skipLbl);
+                jmp(ptr[rip + bailAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(bailAddr);
+                dq(a_bail);
+            }
+        };
+
+        // Both branches converge on the same address; the call is simply skipped when invalid.
+        struct PatchMaterialAE final : Xbyak::CodeGenerator
+        {
+            PatchMaterialAE(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uintptr_t a_converge)
+            {
+                Xbyak::Label skipLbl, convergeAddr;
+
+                mov(rax, ptr[rdi]);
+                mov(rdx, rbx);
+                mov(rcx, rdi);
 
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
@@ -109,9 +158,61 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 mov(r10, a_moduleEnd);
                 cmp(rax, r10);
                 jae(skipLbl);
-                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], skipLbl);
+                call(ptr[rax + 0x20]);
 
-                call(ptr[rax + 0x10]);
+                L(skipLbl);
+                jmp(ptr[rip + convergeAddr]);
+
+                L(convergeAddr);
+                dq(a_converge);
+            }
+        };
+
+        struct PatchMaterialSEVR final : Xbyak::CodeGenerator
+        {
+            PatchMaterialSEVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uintptr_t a_converge)
+            {
+                Xbyak::Label skipLbl, convergeAddr;
+
+                mov(rax, ptr[r14]);
+                mov(rdx, rdi);
+                mov(rcx, r14);
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(skipLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(skipLbl);
+                call(ptr[rax + 0x20]);
+
+                L(skipLbl);
+                jmp(ptr[rip + convergeAddr]);
+
+                L(convergeAddr);
+                dq(a_converge);
+            }
+        };
+
+        // RCX holds the cached previous shader here, not the current pass's shader.
+        struct PatchRestoreAE final : Xbyak::CodeGenerator
+        {
+            PatchRestoreAE(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume, std::uintptr_t a_bail)
+            {
+                Xbyak::Label skipLbl, resumeAddr, bailAddr;
+
+                test(rcx, rcx);
+                jz(skipLbl);
+                mov(rax, ptr[rcx]);
+
+                mov(r10, a_moduleBase);
+                cmp(rax, r10);
+                jb(skipLbl);
+                mov(r10, a_moduleEnd);
+                cmp(rax, r10);
+                jae(skipLbl);
+
                 jmp(ptr[rip + resumeAddr]);
 
                 L(skipLbl);
@@ -140,9 +241,32 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             p.ready();
             REL::Relocation<std::uintptr_t>{ call }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed batchrenderer shader technique UAF fix (ae)"sv);
+
+            const std::uintptr_t materialCall = entry + kAEMaterialCallDelta;
+            if (!std::equal(std::begin(kExpectedAEMaterial), std::end(kExpectedAEMaterial), reinterpret_cast<const std::uint8_t*>(materialCall))) {
+                logger::warn("batchrenderer shader technique UAF fix: unexpected bytes at {:X}, skipping material guard"sv,
+                    site.entry + kAEMaterialCallDelta);
+                return;
+            }
+            PatchMaterialAE mp{ a_moduleBase, a_moduleEnd, materialCall + std::size(kExpectedAEMaterial) };
+            mp.ready();
+            REL::Relocation<std::uintptr_t>{ materialCall }.write_branch<5>(SKSE::GetTrampoline().allocate(mp));
+            logger::info("installed batchrenderer shader technique UAF fix (ae, material)"sv);
+
+            const std::uintptr_t restoreCall = entry + kAERestoreCallDelta;
+            if (!std::equal(std::begin(kExpectedAERestore), std::end(kExpectedAERestore), reinterpret_cast<const std::uint8_t*>(restoreCall))) {
+                logger::warn("batchrenderer shader technique UAF fix: unexpected bytes at {:X}, skipping restore guard"sv,
+                    site.entry + kAERestoreCallDelta);
+                return;
+            }
+            PatchRestoreAE rp{ a_moduleBase, a_moduleEnd, entry + kAERestoreResumeDelta, entry + kAERestoreBailDelta };
+            rp.ready();
+            REL::Relocation<std::uintptr_t>{ restoreCall }.write_branch<5>(SKSE::GetTrampoline().allocate(rp));
+            logger::info("installed batchrenderer shader technique UAF fix (ae, restore)"sv);
         }
 
-        inline void InstallSEVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, const SiteSEVR& a_site)
+        inline void InstallSEVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+            const SiteSEVR& a_site, std::uintptr_t a_materialCallOffset, const SiteRestoreSEVR& a_restoreSite)
         {
             const std::uintptr_t call = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.callOffset } }.address();
             const std::uintptr_t bail = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.bailOffset } }.address();
@@ -156,6 +280,30 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             p.ready();
             REL::Relocation<std::uintptr_t>{ call }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             logger::info("installed batchrenderer shader technique UAF fix (se/vr)"sv);
+
+            const std::uintptr_t materialCall = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_materialCallOffset } }.address();
+            if (!std::equal(std::begin(kExpectedSEVRMaterial), std::end(kExpectedSEVRMaterial), reinterpret_cast<const std::uint8_t*>(materialCall))) {
+                logger::warn("batchrenderer shader technique UAF fix: unexpected bytes at {:X}, skipping material guard"sv,
+                    a_materialCallOffset);
+                return;
+            }
+            PatchMaterialSEVR mp{ a_moduleBase, a_moduleEnd, materialCall + std::size(kExpectedSEVRMaterial) };
+            mp.ready();
+            REL::Relocation<std::uintptr_t>{ materialCall }.write_branch<5>(SKSE::GetTrampoline().allocate(mp));
+            logger::info("installed batchrenderer shader technique UAF fix (se/vr, material)"sv);
+
+            const std::uintptr_t restoreCall = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_restoreSite.callOffset } }.address();
+            if (!std::equal(std::begin(kExpectedSEVRRestore), std::end(kExpectedSEVRRestore), reinterpret_cast<const std::uint8_t*>(restoreCall))) {
+                logger::warn("batchrenderer shader technique UAF fix: unexpected bytes at {:X}, skipping restore guard"sv,
+                    a_restoreSite.callOffset);
+                return;
+            }
+            PatchRestoreAE rp{ a_moduleBase, a_moduleEnd,
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_restoreSite.resumeOffset } }.address(),
+                REL::Relocation<std::uintptr_t>{ REL::Offset{ a_restoreSite.bailOffset } }.address() };
+            rp.ready();
+            REL::Relocation<std::uintptr_t>{ restoreCall }.write_branch<5>(SKSE::GetTrampoline().allocate(rp));
+            logger::info("installed batchrenderer shader technique UAF fix (se/vr, restore)"sv);
         }
     }
 
@@ -164,11 +312,11 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
         const auto [moduleBase, moduleEnd] = util::GetModuleImageBounds();
 
         if (REL::Module::IsVR()) {
-            detail::InstallSEVR(moduleBase, moduleEnd, detail::kBeginPassVR);
+            detail::InstallSEVR(moduleBase, moduleEnd, detail::kSetupAndDrawPassVR, detail::kSetupMaterialCallVR, detail::kRestoreCallVR);
         } else if (REL::Module::IsAE()) {
             detail::InstallAE(moduleBase, moduleEnd);
         } else {
-            detail::InstallSEVR(moduleBase, moduleEnd, detail::kBeginPassSE);
+            detail::InstallSEVR(moduleBase, moduleEnd, detail::kSetupAndDrawPassSE, detail::kSetupMaterialCallSE, detail::kRestoreCallSE);
         }
     }
 }
