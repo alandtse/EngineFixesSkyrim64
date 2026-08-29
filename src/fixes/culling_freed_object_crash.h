@@ -1,13 +1,10 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
+#include <vector>
 
-// Guards the cull traversal's OnVisible dispatch (NiAVObject vfunc 0x34, CALL [RAX+slot])
-// against a freed/reused vftable: validates it lies inside the main module image before
-// calling, else jumps past both the call and the following [object+0x10C] write. VR
-// inserts one extra vfunc before OnVisible, so the site byte offset is 0x1A8 vs 0x1A0 on
-// SE/AE. VR also has an ObjectLOD render/cull call (vfunc +0x80) with the same freed-object
-// signature, installed by a separately validated site below.
+// Guards the cull traversal's OnVisible dispatch (NiAVObject vfunc 0x34) against a freed/reused vftable.
 
 namespace Fixes::CullingFreedObjectCrash
 {
@@ -20,8 +17,7 @@ namespace Fixes::CullingFreedObjectCrash
             std::span<const std::uint8_t> postCall;        // expected bytes from callOffset+0x6 to convergeOffset
         };
 
-        // Displaced post-call bytes per site, validated in full so a convergeOffset
-        // pointing at the wrong basic block can't silently skip the wrong code.
+        // Displaced post-call bytes per site, validated so convergeOffset can't skip the wrong code.
         inline constexpr std::uint8_t kPostVR0[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR1[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x1F, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x13, 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
         inline constexpr std::uint8_t kPostVR2[] = { 0x80, 0xBB, 0x1D, 0x01, 0x00, 0x00, 0x00, 0x74, 0x24, 0x81, 0x8F, 0x0C, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xEB, 0x18, 0x40, 0x84, 0xED, 0x75, 0x13, 0x40, 0x38, 0xA9, 0x1D, 0x01, 0x00, 0x00, 0x74, 0x0A, 0x81, 0xA7, 0x0C, 0x01, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFB };
@@ -61,8 +57,7 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x1519C38, 0x1519C66, kPostAE5 },
             { 0x151A01A, 0x151A033, kPostAE6 },
         } };
-        // AE1799 recompile relocated all 6 containing functions (each byte-identical
-        // internally, same length, just moved).
+        // AE1799 relocated all 6 containing functions; each byte-identical internally.
         inline constexpr std::array<Site, 7> kSitesAE1799{ {
             { 0xF0482D, 0xF0485B, kPostAE0 },
             { 0xF049A1, 0xF049E3, kPostAE1 },
@@ -71,6 +66,16 @@ namespace Fixes::CullingFreedObjectCrash
             { 0x15868CE, 0x15868FC, kPostAE4 },
             { 0x1586948, 0x1586976, kPostAE5 },
             { 0x1586D2A, 0x1586D43, kPostAE6 },
+        } };
+        // 1.7.104 relocated the same 7 sites a further +0x260 bytes past AE1799.
+        inline constexpr std::array<Site, 7> kSitesAE1104{ {
+            { 0xF04A8D, 0xF04ABB, kPostAE0 },
+            { 0xF04C01, 0xF04C43, kPostAE1 },
+            { 0xFEDC1C, 0xFEDC4A, kPostAE2 },
+            { 0xFEDD0B, 0xFEDD3E, kPostAE3 },
+            { 0x1586B2E, 0x1586B5C, kPostAE4 },
+            { 0x1586BA8, 0x1586BD6, kPostAE5 },
+            { 0x1586F8A, 0x1586FA3, kPostAE6 },
         } };
         inline constexpr std::array<Site, 6> kSitesSE{ {
             { 0xC794D4, 0xC79502, kPostSE0 },
@@ -94,6 +99,14 @@ namespace Fixes::CullingFreedObjectCrash
         static_assert(SitesConsistent(kSitesVR), "VR culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE), "AE culling site converge offsets must match validated block lengths");
         static_assert(SitesConsistent(kSitesAE1799), "AE1799 culling site converge offsets must match validated block lengths");
+        static_assert(SitesConsistent(kSitesAE1104), "AE1104 culling site converge offsets must match validated block lengths");
+
+        // AE point-release layout, by the lowest game version it applies to (ascending).
+        inline constexpr std::array<util::VersionedValue<std::array<Site, 7>>, 3> kSitesAE_ByVersion{ {
+            { REL::Version{ 1, 6, 353, 0 }, kSitesAE },
+            { REL::Version{ 1, 7, 99, 0 }, kSitesAE1799 },
+            { REL::Version{ 1, 7, 104, 0 }, kSitesAE1104 },
+        } };
         static_assert(SitesConsistent(kSitesSE), "SE culling site converge offsets must match validated block lengths");
 
         struct Patch final : Xbyak::CodeGenerator
@@ -111,8 +124,7 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(skipLbl);
 
-                // An in-module vftable can still have had one slot clobbered with heap
-                // garbage; validate the loaded slot value too, not just the vftable base.
+                // Also validate the loaded slot value, not just the vftable base.
                 util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl);
 
                 // Valid vftable + valid slot: perform the original call, resume after it.
@@ -131,7 +143,6 @@ namespace Fixes::CullingFreedObjectCrash
         };
 
         // Expected bytes at a site: CALL [RAX+disp32] == FF 90 <slot little-endian>.
-        // Guards against offset drift corrupting an unrelated instruction stream.
         inline bool CallMatches(std::uintptr_t a_addr, std::uint32_t a_slot)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
@@ -142,8 +153,7 @@ namespace Fixes::CullingFreedObjectCrash
                    p[5] == static_cast<std::uint8_t>(a_slot >> 24);
         }
 
-        // A stale convergeOffset could still pass CallMatches, so validate the displaced
-        // block through convergeOffset too before patching.
+        // A stale convergeOffset could still pass CallMatches, so also validate the displaced block.
         inline bool PostCallMatches(std::uintptr_t a_postCallAddr, std::span<const std::uint8_t> a_expected)
         {
             const auto* p = reinterpret_cast<const std::uint8_t*>(a_postCallAddr);
@@ -151,9 +161,6 @@ namespace Fixes::CullingFreedObjectCrash
         }
 
         // A separate ObjectLOD render/cull path calls a property-like object at vfunc +0x80.
-        // Unlike the OnVisible sites above, this function's clean freed-object path is an
-        // earlier common-success exit, so validate the complete call and post-call decision
-        // block explicitly before installing the cave.
         inline constexpr std::uint8_t kObjectLODRenderPostVR[] = {
             0x48, 0x85, 0xC0, 0x75, 0x09, 0x80, 0xBB, 0x90, 0x01, 0x00, 0x00,
             0x0B, 0x75, 0xBF
@@ -180,9 +187,7 @@ namespace Fixes::CullingFreedObjectCrash
             return 1;
         }
 
-        // The same ObjectLOD path first asks an auxiliary property at object+0x170 for its
-        // runtime type through vfunc +0x10. Invalid properties follow the function's existing
-        // null-property fallback; valid properties resume after the displaced call.
+        // The same ObjectLOD path also queries an auxiliary property at object+0x170 via vfunc +0x10.
         struct ObjectLODPropertyPatch final : Xbyak::CodeGenerator
         {
             ObjectLODPropertyPatch(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -194,8 +199,7 @@ namespace Fixes::CullingFreedObjectCrash
                 mov(r10, a_moduleBase);
                 cmp(rax, r10);
                 jb(fallbackLbl);
-                // Reject vtables too close to the module end -- the eight-byte slot read at
-                // [rax + 0x10] must itself land fully inside the module, not just rax.
+                // The [rax+0x10] slot read must itself land fully inside the module.
                 mov(r10, a_moduleEnd - 0x17);
                 cmp(rax, r10);
                 jae(fallbackLbl);
@@ -247,25 +251,46 @@ namespace Fixes::CullingFreedObjectCrash
             return 1;
         }
 
+        // Fallback when a site's hardcoded offset no longer matches: locate it by call+postCall bytes.
+        inline std::optional<std::uintptr_t> LocateSiteBySignature(
+            const Site& a_site, std::uint32_t a_slot, std::uintptr_t a_base, std::uintptr_t a_end)
+        {
+            std::vector<std::uint8_t> pattern;
+            pattern.reserve(6 + a_site.postCall.size());
+            pattern.push_back(0xFF);
+            pattern.push_back(0x90);
+            pattern.push_back(static_cast<std::uint8_t>(a_slot));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 8));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 16));
+            pattern.push_back(static_cast<std::uint8_t>(a_slot >> 24));
+            pattern.insert(pattern.end(), a_site.postCall.begin(), a_site.postCall.end());
+            return util::FindUniqueSignature(pattern, a_base, a_end);
+        }
+
         inline std::size_t PatchSites(std::span<const Site> a_sites, std::uint32_t a_slot,
             std::uintptr_t a_base, std::uintptr_t a_end)
         {
             auto&       trampoline = SKSE::GetTrampoline();
             std::size_t installed = 0;
             for (const auto& site : a_sites) {
-                REL::Relocation<std::uintptr_t> call{ REL::Offset{ site.callOffset } };
-                if (!CallMatches(call.address(), a_slot)) {
-                    logger::warn("culling crash fix: unexpected bytes at {:X}, skipping site"sv, site.callOffset);
-                    continue;
+                std::uintptr_t callAddr = REL::Relocation<std::uintptr_t>{ REL::Offset{ site.callOffset } }.address();
+
+                if (!CallMatches(callAddr, a_slot) || !PostCallMatches(callAddr + 0x6, site.postCall)) {
+                    auto found = LocateSiteBySignature(site, a_slot, a_base, a_end);
+                    if (!found) {
+                        logger::warn("culling crash fix: unexpected bytes at {:X} and no unique signature match, skipping site"sv,
+                            site.callOffset);
+                        continue;
+                    }
+                    callAddr = *found;
+                    logger::info(
+                        "culling crash fix: site at {:X} not at known offset; located via signature scan at {:X}"sv,
+                        site.callOffset, callAddr - a_base);
                 }
-                if (!PostCallMatches(call.address() + 0x6, site.postCall)) {
-                    logger::warn("culling crash fix: unexpected bytes after call at {:X}, skipping site"sv, site.callOffset);
-                    continue;
-                }
-                Patch p{ a_base, a_end, a_slot, call.address() + 0x6,
-                    REL::Relocation<std::uintptr_t>{ REL::Offset{ site.convergeOffset } }.address() };
+
+                Patch p{ a_base, a_end, a_slot, callAddr + 0x6, callAddr + 0x6 + site.postCall.size() };
                 p.ready();
-                call.write_branch<5>(trampoline.allocate(p));
+                REL::Relocation<std::uintptr_t>{ callAddr }.write_branch<5>(trampoline.allocate(p));
                 ++installed;
             }
             return installed;
@@ -285,7 +310,7 @@ namespace Fixes::CullingFreedObjectCrash
             installed += detail::PatchObjectLODRenderSiteVR(moduleBase, moduleEnd);
         } else if (REL::Module::IsAE())
             installed += detail::PatchSites(
-                util::IsAE1799() ? detail::kSitesAE1799 : detail::kSitesAE, 0x1A0, moduleBase, moduleEnd);
+                util::SelectForVersion(detail::kSitesAE_ByVersion), 0x1A0, moduleBase, moduleEnd);
         else
             installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
