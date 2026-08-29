@@ -25,6 +25,7 @@
 #include "create_armor_node_nullptr_crash.h"
 #include "culling_freed_object_crash.h"
 #include "double_perk_apply.h"
+#include "double_release_triple_comptr_teardown.h"
 #include "effectshaderdata_null_texture_crash.h"
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
@@ -120,6 +121,9 @@ namespace Fixes
 
         if (Settings::Fixes::bDoublePerkApply.GetValue())
             DoublePerkApply::Install();
+
+        if (Settings::Fixes::bDoubleReleaseTripleComPtrTeardown.GetValue())
+            DoubleReleaseTripleComPtrTeardown::Install();
 
         if (Settings::Fixes::bEffectShaderDataNullTextureCrash.GetValue())
             EffectShaderDataNullTextureCrash::Install();
