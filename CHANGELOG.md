@@ -1,3 +1,20 @@
+## [7.6.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.2...v7.6.3) (2026-08-29)
+
+### Bug Fixes
+
+* add 1.7.104 offsets to SubIndexTriShape guard ([7e903f5](https://github.com/alandtse/EngineFixesSkyrim64/commit/7e903f5d29c65125cb71de9e79715b62755592ff))
+* guard BSBatchRenderer shader dispatch UAF ([3f834fe](https://github.com/alandtse/EngineFixesSkyrim64/commit/3f834fe687dbe592fa9a5d27243c430904f88942))
+* relocate culling/scenegraph guards ([70f51e8](https://github.com/alandtse/EngineFixesSkyrim64/commit/70f51e8a905754eb26f0830288eb3208bc8782c8))
+* **vr:** guard MistMenu VR avatar-node null crash ([336e38c](https://github.com/alandtse/EngineFixesSkyrim64/commit/336e38cda98a43e518acce7b851c518764aefc33))
+
+
+### New Settings
+
+* `[Fixes] bBatchRendererShaderTechniqueUAF` (default `true`) — guards BSBatchRenderer's per-pass shader technique dispatch against a freed or reused shader vftable
+* `[Fixes] bMistMenuVRAvatarNodeNullCrash` (default `true`) — (VR-only) guards MistMenu's per-frame HMD/hand avatar-node transform update against a null-pointer crash when a cached node pointer isn't populated
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.6.2](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.1...v7.6.2) (2026-08-27)
 
 ### Bug Fixes
