@@ -1,3 +1,16 @@
+## [7.6.4](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.3...v7.6.4) (2026-08-29)
+
+### Bug Fixes
+
+* **ae:** skip redundant double-Release COM teardown ([11cad2e](https://github.com/alandtse/EngineFixesSkyrim64/commit/11cad2e8e3ea77ac9cb7608b5a2b5edebfa70b7b)), closes [63-#67](https://github.com/alandtse/63-/issues/67)
+
+
+### New Settings
+
+* `[Fixes] bDoubleReleaseTripleComPtrTeardown` (default `true`) — (AE-only) fixes a use-after-free crash from a vanilla engine resource wrapper releasing its owned COM pointers twice
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.6.3](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.2...v7.6.3) (2026-08-29)
 
 ### Bug Fixes
