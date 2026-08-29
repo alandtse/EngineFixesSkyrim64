@@ -41,6 +41,7 @@
 #include "lip_sync.h"
 #include "lockpicking_menu_init_crash.h"
 #include "memory_access_errors.h"
+#include "mistmenu_vr_avatar_node_null_crash.h"
 #include "mo5s_typo.h"
 #include "music_overlap.h"
 #include "nitimecontroller_no_target.h"
@@ -236,6 +237,9 @@ namespace Fixes
 
         if (Settings::Fixes::bBSOpenVRHandIndexNullCrash.GetValue())
             BSOpenVRHandIndexNullCrash::Install();
+
+        if (Settings::Fixes::bMistMenuVRAvatarNodeNullCrash.GetValue())
+            MistMenuVRAvatarNodeNullCrash::Install();
 
         if (Settings::Fixes::bShadowSceneCrash.GetValue())
             ShadowSceneCrash::Install();
