@@ -22,6 +22,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_5_97, 0xD7AA64, 0xD7AA6A, 0xD7AC78, true },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE55B24, 0xE55B2A, 0xE55D38, false },
             { SKSE::RUNTIME_SSE_1_7_99, 0x101B1A4, 0x101B1AA, 0x101B3B8, false },
+            { REL::Version{ 1, 7, 104, 0 }, 0x101B404, 0x101B40A, 0x101B618, false },
             { SKSE::RUNTIME_VR_1_4_15, 0xDCE417, 0xDCE41D, 0xDCE6F6, true },
         };
 
@@ -94,6 +95,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_5_97, 0xD59360, 0x160 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE310B0, 0x160 },
             { SKSE::RUNTIME_SSE_1_7_99, 0xFF6520, 0x160 },
+            { REL::Version{ 1, 7, 104, 0 }, 0xFF6780, 0x160 },
             { SKSE::RUNTIME_VR_1_4_15, 0xDA2470, 0x1A0 },
         };
 
@@ -148,6 +150,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_5_97, 0xD593E6, 0x160 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE31136, 0x160 },
             { SKSE::RUNTIME_SSE_1_7_99, 0xFF65A6, 0x160 },
+            { REL::Version{ 1, 7, 104, 0 }, 0xFF6806, 0x160 },
             { SKSE::RUNTIME_VR_1_4_15, 0xDA24F6, 0x1A0 },
         };
 
@@ -155,6 +158,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_5_97, 0xD59416, 0x160 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE31166, 0x160 },
             { SKSE::RUNTIME_SSE_1_7_99, 0xFF65D6, 0x160 },
+            { REL::Version{ 1, 7, 104, 0 }, 0xFF6836, 0x160 },
             { SKSE::RUNTIME_VR_1_4_15, 0xDA2526, 0x1A0 },
         };
 
@@ -172,6 +176,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_5_97, 0x4B66A0, 0x171, 0x168 },
             { SKSE::RUNTIME_SSE_1_6_1170, 0x5129A0, 0x171, 0x168 },
             { SKSE::RUNTIME_SSE_1_7_99, 0x51A6C0, 0x171, 0x168 },
+            { REL::Version{ 1, 7, 104, 0 }, 0x51A6C0, 0x171, 0x168 },
             { SKSE::RUNTIME_VR_1_4_15, 0x4C6780, 0x1B1, 0x1A8 },
         };
 
@@ -242,6 +247,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_6_1170, 0xE31180, { 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 7 },
             // AE 1.7.99: CMP byte ptr[RCX+0x170],0 (no SUB RSP)
             { SKSE::RUNTIME_SSE_1_7_99, 0xFF65F0, { 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 7 },
+            // AE 1.7.104: same shape as 1.7.99, whole compiland relocated +0x260
+            { REL::Version{ 1, 7, 104, 0 }, 0xFF6850, { 0x80, 0xB9, 0x70, 0x01, 0x00, 0x00, 0x00 }, 7 },
             // VR: SUB RSP,0x8; CMP byte ptr[RCX+0x1B0],0
             { SKSE::RUNTIME_VR_1_4_15, 0xDA2540,
                 { 0x48, 0x83, 0xEC, 0x08, 0x80, 0xB9, 0xB0, 0x01, 0x00, 0x00, 0x00 }, 11 },
@@ -306,6 +313,8 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             { SKSE::RUNTIME_SSE_1_6_1170, 0x511151, 0x5112B9, { 0x4C, 0x8B, 0xF8, 0x40, 0x84, 0xF6 }, 6 },
             // AE 1.7.99: MOV R15,RAX; TEST BL,BL (no REX needed on BL)
             { SKSE::RUNTIME_SSE_1_7_99, 0x518DE1, 0x518F67, { 0x4C, 0x8B, 0xF8, 0x84, 0xDB, 0x00 }, 5 },
+            // AE 1.7.104: byte-identical to 1.7.99, this compiland did not relocate
+            { REL::Version{ 1, 7, 104, 0 }, 0x518DE1, 0x518F67, { 0x4C, 0x8B, 0xF8, 0x84, 0xDB, 0x00 }, 5 },
             // VR: MOV RDI,RAX; TEST SIL,SIL
             { SKSE::RUNTIME_VR_1_4_15, 0x4C51F1, 0x4C52C9, { 0x48, 0x8B, 0xF8, 0x40, 0x84, 0xF6 }, 6 },
         };
