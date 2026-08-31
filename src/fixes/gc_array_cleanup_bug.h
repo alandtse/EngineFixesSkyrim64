@@ -11,8 +11,8 @@ namespace Fixes::GCArrayCleanupBug
             std::uint16_t patch;
         };
 
-        // VR is byte-identical to SE at these offsets; AE's wider inline array-size
-        // field shifts the same edits further in (kPatchArrAE/kPatchObjAE below).
+        // AE's wider inline array-size field shifts the same edits further in
+        // (kPatchArrAE/kPatchObjAE below).
         constexpr Patch16 kPatchSE[] = {
             { 0x12C, 0x0C75, 0x0A75 },
             { 0x130, 0x0872, 0x0675 },
@@ -55,16 +55,20 @@ namespace Fixes::GCArrayCleanupBug
     }
 
     // Ported from InTheBottle/SkyrimSE-gc-bug-fix (GPL-3.0 with modding exception),
-    // itself a port of Nukem9/fallout4-gc-bug-fix.
-    //
-    // VR resolves via a raw module offset rather than RELOCATION_ID: ids 98217/98218
-    // aren't in the currently-vendored VR address library release yet.
+    // itself a port of Nukem9/fallout4-gc-bug-fix. SE/AE only for now: the VR target
+    // address (RVA 0x28D1F0/0x28D380) is independently verified correct against a
+    // PDB-GUID-matched Ghidra import of the exact installed build, but a live VR
+    // process demonstrably has different code there (see gbrain
+    // project-enginefixes-gc-array-cleanup-vr-address-mismatch) -- root cause
+    // unresolved, so don't re-add a VR raw-offset attempt without re-deriving it
+    // live first.
     inline void Install()
     {
-        const auto base = REL::Module::get().base();
+        if (REL::Module::IsVR())
+            return;
 
-        const std::uintptr_t arrAddr = REL::Module::IsVR() ? base + 0x28D1F0 : REL::RelocationID(98217, 104859).address();
-        const std::uintptr_t objAddr = REL::Module::IsVR() ? base + 0x28D380 : REL::RelocationID(98218, 104860).address();
+        const std::uintptr_t arrAddr = REL::RelocationID(98217, 104859).address();
+        const std::uintptr_t objAddr = REL::RelocationID(98218, 104860).address();
 
         const bool isAE = REL::Module::IsAE();
         const bool arrOk = detail::Apply(arrAddr, isAE ? std::span{ detail::kPatchArrAE } : std::span{ detail::kPatchSE }, "GC_Arr"sv);
