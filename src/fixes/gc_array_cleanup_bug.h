@@ -54,11 +54,8 @@ namespace Fixes::GCArrayCleanupBug
         }
     }
 
-    // Fixes a bug in the Papyrus VM's incremental garbage collector: ProcessArrayCleanup/
-    // ProcessObjectCleanup can exit their cleanup loop after a single collected entry,
-    // forgoing the rest of the frame's time budget and causing growing script lag and
-    // save/load hitches. Ported from InTheBottle/SkyrimSE-gc-bug-fix (GPL-3.0 with
-    // modding exception), itself a port of Nukem9/fallout4-gc-bug-fix.
+    // Ported from InTheBottle/SkyrimSE-gc-bug-fix (GPL-3.0 with modding exception),
+    // itself a port of Nukem9/fallout4-gc-bug-fix.
     //
     // VR resolves via a raw module offset rather than RELOCATION_ID: ids 98217/98218
     // aren't in the currently-vendored VR address library release yet.

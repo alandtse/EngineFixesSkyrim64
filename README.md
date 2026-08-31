@@ -10,4 +10,5 @@ Originally based on code under [MIT](licenses/LICENSE-MIT).
 ## Credits
 
 The GC array/object cleanup fix is ported from [InTheBottle/SkyrimSE-gc-bug-fix](https://github.com/InTheBottle/SkyrimSE-gc-bug-fix)
-(GPL-3.0 with modding exception), itself a port of [Nukem9/fallout4-gc-bug-fix](https://github.com/Nukem9/fallout4-gc-bug-fix).
+by [kingeric1992](https://github.com/kingeric1992) (GPL-3.0 with modding exception), itself a port
+of [Nukem9/fallout4-gc-bug-fix](https://github.com/Nukem9/fallout4-gc-bug-fix).
