@@ -30,6 +30,7 @@
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
 #include "facegen_morphdatahead_nullptr_crash.h"
+#include "gc_array_cleanup_bug.h"
 #include "get_keyword_item_count.h"
 #include "getgamesetting_not_found_crash.h"
 #include "gheap_leak_detection_crash.h"
@@ -136,6 +137,9 @@ namespace Fixes
 
         if (Settings::Fixes::bFaceGenMorphDataHeadNullPtrCrash.GetValue())
             FaceGenMorphDataHeadNullPtrCrash::Install();
+
+        if (Settings::Fixes::bGCArrayCleanupBug.GetValue())
+            GCArrayCleanupBug::Install();
 
         if (Settings::Fixes::bGetGameSettingNotFoundCrash.GetValue())
             GetGameSettingNotFoundCrash::Install();
