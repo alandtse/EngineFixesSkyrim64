@@ -55,10 +55,7 @@ namespace Fixes::GCArrayCleanupBug
     }
 
     // Ported from InTheBottle/SkyrimSE-gc-bug-fix (GPL-3.0 with modding exception),
-    // itself a port of Nukem9/fallout4-gc-bug-fix. VR resolves via the same
-    // RELOCATION_ID as SE/AE now that skyrim_vr_address_library PR #197 registered
-    // ids 98217/98218; VR's own bytes at this site are identical to SE's (uses
-    // kPatchSE, not the AE variant).
+    // itself a port of Nukem9/fallout4-gc-bug-fix.
     inline void Install()
     {
         const std::uintptr_t arrAddr = REL::RelocationID(98217, 104859).address();
