@@ -1,3 +1,9 @@
+## [7.7.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.7.0...v7.7.1) (2026-09-01)
+
+### Bug Fixes
+
+* stop writing GC cleanup patch's sentinel byte ([#71](https://github.com/alandtse/EngineFixesSkyrim64/issues/71)) ([75602b8](https://github.com/alandtse/EngineFixesSkyrim64/commit/75602b88a7674db2bd3438906fa24662332a07dc))
+
 ## [7.7.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.4...v7.7.0) (2026-09-01)
 
 ### Features
