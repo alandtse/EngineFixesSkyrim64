@@ -1,0 +1,73 @@
+#pragma once
+
+// Ported from https://github.com/InTheBottle/SkyrimSE-gc-bug-fix by
+// https://github.com/kingeric1992 (GPL-3.0 with modding exception), itself a
+// port of https://github.com/Nukem9/fallout4-gc-bug-fix.
+
+namespace Fixes::GCArrayCleanupBug
+{
+    namespace detail
+    {
+        struct Patch16
+        {
+            std::uint16_t offset;
+            std::uint16_t orig;
+            std::uint16_t patch;
+        };
+
+        // AE's wider inline array-size field shifts the same edits further in
+        // (kPatchArrAE/kPatchObjAE below).
+        constexpr Patch16 kPatchSE[] = {
+            { 0x12C, 0x0C75, 0x0A75 },
+            { 0x130, 0x0872, 0x0675 },
+            { 0x136, 0x02EB, 0x9066 },
+            { 0x138, 0xC3FF, 0x0000 },
+        };
+        constexpr Patch16 kPatchArrAE[] = {
+            { 0x148, 0x1674, 0x1474 },
+            { 0x151, 0x0D72, 0x0B72 },
+            { 0x15C, 0x02EB, 0x9066 },
+            { 0x15E, 0xC5FF, 0x0000 },
+        };
+        constexpr Patch16 kPatchObjAE[] = {
+            { 0x152, 0x1674, 0x1474 },
+            { 0x15B, 0x0D72, 0x0B72 },
+            { 0x166, 0x02EB, 0x9066 },
+            { 0x168, 0xC5FF, 0x0000 },
+        };
+
+        inline bool Apply(std::uintptr_t a_base, std::span<const Patch16> a_patch, std::string_view a_name)
+        {
+            for (const auto& p : a_patch) {
+                std::uint16_t cur;
+                std::memcpy(&cur, reinterpret_cast<const void*>(a_base + p.offset), sizeof(cur));
+                if (cur != p.orig) {
+                    logger::error("GCArrayCleanupBug: {} AOB mismatch at +{:#x}: expected {:#x}, found {:#x}"sv, a_name, p.offset, p.orig, cur);
+                    return false;
+                }
+            }
+
+            for (const auto& p : a_patch) {
+                const std::array<std::byte, 2> bytes{
+                    static_cast<std::byte>(p.patch & 0xFF),
+                    static_cast<std::byte>((p.patch >> 8) & 0xFF),
+                };
+                REL::Relocation<std::uintptr_t>{ a_base + p.offset }.write(std::span<const std::byte>{ bytes });
+            }
+            return true;
+        }
+    }
+
+    inline void Install()
+    {
+        const std::uintptr_t arrAddr = REL::RelocationID(98217, 104859).address();
+        const std::uintptr_t objAddr = REL::RelocationID(98218, 104860).address();
+
+        const bool isAE = REL::Module::IsAE();
+        const bool arrOk = detail::Apply(arrAddr, isAE ? std::span{ detail::kPatchArrAE } : std::span{ detail::kPatchSE }, "GC_Arr"sv);
+        const bool objOk = detail::Apply(objAddr, isAE ? std::span{ detail::kPatchObjAE } : std::span{ detail::kPatchSE }, "GC_Obj"sv);
+
+        if (arrOk && objOk)
+            logger::info("installed GC array/object cleanup bug fix"sv);
+    }
+}
