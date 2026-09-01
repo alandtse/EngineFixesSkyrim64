@@ -55,18 +55,12 @@ namespace Fixes::GCArrayCleanupBug
     }
 
     // Ported from InTheBottle/SkyrimSE-gc-bug-fix (GPL-3.0 with modding exception),
-    // itself a port of Nukem9/fallout4-gc-bug-fix. SE/AE only for now: the VR target
-    // address (RVA 0x28D1F0/0x28D380) is independently verified correct against a
-    // PDB-GUID-matched Ghidra import of the exact installed build, but a live VR
-    // process demonstrably has different code there (see gbrain
-    // project-enginefixes-gc-array-cleanup-vr-address-mismatch) -- root cause
-    // unresolved, so don't re-add a VR raw-offset attempt without re-deriving it
-    // live first.
+    // itself a port of Nukem9/fallout4-gc-bug-fix. VR resolves via the same
+    // RELOCATION_ID as SE/AE now that skyrim_vr_address_library PR #197 registered
+    // ids 98217/98218; VR's own bytes at this site are identical to SE's (uses
+    // kPatchSE, not the AE variant).
     inline void Install()
     {
-        if (REL::Module::IsVR())
-            return;
-
         const std::uintptr_t arrAddr = REL::RelocationID(98217, 104859).address();
         const std::uintptr_t objAddr = REL::RelocationID(98218, 104860).address();
 
