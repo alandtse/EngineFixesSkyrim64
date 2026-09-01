@@ -1,3 +1,16 @@
+## [7.7.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.4...v7.7.0) (2026-09-01)
+
+### Features
+
+* port Papyrus GC array/object cleanup bug fix ([#70](https://github.com/alandtse/EngineFixesSkyrim64/issues/70)) ([92ddaef](https://github.com/alandtse/EngineFixesSkyrim64/commit/92ddaef14fd4b2f6f3281e12f0e634a1bc4ed6b1))
+
+
+### New Settings
+
+* `[Fixes] bGCArrayCleanupBug` (default `true`) — fixes the Papyrus VM's incremental garbage collector sometimes exiting its array/object cleanup loop after a single entry, forgoing the rest of its time budget and causing progressive script lag/hitches
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.6.4](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.6.3...v7.6.4) (2026-08-29)
 
 ### Bug Fixes

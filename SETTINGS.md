@@ -44,6 +44,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bEquipShoutEventSpam` | `true` | ≤ 7.0.20 | fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip |
 | `bESLCELLLoadBug` | `true` | ≤ 7.0.20 | fixes issues with interior cells created in ESL files |
 | `bFaceGenMorphDataHeadNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in face morphing, possibly related to decapitations |
+| `bGCArrayCleanupBug` | `true` | 7.7.0 | fixes the Papyrus VM's incremental garbage collector sometimes exiting its array/object cleanup loop after a single entry, forgoing the rest of its time budget and causing progressive script lag/hitches |
 | `bGetGameSettingNotFoundCrash` | `true` | 7.4.0 | fixes a crash when the "GetGameSetting" (getgs) console command is given a setting name that doesn't exist |
 | `bGetKeywordItemCount` | `false` | ≤ 7.0.20 | fixes the condition function "GetKeywordItemCount", which returns broken results sometimes |
 | `bGHeapLeakDetectionCrash` | `true` | ≤ 7.0.20 | fixes a crash where scaleform attempts to report a memory leak but the code doesn't exist in Skyrim's build |
@@ -134,6 +135,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.7.0**: `bGCArrayCleanupBug`
 - **7.6.4**: `bDoubleReleaseTripleComPtrTeardown`
 - **7.6.3**: `bBatchRendererShaderTechniqueUAF`, `bMistMenuVRAvatarNodeNullCrash`
 - **7.6.1**: `bSubIndexTriShapeCreateNullCrash`
