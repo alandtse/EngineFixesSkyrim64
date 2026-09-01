@@ -1,5 +1,9 @@
 #pragma once
 
+// Ported from https://github.com/InTheBottle/SkyrimSE-gc-bug-fix by
+// https://github.com/kingeric1992 (GPL-3.0 with modding exception), itself a
+// port of https://github.com/Nukem9/fallout4-gc-bug-fix.
+
 namespace Fixes::GCArrayCleanupBug
 {
     namespace detail
@@ -54,8 +58,6 @@ namespace Fixes::GCArrayCleanupBug
         }
     }
 
-    // Ported from InTheBottle/SkyrimSE-gc-bug-fix by kingeric1992 (GPL-3.0 with
-    // modding exception), itself a port of Nukem9/fallout4-gc-bug-fix.
     inline void Install()
     {
         const std::uintptr_t arrAddr = REL::RelocationID(98217, 104859).address();
