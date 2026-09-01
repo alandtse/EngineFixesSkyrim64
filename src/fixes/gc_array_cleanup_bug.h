@@ -47,7 +47,9 @@ namespace Fixes::GCArrayCleanupBug
                 }
             }
 
-            for (const auto& p : a_patch) {
+            // Trailing entry only bounds the check/VirtualProtect range (upstream never
+            // writes it): writing it turns the live `inc ebx` into a faulting `add [rax],al`.
+            for (const auto& p : a_patch.first(a_patch.size() - 1)) {
                 const std::array<std::byte, 2> bytes{
                     static_cast<std::byte>(p.patch & 0xFF),
                     static_cast<std::byte>((p.patch >> 8) & 0xFF),
