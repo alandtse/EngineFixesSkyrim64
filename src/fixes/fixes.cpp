@@ -43,6 +43,7 @@
 #include "lighting_shader_null_texture_crash.h"
 #include "lip_sync.h"
 #include "lockpicking_menu_init_crash.h"
+#include "mapmenu_closehandlers_null_guard.h"
 #include "memory_access_errors.h"
 #include "mistmenu_vr_avatar_node_null_crash.h"
 #include "mo5s_typo.h"
@@ -258,5 +259,8 @@ namespace Fixes
 
         if (Settings::Fixes::bLockpickingMenuInitCrash.GetValue())
             LockpickingMenuInitCrash::Install();
+
+        if (Settings::Fixes::bMapMenuCloseHandlersNullGuard.GetValue())
+            MapMenuCloseHandlersNullGuard::Install();
     }
 }
