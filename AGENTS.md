@@ -71,7 +71,46 @@ prevent, so the discipline matters even though the immediate failure mode is sof
   extraordinary-invariant exception tops out at 3–4. Don't restate what the code already says,
   and don't narrate design rationale that belongs in the PR body instead.
 - **Minimal churn** — touch only what the change requires.
+- **No placeholders, complete solutions.** A fix ships complete — no stubbed guard "to be
+  filled in later," and real resource management around every allocation this plugin makes
+  outside the engine's own pools (see `Memory::RenderPassCache`'s deferred-free quarantine for
+  what "getting this right" looks like for a lifetime-sensitive resource).
 - **Descriptive naming**, one job per function/struct.
+
+## Constructive proactivity
+
+- Flag a plausible cross-thread race or lifetime issue proactively, even if you can't prove it
+  without a live repro — this codebase already has one quarantine mechanism
+  (`Memory::RenderPassCache`) built specifically because a "looks safe" immediate-free wasn't.
+- Prefer surfacing a gap (a raw-offset anchor standing in for a missing address-library id, an
+  AE point release you haven't independently checked) over silently shipping around it.
+- **Verify identifying facts; don't confabulate.** A relocation id, a runtime's actual register
+  allocation at a patch site, whether two runtimes are byte-identical — read it from the binary,
+  don't assume it from a sibling fix's pattern.
+
+## Security & input validation
+
+- Validate anything this plugin reads from outside its own compiled code: the settings TOML,
+  save-adjacent data, cosave files. Malformed input must not crash or corrupt state — see
+  `src/settings_schema.h`'s self-healing generator for the settings side of this.
+- Bounds-check any index or pointer arithmetic derived from a value the game or a save file
+  controls before it reaches a raw byte-patch site.
+
+## Error handling
+
+- Log at a severity that matches reality: a skipped/no-op site (byte mismatch, unsupported
+  runtime) is `warn`, not silent and not `error`; an actual install failure that leaves a fix
+  inert is worth calling out clearly.
+- Degrade gracefully by design — a `SiteMatches*` mismatch skips that one site rather than
+  aborting the whole fix or the process; keep new fixes to that same fail-soft shape rather
+  than a hard fault on an unexpected byte pattern.
+
+## Testing & validation
+
+- Build and, where feasible, run the changed fix against a live game session before calling it
+  done — see the build/verify section above.
+- **Never bypass commit verification** (`--no-verify` or otherwise skipping pre-commit/
+  commit-msg hooks) unless the user explicitly directs it for a specific commit.
 
 ## Commits & PRs
 
@@ -81,8 +120,17 @@ prevent, so the discipline matters even though the immediate failure mode is sof
   bump — get its type right.
 - PR/commit descriptions describe the change for a reviewer, not the session history that
   produced it.
+- Treat `git commit`/`gh pr create` as a hard checkpoint: re-read this file's Commits & PRs and
+  Collaboration sections immediately before either.
+
+## Collaboration / git safety
+
 - Never force-push or rewrite history on `main` without explicit instruction. Confirm before
   pushing to any remote.
+- A review sweep must read each review's full body text, not just inline `reviewThreads` —
+  "outside diff range" findings are often embedded in the review body with no inline thread.
+- Don't manually create release tags or hand-edit version fields — semantic-release owns both
+  on merge to `main`.
 - If a fix depends on an unmerged upstream PR (another fix, or an address-library PR in a
   different repo), say so explicitly in the PR body and sequence the merges accordingly —
   don't let a fix ship in an order where its dependency isn't live yet.
