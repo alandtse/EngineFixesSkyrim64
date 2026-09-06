@@ -4,9 +4,9 @@
 
 // Guards BSBatchRenderer against accessing a cleared/null-derived renderPass array. A heap
 // pointer can't be range-checked against the module image like a vftable can, so the guard
-// instead skips accesses below kMinPlausiblePointer. AE encodes
-// ApplyPassAlphaCullState's index register as RAX instead of RCX, hence the separate
-// Patch/matcher pair.
+// instead skips accesses below kMinPlausiblePointer. AE's compiled output differs enough at
+// every site (register allocation, sometimes instruction order) to need its own Patch type
+// per site; SE shares VR's byte-identical code and reuses its Patch types.
 
 namespace Fixes::BatchRendererRenderPassArrayUAF
 {
@@ -83,6 +83,26 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             } };
         }
 
+        // SE shares VR's byte-identical GetNextPassSlotInGroup and ApplyPassAlphaCullState
+        // (verified by disassembly), so these reuse the VR guards' Patch types below.
+        inline std::array<ReadSite, 1> SitesSEFindNextPass()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::ID(100851), 0x30 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(100851), 0x38 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(100851), 0x5C }.address() },
+            } };
+        }
+
+        inline std::array<ReadSite, 1> SitesSELoadPass()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::ID(100852), 0x27B }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(100852), 0x283 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(100852), 0x2BA }.address() },
+            } };
+        }
+
         // AE uses a separate numeric ID space from SE (see se_ae.csv).
         inline std::array<Site, 1> SitesAEApplyPassAlphaCullState()
         {
@@ -97,6 +117,30 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             return { {
                 { REL::Relocation<std::uintptr_t>{ REL::ID(107643), 0x57 }.address(),
                     REL::Relocation<std::uintptr_t>{ REL::ID(107643), 0x6D }.address() },
+            } };
+        }
+
+        // AE's GetNextPassSlotInGroup uses different register allocation than SE/VR
+        // (R10/R11 instead of R11/RBX, an immediate 0 compare instead of a zeroed
+        // register), so it needs its own Patch type below.
+        inline std::array<ReadSite, 1> SitesAEFindNextPass()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::ID(107641), 0x30 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(107641), 0x38 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(107641), 0x5D }.address() },
+            } };
+        }
+
+        // AE's ApplyPassAlphaCullState computes the pass index between the pointer
+        // load and the dereference (RDI/R10/RCX instead of RSI/RDX), so the guarded
+        // block is 3 instructions here instead of 2.
+        inline std::array<ReadSite, 1> SitesAELoadPass()
+        {
+            return { {
+                { REL::Relocation<std::uintptr_t>{ REL::ID(107642), 0x270 }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(107642), 0x27C }.address(),
+                    REL::Relocation<std::uintptr_t>{ REL::ID(107642), 0x2AE }.address() },
             } };
         }
 
@@ -284,6 +328,77 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             return std::equal(std::begin(kExpected), std::end(kExpected), p);
         }
 
+        // AE-only encoding of PatchFindNextPass: the pointer is in R10 (not R11), the
+        // index in R11+R8 (not RBX+R8), the "not found" sentinel is an immediate 0
+        // (not a zeroed register), and there's no RBX to save/restore -- AE's compiler
+        // used the volatile R11 here instead of the callee-saved RBX.
+        struct PatchFindNextPassAE final : Xbyak::CodeGenerator
+        {
+            PatchFindNextPassAE(std::uintptr_t a_resume, std::uintptr_t a_empty)
+            {
+                Xbyak::Label emptyLbl, resumeAddr, emptyAddr;
+
+                mov(rcx, qword[r10 + 0x8]);
+                cmp(rcx, kMinPlausiblePointer);
+                jbe(emptyLbl);
+
+                lea(rdx, qword[r11 + r8]);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(emptyLbl);
+                mov(dword[r9], 0);
+                mov(eax, 0x5);
+                jmp(ptr[rip + emptyAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(emptyAddr);
+                dq(a_empty);
+            }
+        };
+
+        inline bool SiteMatchesFindNextPassAE(std::uintptr_t a_addr)
+        {
+            static constexpr std::uint8_t kExpected[] = { 0x49, 0x8B, 0x4A, 0x08, 0x4B, 0x8D, 0x14, 0x03 };
+            const auto*                   p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
+        }
+
+        // AE-only encoding of PatchLoadPass: the pointer is in RDI (not RSI), and the
+        // index (R10+RCX) is computed between the pointer load and the dereference
+        // rather than beforehand, so the guarded block spans 3 instructions, not 2.
+        struct PatchLoadPassAE final : Xbyak::CodeGenerator
+        {
+            PatchLoadPassAE(std::uintptr_t a_resume, std::uintptr_t a_empty)
+            {
+                Xbyak::Label emptyLbl, resumeAddr, emptyAddr;
+
+                mov(rax, qword[rdi + 0x8]);
+                cmp(rax, kMinPlausiblePointer);
+                jbe(emptyLbl);
+
+                lea(rdx, qword[r10 + rcx * 2]);
+                mov(rbx, qword[rax + rdx * 8]);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(emptyLbl);
+                xor_(ebx, ebx);
+                jmp(ptr[rip + emptyAddr]);
+
+                L(resumeAddr);
+                dq(a_resume);
+                L(emptyAddr);
+                dq(a_empty);
+            }
+        };
+
+        inline bool SiteMatchesLoadPassAE(std::uintptr_t a_addr)
+        {
+            static constexpr std::uint8_t kExpected[] = { 0x48, 0x8B, 0x47, 0x08, 0x49, 0x8D, 0x14, 0x4A, 0x48, 0x8B, 0x1C, 0xD0 };
+            const auto*                   p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return std::equal(std::begin(kExpected), std::end(kExpected), p);
+        }
+
         template <class PatchT>
         inline std::size_t PatchSites(std::span<const Site> a_sites, bool (*a_matches)(std::uintptr_t))
         {
@@ -332,9 +447,13 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             installed += detail::PatchSites<detail::PatchApplyPassRcx>(detail::SitesVRApplyPassAlphaCullState(), detail::SiteMatchesApplyPassRcx);
             installed += detail::PatchSites<detail::PatchGetRenderPassIndex>(detail::SitesVRGetRenderPassIndex(), detail::SiteMatchesGetRenderPassIndex);
         } else if (REL::Module::IsAE()) {
+            installed += detail::PatchReadSites<detail::PatchFindNextPassAE>(detail::SitesAEFindNextPass(), detail::SiteMatchesFindNextPassAE);
+            installed += detail::PatchReadSites<detail::PatchLoadPassAE>(detail::SitesAELoadPass(), detail::SiteMatchesLoadPassAE);
             installed += detail::PatchSites<detail::PatchApplyPassRax>(detail::SitesAEApplyPassAlphaCullState(), detail::SiteMatchesApplyPassRax);
             installed += detail::PatchSites<detail::PatchGetRenderPassIndex>(detail::SitesAEGetRenderPassIndex(), detail::SiteMatchesGetRenderPassIndex);
         } else {
+            installed += detail::PatchReadSites<detail::PatchFindNextPass>(detail::SitesSEFindNextPass(), detail::SiteMatchesFindNextPass);
+            installed += detail::PatchReadSites<detail::PatchLoadPass>(detail::SitesSELoadPass(), detail::SiteMatchesLoadPass);
             installed += detail::PatchSites<detail::PatchApplyPassRcx>(detail::SitesSEApplyPassAlphaCullState(), detail::SiteMatchesApplyPassRcx);
             installed += detail::PatchSites<detail::PatchGetRenderPassIndex>(detail::SitesSEGetRenderPassIndex(), detail::SiteMatchesGetRenderPassIndex);
         }
