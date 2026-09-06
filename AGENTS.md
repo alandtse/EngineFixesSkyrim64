@@ -10,6 +10,13 @@ Skyrim SE/AE/VR engine binary at runtime, via raw byte-level inline hooks (`REL:
 Every fix lives under `src/fixes/`, is gated by its own boolean setting (see below), and is
 independently toggleable so a regression in one fix never has to disable the rest.
 
+Unlike CommonLibVR (which this plugin links against), there is no compile-time SE/AE/VR
+split here — one binary branches on `REL::Module::IsVR()`/`IsAE()` at runtime, and there is
+only a single CMake preset (no se/ae/vr/flatrim/all matrix to build). That means nothing in
+the build catches a fix that's only correct for one runtime — verifying a change against
+every runtime it touches is a manual discipline, not something CI/the build system enforces
+for you. See the next section.
+
 Base branch for PRs: **`main`**. Never push directly to `main` — release automation
 (`chore(release): X.Y.Z [skip ci]`) runs from there.
 
@@ -26,15 +33,19 @@ sync with the schema's `comment` field — the doc table is not auto-generated f
 ## Build & verify before claiming done
 
 ```powershell
-cmake -B <external-build-dir> -S . --preset vs2026-windows-vcpkg
-cmake --build <external-build-dir> --config Release --parallel
+cmake --preset vs2026-windows-vcpkg
+cmake --build --preset release   # or: --preset debug
 ```
 
-Use an **external** build directory (outside the repo) when verifying a change without
-disturbing another in-progress build in the repo's own `build/`. A build's post-build step
-copies the DLL into the installed game's `Data` folder — that copy step will fail with
+This builds in the repo's own `build/` directory (the preset's default). A build's post-build
+step copies the DLL into the installed game's `Data` folder — that copy step will fail with
 "Permission denied" if the target game process is currently running (this is expected, not a
 build failure; the compile itself already succeeded by that point).
+
+Only reach for a separate, external build directory (`cmake -B <external-dir> -S .
+--preset vs2026-windows-vcpkg`) if something else is genuinely using the repo's own `build/`
+at the same time (e.g. another concurrent agent/session) — it's the exception, not the
+default.
 
 ## Writing a raw byte-patch fix — verify against the real binary, every time
 
@@ -109,6 +120,12 @@ prevent, so the discipline matters even though the immediate failure mode is sof
 
 - Build and, where feasible, run the changed fix against a live game session before calling it
   done — see the build/verify section above.
+- **Verify every runtime the change actually touches, not just the one you happened to test.**
+  Since there's no build-time SE/AE/VR split (see Project snapshot), "it built" proves nothing
+  about runtime correctness on the other two. A change to a shared/per-runtime patch site
+  needs its own check against each runtime it applies to — and if it applies across AE's own
+  point releases (1.6.1170, 1.7.99, 1.7.104, ...), check more than one of those too rather than
+  assuming they match.
 - **Never bypass commit verification** (`--no-verify` or otherwise skipping pre-commit/
   commit-msg hooks) unless the user explicitly directs it for a specific commit.
 
@@ -117,7 +134,8 @@ prevent, so the discipline matters even though the immediate failure mode is sof
 - Conventional Commits (`type(scope): description`), title ≤ 50 chars.
   `fix:`/`perf:` → patch, `feat:` → minor, `build:`/`chore:`/`ci:`/`docs:`/`refactor:`/`style:`/`test:`
   → no release. The squash-merged PR title is what semantic-release reads for the version
-  bump — get its type right.
+  bump — get its type right. **`ci` is its own type, not a scope** — a workflow/CI-config-only
+  change is `ci: ...`, never `fix(ci): ...`/`feat(ci): ...`.
 - PR/commit descriptions describe the change for a reviewer, not the session history that
   produced it.
 - Treat `git commit`/`gh pr create` as a hard checkpoint: re-read this file's Commits & PRs and
