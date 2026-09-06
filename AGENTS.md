@@ -68,12 +68,13 @@ prevent, so the discipline matters even though the immediate failure mode is sof
   independently rather than assuming the boundary you happened to test is representative —
   confirm at more than one AE build before treating "AE" as a single case.
 - Prefer `REL::ID(<id>)` over a raw `REL::Offset{}` anchor once the id has a real mapping in
-  `skyrim_vr_address_library`. A raw-offset anchor is a sign the address-library mapping is
-  missing or wrong for that runtime — fix the address library (separate repo/PR) rather than
-  leaving the raw offset as the permanent anchor. A `REL::ID()` call for an id missing from
-  the currently-installed address library aborts the game at load
-  (`REL/IDDB.cpp`'s `report_id_lookup_failure`) — don't land a fix that depends on an
-  address-library id before that id's mapping has actually shipped.
+  [`skyrim_vr_address_library`](https://github.com/alandtse/skyrim_vr_address_library). A
+  raw-offset anchor is a sign the address-library mapping is missing or wrong for that
+  runtime — fix the address library (separate repo/PR) rather than leaving the raw offset as
+  the permanent anchor. A `REL::ID()` call for an id missing from the currently-installed
+  address library aborts the game at load (`REL/IDDB.cpp`'s `report_id_lookup_failure`) —
+  don't land a fix that depends on an address-library id before that id's mapping has
+  actually shipped.
 
 ## Code quality
 
