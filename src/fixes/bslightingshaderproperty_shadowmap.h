@@ -1,8 +1,9 @@
 #pragma once
-#include "memory/allocator.h"
-
+#include <array>
 #include <atomic>
 #include <cstddef>
+#include <mutex>
+#include <unordered_map>
 
 namespace BSLightingShaderPropertyShadowMap
 {
@@ -38,6 +39,11 @@ namespace BSLightingShaderPropertyShadowMap
         inline REL::Relocation<RE::BSRenderPass*(RE::BSShader*, RE::BSShaderProperty*, RE::BSGeometry*, std::uint32_t, std::uint8_t, RE::BSLight**)> BSRenderPass_Allocate{ RELOCATION_ID(100717, 107497) };
         inline REL::Relocation<void(RE::BSRenderPass*)>                                                                                              BSRenderPass_Deallocate{ RELOCATION_ID(100718, 107498) };
 
+        // head is a real BSRenderPass* the engine's destructor unconditionally
+        // clears -- keep our 4 passes in this side table instead, keyed by pointer.
+        inline std::mutex                                                                                         g_utilityPassesMutex;
+        inline std::unordered_map<RE::BSLightingShaderProperty*, std::array<RE::BSRenderPass*, kShadowPassCount>> g_utilityPasses;
+
         inline std::uint32_t GetShadowmapIndex(const void* a_data)
         {
             if (a_data == nullptr)
@@ -56,14 +62,8 @@ namespace BSLightingShaderPropertyShadowMap
             // four-pointer allocation below.
             const auto index = g_currentIndex < kShadowPassCount ? g_currentIndex : 0;
 
-            // create our storage, 4 max
-            // re-use the RenderPassArray space here
-            if (a_property->volumetricShadowUtilityPasses.unk08 != 0xDEADBEEF) {
-                a_property->volumetricShadowUtilityPasses.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * kShadowPassCount, 8));
-                memset(a_property->volumetricShadowUtilityPasses.head, 0, sizeof(RE::BSRenderPass*) * kShadowPassCount);
-                a_property->volumetricShadowUtilityPasses.unk08 = 0xDEADBEEF;
-            }
-            auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_property->volumetricShadowUtilityPasses.head);
+            std::scoped_lock lock(g_utilityPassesMutex);
+            auto&            passArray = g_utilityPasses[a_property];
             // clear last frame's render pass
             if (passArray[index] != nullptr) {
                 BSRenderPass_Deallocate(passArray[index]);
@@ -114,18 +114,16 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline void CleanAllocatedArrays(RE::BSLightingShaderProperty* a_self)
         {
-            if (a_self->volumetricShadowUtilityPasses.unk08 == 0xDEADBEEF) {
-                auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_self->volumetricShadowUtilityPasses.head);
-                for (std::uint32_t i = 0; i < kShadowPassCount; i++) {
-                    if (passArray[i] != nullptr) {
-                        BSRenderPass_Deallocate(passArray[i]);
-                        passArray[i] = nullptr;
-                    }
-                }
-                Memory::Allocator::GetAllocator()->DeallocateAligned(passArray);
-                a_self->volumetricShadowUtilityPasses.head = nullptr;
-                a_self->volumetricShadowUtilityPasses.unk08 = 0x0;
+            std::scoped_lock lock(g_utilityPassesMutex);
+            const auto       it = g_utilityPasses.find(a_self);
+            if (it == g_utilityPasses.end())
+                return;
+
+            for (auto* pass : it->second) {
+                if (pass != nullptr)
+                    BSRenderPass_Deallocate(pass);
             }
+            g_utilityPasses.erase(it);
         }
 
         inline SafetyHookInline orig_BSLightingShaderProperty_ClearRenderPassArrays;
