@@ -36,13 +36,14 @@ namespace BSLightingShaderPropertyShadowMap
         inline thread_local std::uint32_t g_currentIndex = 0;
         inline std::atomic_bool           g_loggedInvalidIndex = false;
 
-        inline REL::Relocation<RE::BSRenderPass*(RE::BSShader*, RE::BSShaderProperty*, RE::BSGeometry*, std::uint32_t, std::uint8_t, RE::BSLight**)> BSRenderPass_Allocate{ RELOCATION_ID(100717, 107497) };
-        inline REL::Relocation<void(RE::BSRenderPass*)>                                                                                              BSRenderPass_Deallocate{ RELOCATION_ID(100718, 107498) };
-
         // head is a real BSRenderPass* the engine's destructor unconditionally
-        // clears -- keep our 4 passes in this side table instead, keyed by pointer.
-        inline std::mutex                                                                                         g_utilityPassesMutex;
-        inline std::unordered_map<RE::BSLightingShaderProperty*, std::array<RE::BSRenderPass*, kShadowPassCount>> g_utilityPasses;
+        // clears -- keep our 4 arrays in this side table instead, keyed by pointer.
+        // Each slot is a genuine RenderPassArray (not a bare BSRenderPass*), so the
+        // detour's return value has the exact struct shape callers expect, and
+        // Clear()/EmplacePass() give us vanilla's own chain-walk semantics instead
+        // of a hand-rolled single-pointer replace.
+        inline std::mutex                                                                                                             g_utilityPassesMutex;
+        inline std::unordered_map<RE::BSLightingShaderProperty*, std::array<RE::BSShaderProperty::RenderPassArray, kShadowPassCount>> g_utilityPasses;
 
         inline std::uint32_t GetShadowmapIndex(const void* a_data)
         {
@@ -55,20 +56,17 @@ namespace BSLightingShaderPropertyShadowMap
             return *reinterpret_cast<const std::uint32_t*>(bytes + offset);
         }
 
-        inline RE::BSRenderPass** BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
+        inline RE::BSShaderProperty::RenderPassArray* BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
         {
             // Defence in depth: this index is used for direct heap addressing.
             // Never permit a malformed/stale VR descriptor to write beyond the
-            // four-pointer allocation below.
+            // four-array allocation below.
             const auto index = g_currentIndex < kShadowPassCount ? g_currentIndex : 0;
 
             std::scoped_lock lock(g_utilityPassesMutex);
-            auto&            passArray = g_utilityPasses[a_property];
-            // clear last frame's render pass
-            if (passArray[index] != nullptr) {
-                BSRenderPass_Deallocate(passArray[index]);
-                passArray[index] = nullptr;
-            }
+            auto&            passArray = g_utilityPasses[a_property][index];
+            // free last frame's render pass(es); mirrors vanilla's own Clear()
+            passArray.Clear();
 
             // create new one
             std::uint32_t technique = a_property->DetermineUtilityShaderDecl() | 0xC000;
@@ -79,7 +77,7 @@ namespace BSLightingShaderPropertyShadowMap
             if (a_property->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kLODObjects) || a_property->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kHDLODObjects))
                 technique |= 0x8000000;
 
-            RE::BSRenderPass* pass = BSRenderPass_Allocate(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B, 0, nullptr);
+            RE::BSRenderPass* pass = passArray.EmplacePass(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B);
             pass->accumulationHint = 8;
             if ((a_geometry->GetFlags().underlying() & 0x8000000) != 0 && a_property->fadeNode != nullptr) {
                 pass->LODMode.index = a_property->fadeNode->GetRuntimeData().unk152 & 0xF;
@@ -87,8 +85,7 @@ namespace BSLightingShaderPropertyShadowMap
                 pass->LODMode.index = 3;
             }
             pass->LODMode.singleLevel = false;
-            passArray[index] = pass;
-            return &passArray[index];
+            return &passArray;
         }
 
         inline SafetyHookInline orig_BSShadowLight_AccumulateShadowMap;
@@ -119,9 +116,8 @@ namespace BSLightingShaderPropertyShadowMap
             if (it == g_utilityPasses.end())
                 return;
 
-            for (auto* pass : it->second) {
-                if (pass != nullptr)
-                    BSRenderPass_Deallocate(pass);
+            for (auto& passArray : it->second) {
+                passArray.Clear();
             }
             g_utilityPasses.erase(it);
         }
