@@ -1,7 +1,9 @@
 #pragma once
 #include "memory/allocator.h"
 
+#include <algorithm>
 #include <array>
+#include <cstring>
 #include <mutex>
 
 namespace Memory::RenderPassCache
@@ -68,21 +70,63 @@ namespace Memory::RenderPassCache
             --s_count;
         }
 
+        // The engine gives every BSRenderPass a FIXED 16-entry sceneLights array.
+        // BSRenderPassCache::Init carves the pool's light block into 0x80-byte slices
+        // (0x80 / 8 == 16 pointers), one per pass, and stores the slice pointer at
+        // BSRenderPass+0x38; the array is never resized and never individually freed.
+        // The engine's own SetLights writes numLights entries and then explicitly
+        // zero-fills the remaining slots out to 16 (the cmp dl, 0x10 / jae tail at
+        // SetLights+0x37). Engine code therefore relies on all 16 slots existing and
+        // being initialised, and reads past numLights: shadow lights live in the same
+        // array, counted by numShadowLights at +0x20.
+        //
+        // Sizing this array to numLights, as this function previously did, turns every
+        // such read into a heap overread past the end of a small allocation, handing
+        // the engine a garbage BSLight* that it then refcounts -- a corruption path
+        // with no relationship to when anything is freed. Community Shaders hardened
+        // its own sceneLights loops against exactly this (runtime pointer validation
+        // and an SEH guard), which is independent corroboration that the overread is
+        // encountered in practice rather than being theoretical.
+        //
+        // Storage is therefore a fixed kSceneLightsMax slots, allocated once and never
+        // resized, with every slot zeroed: a consumer indexing past numLights reads a
+        // null BSLight* out of memory we own rather than a live pointer off the end of
+        // a smaller allocation. kSceneLightsMax exceeds the engine's 16 so that a mod
+        // which widens the native slice is also served without a second binary; the
+        // copy is clamped to it, so a caller's count can never run off the end.
+        inline constexpr std::size_t kSceneLightsMax = 64;
+
         inline void SetLights(RE::BSRenderPass* a_renderPass, uint8_t a_numLights, RE::BSLight** a_lights)
         {
-            if (a_numLights != a_renderPass->numLights) {
-                if (a_renderPass->sceneLights) {
-                    Allocator::GetAllocator()->DeallocateAligned(a_renderPass->sceneLights);
-                    a_renderPass->sceneLights = nullptr;
-                }
-                if (a_numLights != 0) {
-                    a_renderPass->sceneLights = static_cast<RE::BSLight**>(Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSLight*) * a_numLights, 8));
-                }
-                a_renderPass->numLights = a_numLights;
+            if (a_renderPass->sceneLights == nullptr) {
+                a_renderPass->sceneLights = static_cast<RE::BSLight**>(
+                    Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSLight*) * kSceneLightsMax, 8));
+                std::memset(a_renderPass->sceneLights, 0, sizeof(RE::BSLight*) * kSceneLightsMax);
             }
 
-            for (uint32_t i = 0; i < a_numLights; i++)
+            const auto copy = (std::min)(static_cast<std::size_t>(a_numLights), kSceneLightsMax);
+            for (std::size_t i = 0; i < copy; ++i)
                 a_renderPass->sceneLights[i] = a_lights[i];
+
+            // The array is reused when a pass is refilled, so a shorter refill must not
+            // leave live pointers from the previous use readable past the new count.
+            std::memset(a_renderPass->sceneLights + copy, 0, sizeof(RE::BSLight*) * (kSceneLightsMax - copy));
+
+            if (copy != a_numLights) {
+                // Only reachable if a caller asks for more than kSceneLightsMax, which no
+                // known configuration produces. Shadow lights occupy the tail of the
+                // numLights range, so once the total is truncated the old shadow boundary
+                // no longer describes the copied layout: fail closed rather than leave a
+                // falsely indexed shadow segment.
+                a_renderPass->numShadowLights = 0;
+                logger::error(
+                    "render pass requested {} scene lights, more than the {} slots allocated; "
+                    "truncating the count and clearing shadow lights"sv,
+                    a_numLights, kSceneLightsMax);
+            }
+
+            // The published count and the storage must describe the same safe range.
+            a_renderPass->numLights = static_cast<std::uint8_t>(copy);
         }
 
         inline void Set(RE::BSRenderPass* a_renderPass, RE::BSShader* a_shader, RE::BSShaderProperty* a_property, RE::BSGeometry* a_geometry, uint32_t a_passEnum, uint8_t a_numLights, RE::BSLight** a_lights)
