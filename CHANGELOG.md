@@ -1,3 +1,9 @@
+## [7.8.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.8.0...v7.8.1) (2026-09-13)
+
+### Bug Fixes
+
+* **renderpass:** size the scene-light array to the engine's contract ([#80](https://github.com/alandtse/EngineFixesSkyrim64/issues/80)) ([d34ffed](https://github.com/alandtse/EngineFixesSkyrim64/commit/d34ffedec82c45637a154547173983dce572b194))
+
 ## [7.8.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.7.1...v7.8.0) (2026-09-07)
 
 ### Features
