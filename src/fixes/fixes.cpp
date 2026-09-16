@@ -19,6 +19,7 @@
 #include "calendar_skipping.h"
 #include "cell_init.h"
 #include "climate_load.h"
+#include "combatgroup_stale_pointer_crash.h"
 #include "conjuration_enchant_absorbs.h"
 #include "console_save_deadlock.h"
 #include "copybonetransform_null_crash.h"
@@ -111,6 +112,9 @@ namespace Fixes
 
         if (Settings::Fixes::bClimateLoad.GetValue())
             ClimateLoad::Install();
+
+        if (Settings::Fixes::bCombatGroupStalePointerCrash.GetValue())
+            CombatGroupStalePointerCrash::Install();
 
         if (Settings::Fixes::bConjurationEnchantAbsorbs.GetValue())
             ConjurationEnchantAbsorbs::Install();
