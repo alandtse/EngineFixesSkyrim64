@@ -63,8 +63,8 @@ namespace Fixes::CullingProcessAppendVirtualPoolGuard
             return;
         }
 
-        detail::originalAppendVirtual = reinterpret_cast<detail::AppendVirtual_t>(
-            cullingVtbl.write_vfunc(detail::kAppendVirtualSlot, detail::AppendVirtualGuarded));
+        detail::originalAppendVirtual = reinterpret_cast<detail::AppendVirtual_t>(cullingTarget);
+        cullingVtbl.write_vfunc(detail::kAppendVirtualSlot, detail::AppendVirtualGuarded);
         parabolicVtbl.write_vfunc(detail::kAppendVirtualSlot, detail::AppendVirtualGuarded);
 
         InstalledFixes::MarkInstalled("CullingProcessAppendVirtualPoolGuard"sv);
