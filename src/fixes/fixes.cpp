@@ -230,14 +230,14 @@ namespace Fixes
         if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
             SceneGraphDetachFreedCrash::Install();
 
-        if (Settings::Fixes::bShadowLightCrossThreadFreeCrash.GetValue())
-            ShadowLightCrossThreadFree::Install();
-
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();
 
         if (Settings::Fixes::bBatchRendererShaderTechniqueUAF.GetValue())
             BatchRendererShaderTechniqueUAF::Install();
+
+        if (Settings::Fixes::bShadowLightCrossThreadFreeCrash.GetValue())
+            ShadowLightCrossThreadFree::Install();
 
         // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
