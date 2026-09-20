@@ -9,6 +9,9 @@ bCleanSKSECoSaves = true                        # delete SKSE cosaves with no ma
 # contains bug fixes
 [Fixes]
 bArcheryDownwardAiming = true                   # fixes a bug where arrows don't fire properly if you're aiming downward while crouching on a ridge
+bBatchRendererAlphaGeometryGroupOverflow = true # guards StartGroupingAlphas' unbounded alpha-group slot allocator against writing past the array once iBatchRendererAlphaGeometryGroupLimit groups are live
+iBatchRendererAlphaGeometryGroupLimit = 0       # max live alpha-sorted render groups per frame before new ones are dropped; 0 = array capacity (512, VR 1024) minus a margin, larger values are clamped
+bCullingProcessAppendVirtualPoolGuard = true    # guards BSCullingProcess::AppendVirtual against a null write when its shadow-caster free pool is exhausted; the append is dropped
 bAnimationLoadSignedCrash = true                # fixes a misplaced used of a signed value in animation loading
 bBethesdaNetCrash = true                        # fixes the game crashing on startup if you live somewhere with special characters in the name
 bBGSKeywordFormLoadCrash = true                 # fixes a crash when malformed BGSKeywordForms are loaded by the game
