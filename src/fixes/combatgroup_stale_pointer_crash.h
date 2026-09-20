@@ -66,8 +66,6 @@ namespace Fixes::CombatGroupStalePointerCrash
         // clang-format on
     }
 
-    // Requires skyrim_vr_address_library id 37601 (shared with SE) to carry a VR mapping --
-    // land this only alongside/after that address-library release ships.
     inline void Install()
     {
         const REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(37601, 38554) };
