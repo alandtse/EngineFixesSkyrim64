@@ -29,6 +29,7 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
         inline constexpr Site kSiteAE{ 0x67, 0x74, 0x105 };
 
         inline constexpr std::uint8_t kExpectedXaddPrefix[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xF0, 0x0F, 0xC1, 0x05 };
+        inline constexpr std::uint8_t kExpectedResumeInstruction[] = { 0x48, 0x8D, 0x04, 0x80 };
 
         struct PatchOverflowGuard final : Xbyak::CodeGenerator
         {
@@ -73,6 +74,12 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
             const auto* bytes = reinterpret_cast<const std::uint8_t*>(patch);
             if (!std::equal(std::begin(kExpectedXaddPrefix), std::end(kExpectedXaddPrefix), bytes)) {
                 logger::warn("batchrenderer alpha geometry group overflow fix: unexpected bytes at StartGroupingAlphas+{:X}, skipping site"sv, a_site.patchOffset);
+                return 0;
+            }
+
+            const auto* resumeBytes = reinterpret_cast<const std::uint8_t*>(resume);
+            if (!std::equal(std::begin(kExpectedResumeInstruction), std::end(kExpectedResumeInstruction), resumeBytes)) {
+                logger::warn("batchrenderer alpha geometry group overflow fix: unexpected resume instruction at StartGroupingAlphas+{:X}, skipping site"sv, a_site.resumeOffset);
                 return 0;
             }
 
