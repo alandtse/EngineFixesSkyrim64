@@ -98,23 +98,31 @@ namespace Fixes::ShadowLightCrossThreadFree
             return DeferResult::Deferred;
         }
 
+        inline bool PopDeferredFree(DeferredFree& a_entry)
+        {
+            std::scoped_lock lock(deferredLock);
+            if (deferredQueue.count == 0) {
+                hasDeferredFrees.store(false, std::memory_order_release);
+                return false;
+            }
+
+            a_entry = deferredQueue.entries[--deferredQueue.count];
+            return true;
+        }
+
         inline void DrainDeferredFrees()
         {
             if (!hasDeferredFrees.load(std::memory_order_acquire)) {
                 return;
             }
 
-            DeferredQueue ready;
-            {
-                std::scoped_lock lock(deferredLock);
-                ready = deferredQueue;
-                deferredQueue.count = 0;
-                hasDeferredFrees.store(false, std::memory_order_release);
+            std::size_t drained = 0;
+            for (DeferredFree entry; PopDeferredFree(entry); ++drained) {
+                entry.destroy(entry.light, entry.flags);
             }
 
-            logger::info("shadow light cross-thread free fix: freeing {} deferred light(s) on the render thread"sv, ready.count);
-            for (std::size_t i = 0; i < ready.count; ++i) {
-                ready.entries[i].destroy(ready.entries[i].light, ready.entries[i].flags);
+            if (drained > 0) {
+                logger::info("shadow light cross-thread free fix: freed {} deferred light(s) on the render thread"sv, drained);
             }
         }
 
@@ -189,10 +197,6 @@ namespace Fixes::ShadowLightCrossThreadFree
                            REL::Module::IsAE() ? (util::IsAE1799() ? detail::kSiteAE1104 : detail::kSiteAE1170) :
                                                  detail::kSiteSE;
 
-        if (!detail::HookPostRenderCleanupCall(site)) {
-            return;
-        }
-
         REL::Relocation<std::uintptr_t> frustumVtable{ RE::VTABLE_BSShadowFrustumLight[0] };
         REL::Relocation<std::uintptr_t> parabolicVtable{ RE::VTABLE_BSShadowParabolicLight[0] };
         REL::Relocation<std::uintptr_t> directionalVtable{ RE::VTABLE_BSShadowDirectionalLight[0] };
@@ -201,6 +205,11 @@ namespace Fixes::ShadowLightCrossThreadFree
         hooked += detail::HookDeletingDestructor<detail::FrustumLight>(frustumVtable, site.frustumLightDeletingDestructor);
         hooked += detail::HookDeletingDestructor<detail::ParabolicLight>(parabolicVtable, site.parabolicLightDeletingDestructor);
         hooked += detail::HookDeletingDestructor<detail::DirectionalLight>(directionalVtable, site.directionalLightDeletingDestructor);
+
+        if (hooked == 0 || !detail::HookPostRenderCleanupCall(site)) {
+            logger::warn("shadow light cross-thread free fix: not installed"sv);
+            return;
+        }
 
         logger::info("installed shadow light cross-thread free fix ({} light classes)"sv, hooked);
     }
