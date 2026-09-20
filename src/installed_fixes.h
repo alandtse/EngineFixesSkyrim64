@@ -4,8 +4,6 @@
 #include <string_view>
 #include <unordered_set>
 
-// Records which fixes actually patched at least one site, so other plugins can ask through the
-// EngineFixes_IsFixInstalled export instead of guessing from the settings file.
 namespace InstalledFixes
 {
     inline std::unordered_set<std::string>& Registry()

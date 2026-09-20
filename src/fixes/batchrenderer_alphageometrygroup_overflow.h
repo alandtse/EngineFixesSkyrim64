@@ -17,12 +17,14 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
         inline constexpr std::uint32_t kCapacityVR = 1024;
         inline constexpr std::uint32_t kCapacityMargin = 8;
 
+        inline constexpr std::int32_t kSavedEaxStackOffset = 0x70;
+
         struct Site
         {
-            std::uintptr_t patchOffset;    // start of "mov eax,1" (module-relative)
-            std::uintptr_t resumeOffset;   // first untouched instruction after the displaced block
-            std::uintptr_t skipOffset;     // shared "no group" tail also used when the input shape is null
-            std::uintptr_t counterOffset;  // BSBatchRenderer__alphaGeometryGroupCount
+            std::uintptr_t patchOffset;
+            std::uintptr_t resumeOffset;
+            std::uintptr_t noGroupExitOffset;
+            std::uintptr_t counterOffset;
         };
 
         inline constexpr Site kSiteSE{ 0x13092de, 0x13092eb, 0x1309347, 0x3283ba0 };
@@ -30,16 +32,14 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
         inline constexpr Site kSiteAE1170{ 0x14f5137, 0x14f5144, 0x14f51d5, 0x35e9fd0 };
         inline constexpr Site kSiteAE1104{ 0x15616b7, 0x15616c4, 0x1561755, 0x36939d0 };  // 1.7.104+
 
-        // Fixed bytes of "mov eax,1; lock xadd dword ptr [rip+X],eax", excluding the trailing
-        // 4-byte rel32 (differs per runtime, verified separately below by resolving it).
-        inline constexpr std::uint8_t kExpected[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xF0, 0x0F, 0xC1, 0x05 };
+        inline constexpr std::uint8_t kExpectedXaddPrefix[] = { 0xB8, 0x01, 0x00, 0x00, 0x00, 0xF0, 0x0F, 0xC1, 0x05 };
 
         struct PatchOverflowGuard final : Xbyak::CodeGenerator
         {
             PatchOverflowGuard(std::uintptr_t a_counterAddr, std::uint32_t a_limit,
-                std::uintptr_t a_resume, std::uintptr_t a_skip)
+                std::uintptr_t a_resume, std::uintptr_t a_noGroupExit)
             {
-                Xbyak::Label retryLbl, skipLbl, resumeAddr, skipAddr;
+                Xbyak::Label retryLbl, noGroupExitLbl, resumeAddr, noGroupExitAddr;
 
                 // The counter is SortAlphaGeometryGroups' qsort element count, so it must never pass the limit.
                 mov(rcx, a_counterAddr);
@@ -47,7 +47,7 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
                 L(retryLbl);
                 mov(eax, dword[rcx]);
                 cmp(eax, a_limit);
-                jae(skipLbl);
+                jae(noGroupExitLbl);
                 lea(edx, ptr[rax + 1]);
                 lock();
                 cmpxchg(dword[rcx], edx);
@@ -55,15 +55,15 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
                 pop(rdx);
                 jmp(ptr[rip + resumeAddr]);
 
-                L(skipLbl);
+                L(noGroupExitLbl);
                 pop(rdx);
-                mov(eax, dword[rsp + 0x70]);
-                jmp(ptr[rip + skipAddr]);
+                mov(eax, dword[rsp + kSavedEaxStackOffset]);
+                jmp(ptr[rip + noGroupExitAddr]);
 
                 L(resumeAddr);
                 dq(a_resume);
-                L(skipAddr);
-                dq(a_skip);
+                L(noGroupExitAddr);
+                dq(a_noGroupExit);
             }
         };
 
@@ -72,24 +72,22 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
             const std::uintptr_t patch = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.patchOffset } }.address();
             const std::uintptr_t counter = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.counterOffset } }.address();
             const std::uintptr_t resume = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.resumeOffset } }.address();
-            const std::uintptr_t skip = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.skipOffset } }.address();
+            const std::uintptr_t noGroupExit = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_site.noGroupExitOffset } }.address();
 
             const auto* bytes = reinterpret_cast<const std::uint8_t*>(patch);
-            if (!std::equal(std::begin(kExpected), std::end(kExpected), bytes)) {
+            if (!std::equal(std::begin(kExpectedXaddPrefix), std::end(kExpectedXaddPrefix), bytes)) {
                 logger::warn("batchrenderer alpha geometry group overflow fix: unexpected bytes at {:X}, skipping site"sv, a_site.patchOffset);
                 return 0;
             }
 
-            // The XADD's rel32 (bytes[9..13)) must resolve to the counter global itself --
-            // the one part of the instruction kExpected can't check statically.
             std::int32_t rel32;
-            std::memcpy(&rel32, bytes + 9, sizeof(rel32));
-            if (static_cast<std::uintptr_t>(patch + 13 + rel32) != counter) {
+            std::memcpy(&rel32, bytes + sizeof(kExpectedXaddPrefix), sizeof(rel32));
+            if (static_cast<std::uintptr_t>(patch + sizeof(kExpectedXaddPrefix) + sizeof(rel32) + rel32) != counter) {
                 logger::warn("batchrenderer alpha geometry group overflow fix: XADD target mismatch at {:X}, skipping site"sv, a_site.patchOffset);
                 return 0;
             }
 
-            PatchOverflowGuard p{ counter, a_limit, resume, skip };
+            PatchOverflowGuard p{ counter, a_limit, resume, noGroupExit };
             p.ready();
             REL::Relocation<std::uintptr_t>{ patch }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
             return 1;
