@@ -24,7 +24,8 @@ by hand-editing generated output or declaring them twice.
 
 - Keep each entry within the macro's existing line-continuation column; a longer line makes
   clang-format re-align the whole block and bloats the diff.
-- Update `SETTINGS.md`'s table by hand and keep its description identical to the schema `comment`.
+- Don't edit `SETTINGS.md` for a new setting: the release step regenerates it from the schema
+  (`scripts/settings_release_notes.py`), including each setting's first-release version.
 - The shipped `Skyrim/Data/SKSE/Plugins/EngineFixes.toml` is generated on first run and the repo
   copy lags. For a new setting, copy just its line from a freshly generated file; don't
   regenerate the whole file.
