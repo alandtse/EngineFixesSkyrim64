@@ -14,7 +14,7 @@ namespace Fixes::GetGameSettingNotFoundCrash
     // Repro: `getgs <nonexistent_setting>` from the console.
     // Present identically in SE 1.5.97 (0x1402f2456), AE 1.6.1170 (0x140348715) and VR (0x140303956).
     //
-    // Handler is address library id 21549 (AE id 22031). The faulting instruction sits at:
+    // The faulting instruction sits at:
     //   SE  func+0x1D6   AE  func+0x1A5   VR  func+0x1D6
     // r9 is an unused vararg, so we replace the 8-byte `mov r9,[0x8]` with `xor r9d,r9d` + nop5.
     // The "GameSetting %s >> NOT FOUND" message then prints correctly instead of crashing.

@@ -118,7 +118,7 @@ namespace Fixes::TriShapeReleaseBufferGuard
         // BSGraphics::TriShape::Release function:
         //   SE 1.5.97 ID 75480 -> 0x140D6C320
         //   AE 1.6.x  ID 77267 -> 0x140E46810
-        //   VR 1.4.15         -> 0x140DBE0D0  (VR uses SE id 75480 via address library)
+        //   VR 1.4.15         -> 0x140DBE0D0
         //
         // Patch site offset within the function:
         //   SE +0x1B, AE +0x1D (AE has 5-byte MOV EAX,-1 vs 3-byte OR EAX,-1), VR +0x1B
