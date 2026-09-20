@@ -55,6 +55,7 @@
 #include "removed_spellbook.h"
 #include "saved_havok_data_load_init.h"
 #include "scene_graph_detach_freed_crash.h"
+#include "shadow_light_cross_thread_free.h"
 #include "shadow_scene_crash.h"
 #include "shadowscenenode_nullptr_crash.h"
 #include "sky_update_clouds_nullptr_crash.h"
@@ -228,6 +229,9 @@ namespace Fixes
 
         if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
             SceneGraphDetachFreedCrash::Install();
+
+        if (Settings::Fixes::bShadowLightCrossThreadFreeCrash.GetValue())
+            ShadowLightCrossThreadFree::Install();
 
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();
