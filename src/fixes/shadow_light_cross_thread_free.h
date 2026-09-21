@@ -110,6 +110,27 @@ namespace Fixes::ShadowLightCrossThreadFree
             return true;
         }
 
+        // The engine writes through every listed caster at the start of the next frame
+        // (ClearShadowCasterArray), so a light freed while still listed is written after free.
+        inline void RemoveFromCasterArrays(void* a_light)
+        {
+            for (auto* sceneNode : RE::BSShaderManager::State::GetSingleton().shadowSceneNode) {
+                if (!sceneNode) {
+                    continue;
+                }
+                for (auto& caster : sceneNode->GetRuntimeData().shadowLightsAccum) {
+                    if (caster == a_light) {
+                        caster = nullptr;
+                    }
+                }
+            }
+        }
+
+        inline bool IsRenderThread()
+        {
+            return ::GetCurrentThreadId() == renderThreadId.load(std::memory_order_relaxed);
+        }
+
         inline void DrainDeferredFrees()
         {
             if (!hasDeferredFrees.load(std::memory_order_acquire)) {
@@ -118,6 +139,7 @@ namespace Fixes::ShadowLightCrossThreadFree
 
             std::size_t drained = 0;
             for (DeferredFree entry; PopDeferredFree(entry); ++drained) {
+                RemoveFromCasterArrays(entry.light);
                 entry.destroy(entry.light, entry.flags);
             }
 
@@ -150,6 +172,9 @@ namespace Fixes::ShadowLightCrossThreadFree
                     break;
                 case DeferResult::Run:
                     break;
+                }
+                if ((a_flags & kDeleteFlag) && IsRenderThread()) {
+                    RemoveFromCasterArrays(a_light);
                 }
                 return original(a_light, a_flags);
             }
