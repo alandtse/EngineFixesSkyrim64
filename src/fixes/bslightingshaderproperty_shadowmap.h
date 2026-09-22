@@ -46,7 +46,7 @@ namespace BSLightingShaderPropertyShadowMap
         inline ScratchBlock* GetOrCreateScratch(RE::BSLightingShaderProperty* a_property)
         {
             auto& passes = a_property->volumetricShadowUtilityPasses;
-            if (const auto existing = reinterpret_cast<ScratchBlock*>(passes.unk08))
+            if (const auto existing = reinterpret_cast<ScratchBlock*>(*reinterpret_cast<volatile long long*>(&passes.unk08)))
                 return existing;
 
             auto* block = static_cast<ScratchBlock*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(ScratchBlock), alignof(ScratchBlock)));
