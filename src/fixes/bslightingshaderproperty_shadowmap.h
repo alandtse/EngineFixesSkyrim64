@@ -92,20 +92,6 @@ namespace BSLightingShaderPropertyShadowMap
             --s_quarantineCount;
         }
 
-        inline void ReleaseAllocatedArrays(RE::BSLightingShaderProperty* a_self)
-        {
-            std::scoped_lock lock(g_utilityPassesMutex);
-            const auto       it = g_utilityPasses.find(a_self);
-            if (it == g_utilityPasses.end())
-                return;
-
-            for (auto& passArray : it->second) {
-                passArray.Clear();
-            }
-            // Leave the entry in the map so the next shadow pass reuses the same
-            // arrays; the detour returns a pointer that must stay valid across frames.
-        }
-
         inline void RetireAllocatedArrays(RE::BSLightingShaderProperty* a_self)
         {
             std::scoped_lock lock(g_utilityPassesMutex);
@@ -208,7 +194,9 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline void BSLightingShaderProperty_ClearRenderPassArrays(RE::BSLightingShaderProperty* a_self)
         {
-            ReleaseAllocatedArrays(a_self);
+            // Retire, not Clear()-in-place: mutating a live entry's pass chain races
+            // whatever engine code is still walking a previously-returned pointer.
+            RetireAllocatedArrays(a_self);
             orig_BSLightingShaderProperty_ClearRenderPassArrays.call(a_self);
         }
 
