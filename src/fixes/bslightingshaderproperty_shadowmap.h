@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 
 namespace BSLightingShaderPropertyShadowMap
 {
@@ -45,6 +46,98 @@ namespace BSLightingShaderPropertyShadowMap
         inline std::mutex                                                                                                             g_utilityPassesMutex;
         inline std::unordered_map<RE::BSLightingShaderProperty*, std::array<RE::BSShaderProperty::RenderPassArray, kShadowPassCount>> g_utilityPasses;
 
+        // Retired arrays stay alive long enough for any job-thread reader that
+        // already fetched the pointer to finish.
+        inline constexpr std::size_t   kQuarantineCapacity = 4096;  // Property destruction can spike into the thousands during a mass cell unload.
+        inline constexpr std::uint32_t kQuarantineFrames = 3;       // Three frames is past any in-flight draw job.
+        using PassesNode = decltype(g_utilityPasses)::node_type;
+
+        struct QuarantinedProperty
+        {
+            PassesNode    node;
+            std::uint32_t frame;
+        };
+
+        inline std::array<QuarantinedProperty, kQuarantineCapacity> s_quarantineRing;
+        inline std::size_t                                          s_quarantineHead = 0;
+        inline std::size_t                                          s_quarantineCount = 0;
+        inline std::atomic_bool                                     g_loggedQuarantineForceFree = false;
+
+        inline std::uint32_t CurrentFrame()
+        {
+            return RE::BSGraphics::State::GetSingleton()->frameCount;
+        }
+
+        inline void DrainQuarantine(std::uint32_t a_minAge = kQuarantineFrames)
+        {
+            const auto frame = CurrentFrame();
+            while (s_quarantineCount != 0) {
+                const auto age = frame - s_quarantineRing[s_quarantineHead].frame;
+                if (age < a_minAge)
+                    break;
+
+                s_quarantineRing[s_quarantineHead] = {};
+                s_quarantineHead = (s_quarantineHead + 1) % kQuarantineCapacity;
+                --s_quarantineCount;
+            }
+        }
+
+        inline void ForceFreeOldestQuarantineEntry()
+        {
+            if (s_quarantineCount == 0)
+                return;
+
+            s_quarantineRing[s_quarantineHead] = {};
+            s_quarantineHead = (s_quarantineHead + 1) % kQuarantineCapacity;
+            --s_quarantineCount;
+        }
+
+        inline void ReleaseAllocatedArrays(RE::BSLightingShaderProperty* a_self)
+        {
+            std::scoped_lock lock(g_utilityPassesMutex);
+            const auto       it = g_utilityPasses.find(a_self);
+            if (it == g_utilityPasses.end())
+                return;
+
+            for (auto& passArray : it->second) {
+                passArray.Clear();
+            }
+            // Leave the entry in the map so the next shadow pass reuses the same
+            // arrays; the detour returns a pointer that must stay valid across frames.
+        }
+
+        inline void RetireAllocatedArrays(RE::BSLightingShaderProperty* a_self)
+        {
+            std::scoped_lock lock(g_utilityPassesMutex);
+
+            const auto it = g_utilityPasses.find(a_self);
+            if (it == g_utilityPasses.end())
+                return;
+
+            for (auto& passArray : it->second) {
+                passArray.Clear();
+            }
+
+            auto node = g_utilityPasses.extract(it);
+            DrainQuarantine();
+
+            if (s_quarantineCount == kQuarantineCapacity) {
+                DrainQuarantine(1);
+                if (s_quarantineCount == kQuarantineCapacity) {
+                    if (!g_loggedQuarantineForceFree.exchange(true, std::memory_order_relaxed)) {
+                        logger::warn("bslightingshaderproperty shadowmap quarantine overflow; force-freeing oldest entry (capacity {})"sv,
+                            kQuarantineCapacity);
+                    }
+                    ForceFreeOldestQuarantineEntry();
+                }
+            }
+
+            const auto tail = (s_quarantineHead + s_quarantineCount) % kQuarantineCapacity;
+            s_quarantineRing[tail].node = std::move(node);
+            s_quarantineRing[tail].frame = CurrentFrame();
+            ++s_quarantineCount;
+        }
+
         inline std::uint32_t GetShadowmapIndex(const void* a_data)
         {
             if (a_data == nullptr)
@@ -64,7 +157,9 @@ namespace BSLightingShaderPropertyShadowMap
             const auto index = g_currentIndex < kShadowPassCount ? g_currentIndex : 0;
 
             std::scoped_lock lock(g_utilityPassesMutex);
-            auto&            passArray = g_utilityPasses[a_property][index];
+            DrainQuarantine();
+
+            auto& passArray = g_utilityPasses[a_property][index];
             // free last frame's render pass(es); mirrors vanilla's own Clear()
             passArray.Clear();
 
@@ -109,24 +204,11 @@ namespace BSLightingShaderPropertyShadowMap
             g_currentIndex = previousIndex;
         }
 
-        inline void CleanAllocatedArrays(RE::BSLightingShaderProperty* a_self)
-        {
-            std::scoped_lock lock(g_utilityPassesMutex);
-            const auto       it = g_utilityPasses.find(a_self);
-            if (it == g_utilityPasses.end())
-                return;
-
-            for (auto& passArray : it->second) {
-                passArray.Clear();
-            }
-            g_utilityPasses.erase(it);
-        }
-
         inline SafetyHookInline orig_BSLightingShaderProperty_ClearRenderPassArrays;
 
         inline void BSLightingShaderProperty_ClearRenderPassArrays(RE::BSLightingShaderProperty* a_self)
         {
-            CleanAllocatedArrays(a_self);
+            ReleaseAllocatedArrays(a_self);
             orig_BSLightingShaderProperty_ClearRenderPassArrays.call(a_self);
         }
 
@@ -134,7 +216,7 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline void BSLightingShaderProperty_Dtor(RE::BSLightingShaderProperty* a_self)
         {
-            CleanAllocatedArrays(a_self);
+            RetireAllocatedArrays(a_self);
             orig_BSLightingShaderProperty_dtor.call(a_self);
         }
 
@@ -142,7 +224,7 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline void BSLightingShaderProperty_Deleting_Dtor(RE::BSLightingShaderProperty* a_self, std::uint8_t a_flags)
         {
-            CleanAllocatedArrays(a_self);
+            RetireAllocatedArrays(a_self);
             orig_BSLightingShaderProperty_deleting_dtor.call(a_self, a_flags);
         }
 
