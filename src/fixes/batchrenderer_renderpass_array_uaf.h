@@ -34,8 +34,6 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
             } };
         }
 
-        // VR's duplicate-id bug (100853 pointed at 100852's address) was fixed upstream
-        // in skyrim_vr_address_library's database.csv on 2026-09-01; safe to use the id directly now.
         inline std::array<Site, 1> SitesVRGetRenderPassIndex()
         {
             return { {
@@ -45,8 +43,7 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         }
 
         // Inside BSBatchRenderer::GetNextPassSlotInGroup: selects the next occupied
-        // pass after rendering. Requires address-library id 100851's VR mapping
-        // (alandtse/skyrim_vr_address_library#203).
+        // pass after rendering.
         inline std::array<ReadSite, 1> SitesVRFindNextPass()
         {
             return { {

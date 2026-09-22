@@ -14,7 +14,7 @@ namespace Fixes::CopyBoneTransformNullCrash
     // The lookup result is used only locally and the function returns void, so an early-return
     // on a missing bone is safe degradation (that bone just isn't updated this frame) rather
     // than a CTD. This is a VR-specific function with no SE/AE counterpart, so it is bound by
-    // raw VR offset (the VR address library is hand-curated) and gated on IsVR().
+    // raw VR offset and gated on IsVR().
     //
     // Patch site = func+0x20 (0x6E5440), right after the CALL returns. The 5 overwritten bytes
     // (`xor edx,edx; mov rbx,rax`) are re-run in the trampoline; normal path resumes at func+0x25.

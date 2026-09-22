@@ -74,8 +74,7 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             logger::info("installed lighting shader landscape texture crash fix (ae)"sv);
         }
 
-        // SE/VR: same 4 sites, but as a standalone function (address-library id 100588)
-        // rather than inlined into SetupMaterial.
+        // SE/VR: same 4 sites, but as a standalone function rather than inlined into SetupMaterial.
         inline void InstallStandalone()
         {
             REL::Relocation<std::uintptr_t> func{ REL::ID(100588) };

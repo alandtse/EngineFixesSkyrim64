@@ -68,7 +68,6 @@ namespace Fixes::BSTaskPoolNullVtableCrash
 
     inline void Install()
     {
-        // SE ID 36016 / AE ID 36991 / VR ID 36016 (SE ID used for VR address library)
         // Patch offsets from function base: SE +0x1350, AE +0x14C8, VR +0x13A7
         const auto func_offset = VAR_NUM(0x1350, 0x14C8, 0x13A7);
 

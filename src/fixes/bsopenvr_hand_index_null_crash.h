@@ -16,7 +16,7 @@ namespace Fixes::BSOpenVRHandIndexNullCrash
     // hand legitimately has no device when its controller is off). Returning that sentinel while
     // IVRSystem is null is correct degradation -- the hand simply has no device until the HMD wakes
     // -- not a crash band-aid. VR-specific function with no SE/AE counterpart, so it is bound by raw
-    // VR offset (the VR address library is hand-curated) and gated on IsVR().
+    // VR offset and gated on IsVR().
     //
     // Patch site = func+0x00 (0xC53DF0). The trampoline re-runs the displaced load
     // (mov rcx,[rcx+0x208]), null-checks it, and either resumes at func+0x07 (non-null) or returns
