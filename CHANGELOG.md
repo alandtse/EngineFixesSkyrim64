@@ -1,3 +1,24 @@
+## [7.9.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.8.1...v7.9.0) (2026-09-23)
+
+### Features
+
+* **render:** defer shadow light frees off-thread ([#83](https://github.com/alandtse/EngineFixesSkyrim64/issues/83)) ([e42ff03](https://github.com/alandtse/EngineFixesSkyrim64/commit/e42ff03018cff816816507b0ec3450955ca51133))
+* **render:** guard alpha group and cull pool ([#82](https://github.com/alandtse/EngineFixesSkyrim64/issues/82)) ([b5219c7](https://github.com/alandtse/EngineFixesSkyrim64/commit/b5219c7ccea9d4abfec1ab5e83e22cecbe741d0e))
+
+### Bug Fixes
+
+* **render:** move shadowmap scratch storage to unk08 ([#86](https://github.com/alandtse/EngineFixesSkyrim64/issues/86)) ([2c670d9](https://github.com/alandtse/EngineFixesSkyrim64/commit/2c670d930aef993d21105f938498c9d6ef520d88)), closes [#79](https://github.com/alandtse/EngineFixesSkyrim64/issues/79) [pre-#79](https://github.com/alandtse/pre-/issues/79)
+
+
+### New Settings
+
+* `[Fixes] bBatchRendererAlphaGeometryGroupOverflow` (default `true`) — guards StartGroupingAlphas' unbounded alpha-group slot allocator against writing past the array once iBatchRendererAlphaGeometryGroupLimit groups are live
+* `[Fixes] iBatchRendererAlphaGeometryGroupLimit` (default `0`) — max live alpha-sorted render groups per frame before new ones are dropped; 0 = array capacity (512, VR 1024) minus a margin, larger values are clamped
+* `[Fixes] bCullingProcessAppendVirtualPoolGuard` (default `true`) — guards BSCullingProcess::AppendVirtual against a null write when its shadow-caster free pool is exhausted; the append is dropped
+* `[Fixes] bShadowLightCrossThreadFreeCrash` (default `true`) — fixes a crash when a shadow light released on a job thread, e.g. by the console coc command, is freed while the render thread still uses it; frees are deferred to the end of the frame
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.8.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.8.0...v7.8.1) (2026-09-13)
 
 ### Bug Fixes

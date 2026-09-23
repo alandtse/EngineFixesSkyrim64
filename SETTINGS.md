@@ -20,6 +20,9 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bAcousticSpaceListenerNullRigidBodyCrash` | `true` | 7.4.9 | fixes a crash when a Havok entity is removed from the world while the player camera has no collision body attached |
 | `bActorValueStorageClearRaceCrash` | `true` | 7.4.9 | fixes a race between clearing an actor's base value cache and setting a base value that can crash with a null-pointer write |
 | `bArcheryDownwardAiming` | `true` | ≤ 7.0.20 | fixes a bug where arrows don't fire properly if you're aiming downward while crouching on a ridge |
+| `bBatchRendererAlphaGeometryGroupOverflow` | `true` | 7.9.0 | guards StartGroupingAlphas' unbounded alpha-group slot allocator against writing past the array once iBatchRendererAlphaGeometryGroupLimit groups are live |
+| `iBatchRendererAlphaGeometryGroupLimit` | `0` | 7.9.0 | max live alpha-sorted render groups per frame before new ones are dropped; 0 = array capacity (512, VR 1024) minus a margin, larger values are clamped |
+| `bCullingProcessAppendVirtualPoolGuard` | `true` | 7.9.0 | guards BSCullingProcess::AppendVirtual against a null write when its shadow-caster free pool is exhausted; the append is dropped |
 | `bAnimationLoadSignedCrash` | `true` | ≤ 7.0.20 | fixes a misplaced used of a signed value in animation loading |
 | `bBethesdaNetCrash` | `true` | ≤ 7.0.20 | fixes the game crashing on startup if you live somewhere with special characters in the name |
 | `bBGSKeywordFormLoadCrash` | `true` | ≤ 7.0.20 | fixes a crash when malformed BGSKeywordForms are loaded by the game |
@@ -66,6 +69,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bSaveScreenshots` | `true` | ≤ 7.0.20 | fixes save screenshots being blank under certain configurations |
 | `bSavedHavokDataLoadInit` | `true` | ≤ 7.0.20 | fixes motion vectors for objects with saved havok data that differs significantly from their base state |
 | `bSceneGraphDetachFreedCrash` | `true` | 7.4.9 | guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown |
+| `bShadowLightCrossThreadFreeCrash` | `true` | 7.9.0 | fixes a crash when a shadow light released on a job thread, e.g. by the console coc command, is freed while the render thread still uses it; frees are deferred to the end of the frame |
 | `bShadowSceneNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in shadowscenenode |
 | `bSubIndexTriShapeCreateNullCrash` | `true` | 7.6.1 | fixes rare crashes when a mesh/LOD sub-shape is null: an allocation failure under memory pressure, or an out-of-range/freed segment lookup during terrain/water LOD updates |
 | `bSkyUpdateCloudsNullPtrCrash` | `true` | 7.4.0 | fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods) |
@@ -136,6 +140,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.9.0**: `bBatchRendererAlphaGeometryGroupOverflow`, `iBatchRendererAlphaGeometryGroupLimit`, `bCullingProcessAppendVirtualPoolGuard`, `bShadowLightCrossThreadFreeCrash`
 - **7.8.0**: `bMapMenuCloseHandlersNullGuard`
 - **7.7.0**: `bGCArrayCleanupBug`
 - **7.6.4**: `bDoubleReleaseTripleComPtrTeardown`
