@@ -1,8 +1,11 @@
 #pragma once
-#include "memory/allocator.h"
-
+#include <array>
 #include <atomic>
 #include <cstddef>
+#include <cstring>
+#include <intrin.h>
+
+#include "memory/allocator.h"
 
 namespace BSLightingShaderPropertyShadowMap
 {
@@ -35,8 +38,46 @@ namespace BSLightingShaderPropertyShadowMap
         inline thread_local std::uint32_t g_currentIndex = 0;
         inline std::atomic_bool           g_loggedInvalidIndex = false;
 
-        inline REL::Relocation<RE::BSRenderPass*(RE::BSShader*, RE::BSShaderProperty*, RE::BSGeometry*, std::uint32_t, std::uint8_t, RE::BSLight**)> BSRenderPass_Allocate{ RELOCATION_ID(100717, 107497) };
-        inline REL::Relocation<void(RE::BSRenderPass*)>                                                                                              BSRenderPass_Deallocate{ RELOCATION_ID(100718, 107498) };
+        using ScratchBlock = std::array<RE::BSShaderProperty::RenderPassArray, kShadowPassCount>;
+
+        // head is walked and freed by vanilla's own Clear(); storing the scratch block
+        // there crashes on that walk. unk08 is confirmed unused by any runtime, so the
+        // block's address goes there instead and head stays permanently null.
+        inline ScratchBlock* GetOrCreateScratch(RE::BSLightingShaderProperty* a_property)
+        {
+            auto& passes = a_property->volumetricShadowUtilityPasses;
+            if (const auto existing = reinterpret_cast<ScratchBlock*>(*reinterpret_cast<volatile long long*>(&passes.unk08)))
+                return existing;
+
+            auto* block = static_cast<ScratchBlock*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(ScratchBlock), alignof(ScratchBlock)));
+            std::memset(block, 0, sizeof(ScratchBlock));
+
+            // Two job threads can race to service different indices for the same
+            // property before either has published a block; only one may win.
+            const auto prior = _InterlockedCompareExchange64(
+                reinterpret_cast<volatile long long*>(&passes.unk08),
+                reinterpret_cast<long long>(block),
+                0);
+            if (prior != 0) {
+                Memory::Allocator::GetAllocator()->DeallocateAligned(block);
+                return reinterpret_cast<ScratchBlock*>(prior);
+            }
+            return block;
+        }
+
+        inline void FreeScratch(RE::BSLightingShaderProperty* a_property)
+        {
+            auto& passes = a_property->volumetricShadowUtilityPasses;
+            if (!passes.unk08)
+                return;
+
+            auto* block = reinterpret_cast<ScratchBlock*>(passes.unk08);
+            for (auto& passArray : *block) {
+                passArray.Clear();
+            }
+            Memory::Allocator::GetAllocator()->DeallocateAligned(block);
+            passes.unk08 = 0;
+        }
 
         inline std::uint32_t GetShadowmapIndex(const void* a_data)
         {
@@ -49,26 +90,17 @@ namespace BSLightingShaderPropertyShadowMap
             return *reinterpret_cast<const std::uint32_t*>(bytes + offset);
         }
 
-        inline RE::BSRenderPass** BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
+        inline RE::BSShaderProperty::RenderPassArray* BSLightingShaderProperty_GetRenderPasses_ShadowMapOrMask_Detour(RE::BSLightingShaderProperty* a_property, RE::BSGeometry* a_geometry)
         {
             // Defence in depth: this index is used for direct heap addressing.
             // Never permit a malformed/stale VR descriptor to write beyond the
-            // four-pointer allocation below.
+            // four-array allocation below.
             const auto index = g_currentIndex < kShadowPassCount ? g_currentIndex : 0;
 
-            // create our storage, 4 max
-            // re-use the RenderPassArray space here
-            if (a_property->volumetricShadowUtilityPasses.unk08 != 0xDEADBEEF) {
-                a_property->volumetricShadowUtilityPasses.head = static_cast<RE::BSRenderPass*>(Memory::Allocator::GetAllocator()->AllocateAligned(sizeof(RE::BSRenderPass*) * kShadowPassCount, 8));
-                memset(a_property->volumetricShadowUtilityPasses.head, 0, sizeof(RE::BSRenderPass*) * kShadowPassCount);
-                a_property->volumetricShadowUtilityPasses.unk08 = 0xDEADBEEF;
-            }
-            auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_property->volumetricShadowUtilityPasses.head);
-            // clear last frame's render pass
-            if (passArray[index] != nullptr) {
-                BSRenderPass_Deallocate(passArray[index]);
-                passArray[index] = nullptr;
-            }
+            auto* block = GetOrCreateScratch(a_property);
+            auto& passArray = (*block)[index];
+            // free last frame's render pass(es); mirrors vanilla's own Clear()
+            passArray.Clear();
 
             // create new one
             std::uint32_t technique = a_property->DetermineUtilityShaderDecl() | 0xC000;
@@ -79,7 +111,7 @@ namespace BSLightingShaderPropertyShadowMap
             if (a_property->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kLODObjects) || a_property->flags.all(RE::BSShaderProperty::EShaderPropertyFlag::kHDLODObjects))
                 technique |= 0x8000000;
 
-            RE::BSRenderPass* pass = BSRenderPass_Allocate(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B, 0, nullptr);
+            RE::BSRenderPass* pass = passArray.EmplacePass(RE::BSUtilityShader::GetSingleton(), a_property, a_geometry, technique + 0x2B);
             pass->accumulationHint = 8;
             if ((a_geometry->GetFlags().underlying() & 0x8000000) != 0 && a_property->fadeNode != nullptr) {
                 pass->LODMode.index = a_property->fadeNode->GetRuntimeData().unk152 & 0xF;
@@ -87,8 +119,7 @@ namespace BSLightingShaderPropertyShadowMap
                 pass->LODMode.index = 3;
             }
             pass->LODMode.singleLevel = false;
-            passArray[index] = pass;
-            return &passArray[index];
+            return &passArray;
         }
 
         inline SafetyHookInline orig_BSShadowLight_AccumulateShadowMap;
@@ -112,35 +143,11 @@ namespace BSLightingShaderPropertyShadowMap
             g_currentIndex = previousIndex;
         }
 
-        inline void CleanAllocatedArrays(RE::BSLightingShaderProperty* a_self)
-        {
-            if (a_self->volumetricShadowUtilityPasses.unk08 == 0xDEADBEEF) {
-                auto** passArray = reinterpret_cast<RE::BSRenderPass**>(a_self->volumetricShadowUtilityPasses.head);
-                for (std::uint32_t i = 0; i < kShadowPassCount; i++) {
-                    if (passArray[i] != nullptr) {
-                        BSRenderPass_Deallocate(passArray[i]);
-                        passArray[i] = nullptr;
-                    }
-                }
-                Memory::Allocator::GetAllocator()->DeallocateAligned(passArray);
-                a_self->volumetricShadowUtilityPasses.head = nullptr;
-                a_self->volumetricShadowUtilityPasses.unk08 = 0x0;
-            }
-        }
-
-        inline SafetyHookInline orig_BSLightingShaderProperty_ClearRenderPassArrays;
-
-        inline void BSLightingShaderProperty_ClearRenderPassArrays(RE::BSLightingShaderProperty* a_self)
-        {
-            CleanAllocatedArrays(a_self);
-            orig_BSLightingShaderProperty_ClearRenderPassArrays.call(a_self);
-        }
-
         inline SafetyHookInline orig_BSLightingShaderProperty_dtor;
 
         inline void BSLightingShaderProperty_Dtor(RE::BSLightingShaderProperty* a_self)
         {
-            CleanAllocatedArrays(a_self);
+            FreeScratch(a_self);
             orig_BSLightingShaderProperty_dtor.call(a_self);
         }
 
@@ -148,7 +155,7 @@ namespace BSLightingShaderPropertyShadowMap
 
         inline void BSLightingShaderProperty_Deleting_Dtor(RE::BSLightingShaderProperty* a_self, std::uint8_t a_flags)
         {
-            CleanAllocatedArrays(a_self);
+            FreeScratch(a_self);
             orig_BSLightingShaderProperty_deleting_dtor.call(a_self, a_flags);
         }
 
@@ -163,9 +170,9 @@ namespace BSLightingShaderPropertyShadowMap
             p.ready();
             GetRenderPasses_ShadowMapOrMask.write_branch<5>(trampoline.allocate(p));
 
-            const REL::Relocation ClearArrays{ RELOCATION_ID(99881, 106526) };
-            orig_BSLightingShaderProperty_ClearRenderPassArrays = safetyhook::create_inline(ClearArrays.address(), BSLightingShaderProperty_ClearRenderPassArrays);
-
+            // ClearRenderPassArrays is intentionally left un-hooked: vanilla's own
+            // Clear() call there is a head-only no-op for us, and the block only needs
+            // to go away once the property itself is destroyed.
             const REL::Relocation dtor{ RELOCATION_ID(99855, 106500) };
             orig_BSLightingShaderProperty_dtor = safetyhook::create_inline(dtor.address(), BSLightingShaderProperty_Dtor);
 
