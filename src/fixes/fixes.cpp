@@ -5,6 +5,7 @@
 #include "actorvaluestorage_clear_race_crash.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
+#include "batchrenderer_alphageometrygroup_overflow.h"
 #include "batchrenderer_renderpass_array_uaf.h"
 #include "batchrenderer_shader_technique_uaf.h"
 #include "bethesda_net_crash.h"
@@ -24,6 +25,7 @@
 #include "copybonetransform_null_crash.h"
 #include "create_armor_node_nullptr_crash.h"
 #include "culling_freed_object_crash.h"
+#include "culling_process_append_virtual_pool_guard.h"
 #include "double_perk_apply.h"
 #include "double_release_triple_comptr_teardown.h"
 #include "effectshaderdata_null_texture_crash.h"
@@ -228,6 +230,12 @@ namespace Fixes
 
         if (Settings::Fixes::bSceneGraphDetachFreedCrash.GetValue())
             SceneGraphDetachFreedCrash::Install();
+
+        if (Settings::Fixes::bBatchRendererAlphaGeometryGroupOverflow.GetValue())
+            BatchRendererAlphaGeometryGroupOverflow::Install();
+
+        if (Settings::Fixes::bCullingProcessAppendVirtualPoolGuard.GetValue())
+            CullingProcessAppendVirtualPoolGuard::Install();
 
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();

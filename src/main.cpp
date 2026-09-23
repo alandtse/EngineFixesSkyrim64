@@ -9,6 +9,7 @@
 #include "fixes/save_screenshots.h"
 #include "fixes/stuck_mouse_buttons.h"
 #include "fixes/tree_reflections.h"
+#include "installed_fixes.h"
 #include "memory/allocator.h"
 #include "memory/memory.h"
 #include "patches/patches.h"
@@ -129,6 +130,11 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
         Warnings::WarnDupeAddonNodes::Install();
 
     g_isPreloaded = true;
+}
+
+extern "C" __declspec(dllexport) bool EngineFixes_IsFixInstalled(const char* a_name)
+{
+    return a_name && InstalledFixes::IsInstalled(a_name);
 }
 
 extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
