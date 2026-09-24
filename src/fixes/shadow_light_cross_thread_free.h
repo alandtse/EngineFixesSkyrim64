@@ -180,6 +180,7 @@ namespace Fixes::ShadowLightCrossThreadFree
             }
         };
 
+        struct Light;
         struct FrustumLight;
         struct ParabolicLight;
         struct DirectionalLight;
@@ -222,11 +223,14 @@ namespace Fixes::ShadowLightCrossThreadFree
                            REL::Module::IsAE() ? (util::IsAE1799() ? detail::kSiteAE1104 : detail::kSiteAE1170) :
                                                  detail::kSiteSE;
 
+        REL::Relocation<std::uintptr_t> lightVtable{ RE::VTABLE_BSLight[0] };
+        REL::Relocation<std::uintptr_t> lightDestructor{ RELOCATION_ID(101319, 108312) };
         REL::Relocation<std::uintptr_t> frustumVtable{ RE::VTABLE_BSShadowFrustumLight[0] };
         REL::Relocation<std::uintptr_t> parabolicVtable{ RE::VTABLE_BSShadowParabolicLight[0] };
         REL::Relocation<std::uintptr_t> directionalVtable{ RE::VTABLE_BSShadowDirectionalLight[0] };
 
         std::size_t hooked = 0;
+        hooked += detail::HookDeletingDestructor<detail::Light>(lightVtable, lightDestructor.address() - REL::Module::get().base());
         hooked += detail::HookDeletingDestructor<detail::FrustumLight>(frustumVtable, site.frustumLightDeletingDestructor);
         hooked += detail::HookDeletingDestructor<detail::ParabolicLight>(parabolicVtable, site.parabolicLightDeletingDestructor);
         hooked += detail::HookDeletingDestructor<detail::DirectionalLight>(directionalVtable, site.directionalLightDeletingDestructor);
