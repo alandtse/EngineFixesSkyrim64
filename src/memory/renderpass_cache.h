@@ -1,4 +1,5 @@
 #pragma once
+#include "installed_fixes.h"
 #include "memory/allocator.h"
 
 #include <algorithm>
@@ -234,6 +235,7 @@ namespace Memory::RenderPassCache
     inline void Install()
     {
         detail::Install();
+        InstalledFixes::MarkInstalled("RenderPassCacheSceneLights64"sv);
         logger::info("installed render pass cache patch"sv);
     }
 }
