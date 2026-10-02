@@ -36,6 +36,6 @@ namespace InstalledFixes
 // needs to register without logging.
 #define EF_INSTALLED(a_capability, ...)                \
     do {                                               \
-        ::InstalledFixes::MarkInstalled(a_capability);  \
+        ::InstalledFixes::MarkInstalled(a_capability); \
         logger::info(__VA_ARGS__);                     \
     } while (false)
