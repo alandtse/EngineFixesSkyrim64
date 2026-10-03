@@ -1,4 +1,5 @@
 #pragma once
+#include "installed_fixes.h"
 #include "memory/allocator.h"
 
 #include <algorithm>
@@ -234,6 +235,6 @@ namespace Memory::RenderPassCache
     inline void Install()
     {
         detail::Install();
-        logger::info("installed render pass cache patch"sv);
+        EF_INSTALLED("RenderPassCacheSceneLights64"sv, "installed render pass cache patch"sv);
     }
 }
