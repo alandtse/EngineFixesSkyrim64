@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <array>
 #include <cstdint>
 
@@ -78,7 +80,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash guard"sv);
+            EF_INSTALLED("SubIndexTriShapeCreateNullCrash"sv, "installed SubIndexTriShapeCreateNullCrash guard"sv);
         }
 
         // The non-CreateFromShapeData call sites pull `this` from an unguarded lookup that
@@ -143,7 +145,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             FinalizeSegmentsPatch p{ hook.address() + expected.size(), a_info.runtimeDataOffset };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash {} guard"sv, a_name);
+            EF_INSTALLED("SubIndexTriShapeCreateNullCrash"sv, "installed SubIndexTriShapeCreateNullCrash {} guard"sv, a_name);
         }
 
         inline constexpr FinalizeSegmentsInfo kRefreshSegmentActiveFlagRuntimes[] = {
@@ -225,7 +227,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
             GetNumSegmentsPatch p{ hook.address() + expected.size(), a_info.nonSegmentedOffset };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
+            EF_INSTALLED("SubIndexTriShapeCreateNullCrash"sv, "installed SubIndexTriShapeCreateNullCrash GetNumSegments guard"sv);
         }
 
         // Void, safe to no-op on null like FinalizeSegments. SE/VR have an extra
@@ -292,7 +294,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
                 a_info.displacedLen };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash RecomputeSegmentData guard"sv);
+            EF_INSTALLED("SubIndexTriShapeCreateNullCrash"sv, "installed SubIndexTriShapeCreateNullCrash RecomputeSegmentData guard"sv);
         }
 
         // sub_1404B5090's per-item loop pulls `this` from an unguarded vtable cast; on
@@ -362,7 +364,7 @@ namespace Fixes::SubIndexTriShapeCreateNullCrash
                 a_info.displacedLen };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed SubIndexTriShapeCreateNullCrash caller guard"sv);
+            EF_INSTALLED("SubIndexTriShapeCreateNullCrash"sv, "installed SubIndexTriShapeCreateNullCrash caller guard"sv);
         }
     }
 

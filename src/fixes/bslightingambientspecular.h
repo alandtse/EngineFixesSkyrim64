@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BSLightingAmbientSpecular
 {
     namespace detail
@@ -74,6 +76,6 @@ namespace Fixes::BSLightingAmbientSpecular
         auto& trampoline = SKSE::GetTrampoline();
         trampoline.write_branch<5>(geometryTarget.address(), trampoline.allocate(p));
 
-        logger::info("installed BSLightingAmbientSpecular fix"sv);
+        EF_INSTALLED("BSLightingAmbientSpecular"sv, "installed BSLightingAmbientSpecular fix"sv);
     }
 }

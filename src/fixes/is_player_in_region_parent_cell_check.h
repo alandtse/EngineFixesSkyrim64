@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::IsPlayerInRegionParentCellCheck
 {
     namespace detail
@@ -60,6 +62,6 @@ namespace Fixes::IsPlayerInRegionParentCellCheck
         }
 
         detail::Install();
-        logger::info("installed is player in region parent cell check fix"sv);
+        EF_INSTALLED("IsPlayerInRegionParentCellCheck"sv, "installed is player in region parent cell check fix"sv);
     }
 }

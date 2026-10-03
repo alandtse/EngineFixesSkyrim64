@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // VR-only fix: buying/selling a stack of items only grants speech XP for one item.
 // Ported from EngineFixesVR/fixes/miscfixes.cpp FixBuySellStackSpeechGain.
 //
@@ -74,6 +76,6 @@ namespace Fixes::BuySellStackSpeechGain
             tramp.write_branch<5>(target, tramp.allocate(cave));
         }
 
-        logger::info("installed buy/sell stack speech gain fix (VR)"sv);
+        EF_INSTALLED("BuySellStackSpeechGain"sv, "installed buy/sell stack speech gain fix (VR)"sv);
     }
 }

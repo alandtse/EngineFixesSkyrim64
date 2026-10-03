@@ -63,6 +63,11 @@ this discipline exists to prevent.
   (`report_id_lookup_failure`), so don't depend on an id before its mapping has shipped. Vtable
   hooks use CommonLibVR's `VTABLE_*` and need no id. A raw-offset anchor is acceptable only as a
   documented stopgap; fix the address library instead of keeping it.
+- Report a successful install with `EF_INSTALLED("<Namespace leaf>"sv, "installed ..."sv)` (`installed_fixes.h`),
+  past every early-out, instead of a bare `logger::info`. It records the install in the internal
+  registry and logs from the fix's own file. `EngineFixes_IsFixInstalled` answers only for names in
+  `installed_fixes_public.h`; add one there (append-only, with the contract `true` guarantees) only
+  when another plugin can observe it.
 - Validate anything read from outside compiled code (settings TOML, cosaves, save data), and
   bounds-check any index or pointer derived from game-controlled values before it reaches a
   patch site.

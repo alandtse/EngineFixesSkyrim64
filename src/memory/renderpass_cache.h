@@ -235,6 +235,6 @@ namespace Memory::RenderPassCache
     inline void Install()
     {
         detail::Install();
-        EF_INSTALLED("RenderPassCacheSceneLights64"sv, "installed render pass cache patch"sv);
+        EF_INSTALLED(InstalledFixes::Public::kRenderPassCacheSceneLights64, "installed render pass cache patch"sv);
     }
 }

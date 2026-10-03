@@ -68,7 +68,6 @@ namespace Fixes::CullingProcessAppendVirtualPoolGuard
         cullingVtbl.write_vfunc(detail::kAppendVirtualSlot, detail::AppendVirtualGuarded);
         parabolicVtbl.write_vfunc(detail::kAppendVirtualSlot, detail::AppendVirtualGuarded);
 
-        InstalledFixes::MarkInstalled("CullingProcessAppendVirtualPoolGuard"sv);
-        logger::info("installed culling process AppendVirtual pool guard"sv);
+        EF_INSTALLED(InstalledFixes::Public::kCullingProcessAppendVirtualPoolGuard, "installed culling process AppendVirtual pool guard"sv);
     }
 }

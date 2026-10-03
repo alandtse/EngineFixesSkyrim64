@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BSTempEffectNiRTTI
 {
     inline void Install()
@@ -8,6 +10,6 @@ namespace Fixes::BSTempEffectNiRTTI
         const REL::Relocation<RE::NiRTTI*> rttiNiObject{ RE::NiObject::Ni_RTTI };
         rttiBSTempEffect->baseRTTI = rttiNiObject.get();
 
-        logger::info("installed bstempeffect nirtti fix"sv);
+        EF_INSTALLED("BSTempEffectNiRTTI"sv, "installed bstempeffect nirtti fix"sv);
     }
 }

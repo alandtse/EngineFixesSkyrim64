@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BGSKeywordFormLoadCrash
 {
     namespace detail
@@ -54,6 +56,6 @@ namespace Fixes::BGSKeywordFormLoadCrash
     inline void Install()
     {
         detail::Install();
-        logger::info("installed bgskeywordform load crash fix"sv);
+        EF_INSTALLED("BGSKeywordFormLoadCrash"sv, "installed bgskeywordform load crash fix"sv);
     }
 }

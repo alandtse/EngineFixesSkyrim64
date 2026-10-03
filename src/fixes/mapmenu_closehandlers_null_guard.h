@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::MapMenuCloseHandlersNullGuard
 {
     // MapMenu::CloseHandlers guards each of its 5 handler-teardown slots with
@@ -62,6 +64,6 @@ namespace Fixes::MapMenuCloseHandlersNullGuard
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<6>(trampoline.allocate(p));
 
-        logger::info("installed MapMenu::CloseHandlers null-handler guard (VR)"sv);
+        EF_INSTALLED("MapMenuCloseHandlersNullGuard"sv, "installed MapMenu::CloseHandlers null-handler guard (VR)"sv);
     }
 }

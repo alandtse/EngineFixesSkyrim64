@@ -1,6 +1,7 @@
 #pragma once
 
 #include "allocator.h"
+#include "installed_fixes.h"
 
 namespace Memory::ScrapHeap
 {
@@ -78,6 +79,6 @@ namespace Memory::ScrapHeap
     inline void Install()
     {
         detail::Install();
-        logger::info("installed scrapheap patch"sv);
+        EF_INSTALLED("ScrapHeap"sv, "installed scrapheap patch"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BSOpenVRHandIndexNullCrash
 {
     // VR-only null-pointer crash in BSOpenVR::GetTrackedDeviceIndexForHand. The function loads the
@@ -54,6 +56,6 @@ namespace Fixes::BSOpenVRHandIndexNullCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed BSOpenVR hand-index null crash fix (VR)"sv);
+        EF_INSTALLED("BSOpenVRHandIndexNullCrash"sv, "installed BSOpenVR hand-index null crash fix (VR)"sv);
     }
 }

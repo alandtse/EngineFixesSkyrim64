@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::ArcheryDownwardAiming
 {
     namespace detail
@@ -29,6 +31,6 @@ namespace Fixes::ArcheryDownwardAiming
         REL::Relocation target{ RELOCATION_ID(42852, 44027), VAR_NUM(0x3E9, util::IsAE1799() ? 0x445 : 0x434) };
         detail::Projectile::_Move = target.write_call<5>(detail::Projectile::Move);
 
-        logger::info("installed archery downward aiming fix"sv);
+        EF_INSTALLED("ArcheryDownwardAiming"sv, "installed archery downward aiming fix"sv);
     }
 }

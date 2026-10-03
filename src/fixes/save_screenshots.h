@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::SaveScreenshots
 {
     namespace detail
@@ -282,6 +284,6 @@ namespace Fixes::SaveScreenshots
     inline void Install()
     {
         detail::Install();
-        logger::info("installed save screenshots fix"sv);
+        EF_INSTALLED("SaveScreenshots"sv, "installed save screenshots fix"sv);
     }
 }

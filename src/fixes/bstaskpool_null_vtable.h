@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // Fix for a BSTaskPool_HandleTask case-0x33 null-vtable crash (SE + AE + VR).
 //
 // BSTaskPool_HandleTask (SE ID 36016, AE ID 36991) case 0x33 processes a
@@ -80,6 +82,6 @@ namespace Fixes::BSTaskPoolNullVtableCrash
         target.write_branch<5>(trampoline.allocate(p));
         // Byte at target+5 (0xCE, orphaned tail of MOV RCX,R14) is unreachable.
 
-        logger::info("installed BSTaskPool null vtable crash fix"sv);
+        EF_INSTALLED("BSTaskPoolNullVtableCrash"sv, "installed BSTaskPool null vtable crash fix"sv);
     }
 }

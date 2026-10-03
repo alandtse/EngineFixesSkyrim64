@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::GlobalTime
 {
     inline void Install()
@@ -28,6 +30,6 @@ namespace Fixes::GlobalTime
         patch(RELOCATION_ID(49980, 50911), VAR_NUM(0xB6 + 0x4, 0x264 + 0x4));
         patch(RELOCATION_ID(49981, 50921), VAR_NUM(0x13 + 0x4, 0x13 + 0x4));
 
-        logger::info("installed global time fix"sv);
+        EF_INSTALLED("GlobalTime"sv, "installed global time fix"sv);
     }
 }

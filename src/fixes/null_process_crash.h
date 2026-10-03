@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::NullProcessCrash
 {
     namespace detail
@@ -31,6 +33,6 @@ namespace Fixes::NullProcessCrash
             trampoline.write_call<5>(target.address() + 0x56, detail::GetEquippedRightHand);
         }
 
-        logger::info("installed null process crash fix");
+        EF_INSTALLED("NullProcessCrash"sv, "installed null process crash fix");
     }
 }

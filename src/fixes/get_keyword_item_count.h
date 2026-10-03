@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::GetKeywordItemCount
 {
     namespace detail
@@ -59,7 +61,7 @@ namespace Fixes::GetKeywordItemCount
             command->executeFunction = detail::Execute;
             command->conditionFunction = detail::Eval;
 
-            logger::info("installed getkeyworditemcount fix"sv);
+            EF_INSTALLED("GetKeywordItemCount"sv, "installed getkeyworditemcount fix"sv);
         }
     }
 }

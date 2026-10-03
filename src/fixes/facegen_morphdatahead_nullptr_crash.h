@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::FaceGenMorphDataHeadNullPtrCrash
 {
     namespace detail
@@ -62,6 +64,6 @@ namespace Fixes::FaceGenMorphDataHeadNullPtrCrash
 
         targetRbx.write(std::span{ pRbx.getCode<const std::byte*>(), pRbx.getSize() });
 
-        logger::info("installed facegen morphdatahead nullptr crash fix"sv);
+        EF_INSTALLED("FaceGenMorphDataHeadNullPtrCrash"sv, "installed facegen morphdatahead nullptr crash fix"sv);
     }
 }

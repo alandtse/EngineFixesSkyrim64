@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::TextureLoadCrash
 {
     namespace detail
@@ -60,6 +62,6 @@ namespace Fixes::TextureLoadCrash
     inline void Install()
     {
         detail::Install();
-        logger::info("installed texture load crash fix"sv);
+        EF_INSTALLED("TextureLoadCrash"sv, "installed texture load crash fix"sv);
     }
 }

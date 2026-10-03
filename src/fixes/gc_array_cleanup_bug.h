@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // Ported from https://github.com/InTheBottle/SkyrimSE-gc-bug-fix by
 // https://github.com/kingeric1992 (GPL-3.0 with modding exception), itself a
 // port of https://github.com/Nukem9/fallout4-gc-bug-fix.
@@ -70,6 +72,6 @@ namespace Fixes::GCArrayCleanupBug
         const bool objOk = detail::Apply(objAddr, isAE ? std::span{ detail::kPatchObjAE } : std::span{ detail::kPatchSE }, "GC_Obj"sv);
 
         if (arrOk && objOk)
-            logger::info("installed GC array/object cleanup bug fix"sv);
+            EF_INSTALLED("GCArrayCleanupBug"sv, "installed GC array/object cleanup bug fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <array>
 #include <cstdint>
 
@@ -90,7 +92,7 @@ namespace Fixes::EffectShaderDataNullTextureCrash
             InstallSite(base + a_info.paletteTextureSite, kPaletteTextureBytes.data(), kPaletteTextureBytes.size(),
                 0x18, false, trampoline);
 
-            logger::info("installed effect shader data null texture crash fix"sv);
+            EF_INSTALLED("EffectShaderDataNullTextureCrash"sv, "installed effect shader data null texture crash fix"sv);
         }
     }
 

@@ -134,7 +134,7 @@ extern "C" __declspec(dllexport) void __stdcall Initialize()
 
 extern "C" __declspec(dllexport) bool EngineFixes_IsFixInstalled(const char* a_name)
 {
-    return a_name && InstalledFixes::IsInstalled(a_name);
+    return a_name && InstalledFixes::IsPubliclyInstalled(a_name);
 }
 
 extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {

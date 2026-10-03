@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::MemoryAccessErrors
 {
     namespace detail
@@ -113,6 +115,6 @@ namespace Fixes::MemoryAccessErrors
         detail::InstallShaderParticleGeometryDataLimit();
         detail::InstallBSShadowDirectionalLightUseAfterFree();
 
-        logger::info("installed misc memory access error fixes"sv);
+        EF_INSTALLED("MemoryAccessErrors"sv, "installed misc memory access error fixes"sv);
     }
 }

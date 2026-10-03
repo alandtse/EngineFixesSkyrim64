@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Memory::MemoryManager
 {
     namespace detail
@@ -132,6 +134,6 @@ namespace Memory::MemoryManager
     {
         detail::Install();
         detail::AutoScrapBuffer::Install();
-        logger::info("installed global memory manager patch"sv);
+        EF_INSTALLED("MemoryManager"sv, "installed global memory manager patch"sv);
     }
 }

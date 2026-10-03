@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
 {
     // EntityRemovedCallback and Unk_07 both deref gPlayerCamera->rigidBody unconditionally
@@ -101,6 +103,6 @@ namespace Fixes::AcousticSpaceListenerNullRigidBodyCrash
             logger::warn("acoustic space listener crash fix: unexpected bytes at Unk_07 patch site, skipping"sv);
         }
 
-        logger::info("installed acoustic space listener null rigidbody crash fix"sv);
+        EF_INSTALLED("AcousticSpaceListenerNullRigidBodyCrash"sv, "installed acoustic space listener null rigidbody crash fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::MaxStdIO
 {
     inline void Install()
@@ -15,18 +17,18 @@ namespace Patches::MaxStdIO
             auto       result = proc(8192);
             if (result != -1) {
                 if (get)
-                    logger::info("set max stdio to {} from {}"sv, result, old);
+                    EF_INSTALLED("MaxStdIO"sv, "set max stdio to {} from {}"sv, result, old);
                 else
-                    logger::info("set max stdio to {}"sv, result);
+                    EF_INSTALLED("MaxStdIO"sv, "set max stdio to {}"sv, result);
 
                 return;
             }
             result = proc(2048);
             if (result != -1) {
                 if (get)
-                    logger::info("set max stdio to {} from {}"sv, result, old);
+                    EF_INSTALLED("MaxStdIO"sv, "set max stdio to {} from {}"sv, result, old);
                 else
-                    logger::info("set max stdio to {}"sv, result);
+                    EF_INSTALLED("MaxStdIO"sv, "set max stdio to {}"sv, result);
             }
         } else {
             logger::error("failed to install MaxStdIO patch"sv);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::LightingShaderLandscapeTextureCrash
 {
     // AE inlines this landscape-blend helper into SetupMaterial (4 sites, resolved via
@@ -71,7 +73,7 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             InstallSite(REL::Relocation<std::uintptr_t>{ setupMaterial.address() + 0x3DE }, Xbyak::util::rax,
                 Xbyak::util::rax, trampoline);
 
-            logger::info("installed lighting shader landscape texture crash fix (ae)"sv);
+            EF_INSTALLED("LightingShaderLandscapeTextureCrash"sv, "installed lighting shader landscape texture crash fix (ae)"sv);
         }
 
         // SE/VR: same 4 sites, but as a standalone function rather than inlined into SetupMaterial.
@@ -99,7 +101,7 @@ namespace Fixes::LightingShaderLandscapeTextureCrash
             InstallSite(REL::Relocation<std::uintptr_t>{ REL::ID(100588), 0xE6 }, Xbyak::util::rax, Xbyak::util::rax,
                 trampoline);
 
-            logger::info("installed lighting shader landscape texture crash fix (se/vr)"sv);
+            EF_INSTALLED("LightingShaderLandscapeTextureCrash"sv, "installed lighting shader landscape texture crash fix (se/vr)"sv);
         }
     }
 

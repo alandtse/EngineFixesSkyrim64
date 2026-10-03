@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // GPL-3.0-or-later adaptation of Skyrim VR Havok Material Guard by Treatid.
 // Standalone source: https://github.com/Treatid2/SkyrimVR-Havok-Material-Guard
 
@@ -156,6 +158,6 @@ namespace Fixes::HavokMaterialLookupGuard
 
         detail::g_materialResolver = reinterpret_cast<detail::MaterialResolver>(moduleBase + detail::kMaterialResolverRva);
         SKSE::GetTrampoline().write_branch<5>(materialLookup, detail::GuardedMaterialLookup);
-        logger::info("installed Havok compressed-mesh material lookup guard (VR)"sv);
+        EF_INSTALLED("HavokMaterialLookupGuard"sv, "installed Havok compressed-mesh material lookup guard (VR)"sv);
     }
 }

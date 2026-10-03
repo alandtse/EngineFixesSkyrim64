@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::RegularQuicksaves
 {
     inline void Install()
@@ -13,6 +15,6 @@ namespace Patches::RegularQuicksaves
         quickSaveLoadHandlerProcessButtonSaveType.write(regular_save);
         quickSaveLoadHandlerProcessButtonLoadType.write(load_last_save);
 
-        logger::info("installed regular quicksave patch"sv);
+        EF_INSTALLED("RegularQuicksaves"sv, "installed regular quicksave patch"sv);
     }
 }

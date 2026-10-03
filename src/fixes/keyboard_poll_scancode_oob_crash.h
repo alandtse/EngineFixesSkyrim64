@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 
 namespace Fixes::KeyboardPollScancodeOOBCrash
@@ -59,6 +61,6 @@ namespace Fixes::KeyboardPollScancodeOOBCrash
         p.ready();
         patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
 
-        logger::info("installed keyboard poll scancode out-of-bounds crash fix"sv);
+        EF_INSTALLED("KeyboardPollScancodeOOBCrash"sv, "installed keyboard poll scancode out-of-bounds crash fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::RemovedSpellBook
 {
     namespace detail
@@ -31,6 +33,6 @@ namespace Fixes::RemovedSpellBook
         REL::Relocation vtbl{ RE::TESObjectBOOK::VTABLE[0] };
         detail::TESObjectBOOK::_LoadGame = vtbl.write_vfunc(0xF, detail::TESObjectBOOK::LoadGame);
 
-        logger::info("installed removed spell book fix"sv);
+        EF_INSTALLED("RemovedSpellBook"sv, "installed removed spell book fix"sv);
     }
 }

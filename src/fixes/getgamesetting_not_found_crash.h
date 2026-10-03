@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::GetGameSettingNotFoundCrash
 {
     // Vanilla null-pointer crash in the `GetGameSetting` (console `getgs`) script-command handler.
@@ -27,6 +29,6 @@ namespace Fixes::GetGameSettingNotFoundCrash
         constexpr std::array<std::uint8_t, 8> patch{ 0x45, 0x31, 0xC9, 0x0F, 0x1F, 0x44, 0x00, 0x00 };
         REL::safe_write(target.address(), patch.data(), patch.size());
 
-        logger::info("installed getgamesetting not found crash fix"sv);
+        EF_INSTALLED("GetGameSettingNotFoundCrash"sv, "installed getgamesetting not found crash fix"sv);
     }
 }

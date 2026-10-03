@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "installed_fixes.h"
+
 // VR-only FixAbilityConditionBug port.
 // Canonical source: EngineFixesVR/fixes/miscfixes.cpp::FixAbilityConditionBug.
 //
@@ -148,6 +150,6 @@ namespace Fixes::AbilityConditionBug
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(thunk));
 
-        logger::info("installed ability condition bug fix (VR)"sv);
+        EF_INSTALLED("AbilityConditionBug"sv, "installed ability condition bug fix (VR)"sv);
     }
 }

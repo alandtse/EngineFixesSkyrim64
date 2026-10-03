@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::ClimateLoad
 {
     namespace detail
@@ -31,6 +33,6 @@ namespace Fixes::ClimateLoad
             detail::Sky::_LoadGame = target.write_call<5>(detail::Sky::LoadGame);
         }
 
-        logger::info("installed climate load fix"sv);
+        EF_INSTALLED("ClimateLoad"sv, "installed climate load fix"sv);
     }
 }

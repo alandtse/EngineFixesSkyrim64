@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 
 // Guards BSBatchRenderer against accessing a cleared/null-derived renderPass array. A heap
@@ -456,7 +458,7 @@ namespace Fixes::BatchRendererRenderPassArrayUAF
         }
 
         if (installed > 0) {
-            logger::info("installed batchrenderer renderpass array UAF fix ({} site(s))"sv, installed);
+            EF_INSTALLED("BatchRendererRenderPassArrayUAF"sv, "installed batchrenderer renderpass array UAF fix ({} site(s))"sv, installed);
         } else {
             logger::warn("batchrenderer renderpass array UAF fix: no sites matched, not installed"sv);
         }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::StuckMouseButtons
 {
     namespace detail
@@ -77,6 +79,6 @@ namespace Fixes::StuckMouseButtons
     inline void Install()
     {
         RE::UI::GetSingleton()->AddEventSink(detail::MenuOpenCloseEventSink::GetSingleton());
-        logger::info("installed stuck mouse buttons fix"sv);
+        EF_INSTALLED("StuckMouseButtons"sv, "installed stuck mouse buttons fix"sv);
     }
 }

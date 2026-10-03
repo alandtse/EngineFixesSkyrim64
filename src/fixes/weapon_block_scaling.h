@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::WeaponBlockScaling
 {
     namespace detail
@@ -90,6 +92,6 @@ namespace Fixes::WeaponBlockScaling
         std::copy_n(p.getCode<const std::byte*>(), patchSize, buf.begin());
         target.write(std::span{ buf.data(), VAR_NUM(0x19u, 0x17u, 0x17u) });
 
-        logger::info("installed weapon block scaling fix"sv);
+        EF_INSTALLED("WeaponBlockScaling"sv, "installed weapon block scaling fix"sv);
     }
 }

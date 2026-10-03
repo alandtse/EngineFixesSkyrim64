@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 #include <optional>
 #include <vector>
@@ -183,7 +185,7 @@ namespace Fixes::CullingFreedObjectCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kConvergeOffset } }.address() };
             p.ready();
             call.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed ObjectLOD render freed-object crash fix"sv);
+            EF_INSTALLED("CullingFreedObjectCrash"sv, "installed ObjectLOD render freed-object crash fix"sv);
             return 1;
         }
 
@@ -247,7 +249,7 @@ namespace Fixes::CullingFreedObjectCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kFallbackOffset } }.address() };
             p.ready();
             patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed ObjectLOD property freed-object crash fix"sv);
+            EF_INSTALLED("CullingFreedObjectCrash"sv, "installed ObjectLOD property freed-object crash fix"sv);
             return 1;
         }
 
@@ -315,7 +317,7 @@ namespace Fixes::CullingFreedObjectCrash
             installed += detail::PatchSites(detail::kSitesSE, 0x1A0, moduleBase, moduleEnd);
 
         if (installed > 0) {
-            logger::info("installed culling freed-object crash fix ({} site(s))"sv, installed);
+            EF_INSTALLED("CullingFreedObjectCrash"sv, "installed culling freed-object crash fix ({} site(s))"sv, installed);
         } else {
             logger::warn("culling freed-object crash fix: no sites matched, not installed"sv);
         }

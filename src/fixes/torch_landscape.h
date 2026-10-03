@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::TorchLandscape
 {
     namespace detail
@@ -49,6 +51,6 @@ namespace Fixes::TorchLandscape
         auto& trampoline = SKSE::GetTrampoline();
         detail::ShadowSceneNode::_AddLight = target.write_call<5>(trampoline.allocate(p));
 
-        logger::info("installed torch landscape fix"sv);
+        EF_INSTALLED("TorchLandscape"sv, "installed torch landscape fix"sv);
     }
 }

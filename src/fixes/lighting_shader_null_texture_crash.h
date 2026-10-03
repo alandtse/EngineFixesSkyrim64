@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::LightingShaderNullTextureCrash
 {
     // SetupTexture dereferences its texture-pointer arg's +0x48 field before null-checking
@@ -43,7 +45,7 @@ namespace Fixes::LightingShaderNullTextureCrash
             auto& trampoline = SKSE::GetTrampoline();
             target.write_branch<5>(trampoline.allocate(p));
 
-            logger::info("installed lighting shader null texture crash fix"sv);
+            EF_INSTALLED("LightingShaderNullTextureCrash"sv, "installed lighting shader null texture crash fix"sv);
         } else {
             logger::warn("lighting shader null texture crash fix: unexpected bytes at patch site, skipping"sv);
         }

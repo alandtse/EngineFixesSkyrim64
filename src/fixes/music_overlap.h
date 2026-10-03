@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::MusicOverlap
 {
     namespace detail
@@ -17,6 +19,6 @@ namespace Fixes::MusicOverlap
         REL::Relocation vtbl{ RE::BSIMusicType::VTABLE[0] };
         vtbl.write_vfunc(0x3, detail::DoFinish);
 
-        logger::info("installed music overlap fix"sv);
+        EF_INSTALLED("MusicOverlap"sv, "installed music overlap fix"sv);
     }
 }

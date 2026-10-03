@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // Defensive guard against EXCEPTION_ACCESS_VIOLATION inside
 // BSGraphics::TriShape::Release when its indexBuffer / vertexBuffer fields
 // have been corrupted (overwritten with non-pointer data) by an upstream bug.
@@ -132,6 +134,6 @@ namespace Fixes::TriShapeReleaseBufferGuard
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed trishape release buffer guard"sv);
+        EF_INSTALLED("TriShapeReleaseBufferGuard"sv, "installed trishape release buffer guard"sv);
     }
 }

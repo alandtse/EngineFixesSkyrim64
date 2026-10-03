@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::EquipShoutEventSpam
 {
     namespace detail
@@ -51,6 +53,6 @@ namespace Fixes::EquipShoutEventSpam
 
         REL::Relocation<std::uintptr_t>{ target.address() + 5 }.write_fill(REL::NOP, 7);
 
-        logger::info("installed equip shout event spam fix"sv);
+        EF_INSTALLED("EquipShoutEventSpam"sv, "installed equip shout event spam fix"sv);
     }
 }

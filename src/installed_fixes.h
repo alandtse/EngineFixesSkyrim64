@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes_public.h"
+
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -21,6 +23,11 @@ namespace InstalledFixes
     {
         return Registry().contains(std::string{ a_name });
     }
+
+    inline bool IsPubliclyInstalled(std::string_view a_name)
+    {
+        return Public::IsPublic(a_name) && IsInstalled(a_name);
+    }
 }
 
 // Record a capability and log the install line together. Use at the point a fix has verified
@@ -31,9 +38,11 @@ namespace InstalledFixes
 // as a defaulted argument: wrapped in a function, every install line in the log would report
 // installed_fixes.h instead of the fix's own file.
 //
-// Only fixes exposing a contract another plugin can observe need a capability name; internal
-// guards can keep calling logger::info directly. MarkInstalled stays available for a fix that
-// needs to register without logging.
+// Every fix, patch and memory override registers under its namespace's leaf name in the internal
+// registry. Only the names in installed_fixes_public.h are visible through
+// EngineFixes_IsFixInstalled. A fix with several independent sites registers on each site that
+// installs, so an internal name reads as installed when at least one did.
+// MarkInstalled stays available for a fix that needs to register without logging.
 #define EF_INSTALLED(a_capability, ...)                \
     do {                                               \
         ::InstalledFixes::MarkInstalled(a_capability); \
