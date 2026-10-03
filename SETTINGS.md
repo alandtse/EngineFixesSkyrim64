@@ -37,6 +37,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bCalendarSkipping` | `true` | ≤ 7.0.20 | fixes a bug where the game calendar effectively skips a year if you fast travel too far between 20:00 and 23:99 in-game |
 | `bCellInit` | `true` | ≤ 7.0.20 | fixes a rare crash where a form field does not get converted from an id to a pointer |
 | `bClimateLoad` | `true` | ≤ 7.0.20 | fixes a bug where the game fails to properly apply sunrise and sunset data from Climate records if you load a saved game in an interior |
+| `bCombatGroupStalePointerCrash` | `true` | 7.10.0 | guards Actor::GetCombatGroup against handing back a stale/implausible pointer when read off the main thread during a combat-group reassignment race |
 | `bConjurationEnchantAbsorbs` | `true` | ≤ 7.0.20 | fixes a bug where spell absorption triggers on enchanted items using conjuration summons |
 | `bConsoleSaveDeadlock` | `true` | 7.4.7 | fixes a deadlock (permanent hang, no crash) when the console 'save' command executes off the main thread, e.g. issued programmatically via Console::ExecuteCommand |
 | `bCreateArmorNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes typo that may cause a crash somewhere in CreateArmorNode |
@@ -69,7 +70,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bSaveScreenshots` | `true` | ≤ 7.0.20 | fixes save screenshots being blank under certain configurations |
 | `bSavedHavokDataLoadInit` | `true` | ≤ 7.0.20 | fixes motion vectors for objects with saved havok data that differs significantly from their base state |
 | `bSceneGraphDetachFreedCrash` | `true` | 7.4.9 | guards recursive scene-graph detach traversal against freed or reused nodes during cell teardown |
-| `bShadowLightCrossThreadFreeCrash` | `true` | 7.9.0 | fixes a crash when a shadow light released on a job thread, e.g. by the console coc command, is freed while the render thread still uses it; frees are deferred to the end of the frame |
+| `bShadowLightCrossThreadFreeCrash` | `true` | 7.9.0 | fixes a crash when a light released on a job thread, e.g. by the console coc command, is freed while the render thread still uses it; frees are deferred to the end of the frame |
 | `bShadowSceneNodeNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash in shadowscenenode |
 | `bSubIndexTriShapeCreateNullCrash` | `true` | 7.6.1 | fixes rare crashes when a mesh/LOD sub-shape is null: an allocation failure under memory pressure, or an out-of-range/freed segment lookup during terrain/water LOD updates |
 | `bSkyUpdateCloudsNullPtrCrash` | `true` | 7.4.0 | fixes a crash in Sky::UpdateClouds when the current cloud object is null (e.g. during weather transitions; surfaced by sky/weather shader mods) |
@@ -140,6 +141,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.10.0**: `bCombatGroupStalePointerCrash`
 - **7.9.0**: `bBatchRendererAlphaGeometryGroupOverflow`, `iBatchRendererAlphaGeometryGroupLimit`, `bCullingProcessAppendVirtualPoolGuard`, `bShadowLightCrossThreadFreeCrash`
 - **7.8.0**: `bMapMenuCloseHandlersNullGuard`
 - **7.7.0**: `bGCArrayCleanupBug`

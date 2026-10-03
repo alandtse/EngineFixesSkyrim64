@@ -1,3 +1,25 @@
+## [7.10.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.9.0...v7.10.0) (2026-10-03)
+
+### Features
+
+* **renderpass:** register the scene-light storage contract with InstalledFixes ([#88](https://github.com/alandtse/EngineFixesSkyrim64/issues/88)) ([4afd6cb](https://github.com/alandtse/EngineFixesSkyrim64/commit/4afd6cbaff89126544a69891d5ce16ebf5a270bd))
+
+### Bug Fixes
+
+* **combat:** guard GetCombatGroup stale pointer ([#81](https://github.com/alandtse/EngineFixesSkyrim64/issues/81)) ([b34c384](https://github.com/alandtse/EngineFixesSkyrim64/commit/b34c384744a3f0d8ed6c338d802fe3543c3960f2))
+* defer plain light destruction off-thread ([#87](https://github.com/alandtse/EngineFixesSkyrim64/issues/87)) ([e0ac97c](https://github.com/alandtse/EngineFixesSkyrim64/commit/e0ac97c830ca61d134d391e9e1c395d031963d4a))
+
+### Refactors
+
+* adopt EF_INSTALLED across all fixes ([#89](https://github.com/alandtse/EngineFixesSkyrim64/issues/89)) ([42ad040](https://github.com/alandtse/EngineFixesSkyrim64/commit/42ad0406964e5eeabb278ad908abd0673af298e0))
+
+
+### New Settings
+
+* `[Fixes] bCombatGroupStalePointerCrash` (default `true`) — guards Actor::GetCombatGroup against handing back a stale/implausible pointer when read off the main thread during a combat-group reassignment race
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.9.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.8.1...v7.9.0) (2026-09-23)
 
 ### Features
