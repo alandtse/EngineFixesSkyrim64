@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Memory::HavokMemorySystem
 {
     namespace detail
@@ -151,6 +153,6 @@ namespace Memory::HavokMemorySystem
     inline void Install()
     {
         detail::Install();
-        logger::info("installed havok memory system patch"sv);
+        EF_INSTALLED("HavokMemorySystem"sv, "installed havok memory system patch"sv);
     }
 }

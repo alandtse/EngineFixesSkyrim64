@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::ScrollingDoesntSwitchPOV
 {
     inline void Install()
@@ -12,6 +14,6 @@ namespace Patches::ScrollingDoesntSwitchPOV
         firstPersonState.write(BYTE);
         thirdPersonState.write(BYTE);
 
-        logger::info("installed scrolling doesn't switch pov patch"sv);
+        EF_INSTALLED("ScrollingDoesntSwitchPOV"sv, "installed scrolling doesn't switch pov patch"sv);
     }
 }

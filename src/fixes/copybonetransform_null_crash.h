@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::CopyBoneTransformNullCrash
 {
     // VR-only null-pointer crash in a bone-transform copy helper (CopyBoneTransformByName),
@@ -55,6 +57,6 @@ namespace Fixes::CopyBoneTransformNullCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed copybonetransform null bone crash fix (VR)"sv);
+        EF_INSTALLED("CopyBoneTransformNullCrash"sv, "installed copybonetransform null bone crash fix (VR)"sv);
     }
 }

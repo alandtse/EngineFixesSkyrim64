@@ -1,4 +1,5 @@
 #pragma once
+#include "installed_fixes.h"
 #include "settings.h"
 
 namespace Patches::SaveGameMaxSize
@@ -29,6 +30,6 @@ namespace Patches::SaveGameMaxSize
             target.write(sizeBytes);
         }
 
-        logger::info("installed save game max size patch"sv, Settings::Patches::iSaveGameMaxSize.GetValue());
+        EF_INSTALLED("SaveGameMaxSize"sv, "installed save game max size patch"sv, Settings::Patches::iSaveGameMaxSize.GetValue());
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::WaterflowAnimation
 {
     namespace detail
@@ -22,6 +24,6 @@ namespace Patches::WaterflowAnimation
     {
         detail::PatchWaterflowAnimation();
 
-        logger::info("installed waterflow animation patch"sv, Settings::Patches::fWaterflowSpeed.GetValue());
+        EF_INSTALLED("WaterflowAnimation"sv, "installed waterflow animation patch"sv, Settings::Patches::fWaterflowSpeed.GetValue());
     }
 }

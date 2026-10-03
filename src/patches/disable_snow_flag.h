@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::DisableSnowFlag
 {
     namespace detail
@@ -49,6 +51,6 @@ namespace Patches::DisableSnowFlag
     inline void Install()
     {
         detail::Install();
-        logger::info("installed disable snow flag patches"sv);
+        EF_INSTALLED("DisableSnowFlag"sv, "installed disable snow flag patches"sv);
     }
 }

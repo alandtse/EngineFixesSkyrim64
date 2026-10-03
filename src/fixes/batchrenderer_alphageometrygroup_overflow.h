@@ -103,8 +103,7 @@ namespace Fixes::BatchRendererAlphaGeometryGroupOverflow
         const std::size_t installed = detail::InstallSite(REL::Module::IsAE() ? detail::kSiteAE : detail::kSiteFlat, limit);
 
         if (installed > 0) {
-            InstalledFixes::MarkInstalled("BatchRendererAlphaGeometryGroupOverflow"sv);
-            logger::info("installed batchrenderer alpha geometry group overflow fix (limit={})"sv, limit);
+            EF_INSTALLED("BatchRendererAlphaGeometryGroupOverflow"sv, "installed batchrenderer alpha geometry group overflow fix (limit={})"sv, limit);
         } else {
             logger::warn("batchrenderer alpha geometry group overflow fix: no sites matched, not installed"sv);
         }

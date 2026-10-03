@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BSLightingShaderForceAlphaTest
 {
     namespace detail
@@ -32,6 +34,6 @@ namespace Fixes::BSLightingShaderForceAlphaTest
         REL::Relocation target{ RELOCATION_ID(100854, 107644) };
         detail::g_hk_BSBatchRenderer_SetupAndDrawPass = safetyhook::create_inline(target.address(), detail::BSBatchRenderer_SetupAndDrawPass);
 
-        logger::info("installed bslightingshader force alpha test fix"sv);
+        EF_INSTALLED("BSLightingShaderForceAlphaTest"sv, "installed bslightingshader force alpha test fix"sv);
     }
 }

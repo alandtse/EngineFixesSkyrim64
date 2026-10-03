@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // Actor::GetCombatGroup() can return a non-null pointer that isn't a valid CombatGroup*
 // (observed: 0x1) when read concurrently with SetCombatGroup on another thread; every
 // caller's next dereference is then a wild read. This validates the returned pointer before
@@ -85,6 +87,6 @@ namespace Fixes::CombatGroupStalePointerCrash
         }
 
         SKSE::GetTrampoline().write_branch<5>(target.address(), isVR ? &detail::GetCombatGroupVR : &detail::GetCombatGroupFlat);
-        logger::info("installed combat group stale pointer crash fix ({})"sv, label);
+        EF_INSTALLED("CombatGroupStalePointerCrash"sv, "installed combat group stale pointer crash fix ({})"sv, label);
     }
 }

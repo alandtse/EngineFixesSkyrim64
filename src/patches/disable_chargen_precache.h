@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::DisableChargenPrecache
 {
     inline void Install()
@@ -13,6 +15,6 @@ namespace Patches::DisableChargenPrecache
         chargenPrecacheClear.write_fill(REL::INT3, VAR_NUM(0x76, 0x8A));
         chargenPrecacheClear.write(REL::RET);
 
-        logger::info("installed disable chargen precache patch"sv);
+        EF_INSTALLED("DisableChargenPrecache"sv, "installed disable chargen precache patch"sv);
     }
 }

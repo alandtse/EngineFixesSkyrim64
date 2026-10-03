@@ -1,4 +1,6 @@
 #pragma once
+
+#include "installed_fixes.h"
 #include <stacktrace>
 
 namespace Fixes::ESLCELLLoadingBugs
@@ -51,6 +53,6 @@ namespace Fixes::ESLCELLLoadingBugs
     inline void Install()
     {
         detail::Install();
-        logger::info("installed ESL CELL load bug fix"sv);
+        EF_INSTALLED("ESLCELLLoadingBugs"sv, "installed ESL CELL load bug fix"sv);
     }
 }

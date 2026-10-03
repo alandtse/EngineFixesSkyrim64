@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::LipSync
 {
     inline void Install()
@@ -19,6 +21,6 @@ namespace Fixes::LipSync
             REL::Relocation<std::uintptr_t>{ targetBase.address() + offset }.write(JMP);
         }
 
-        logger::info("installed lip sync fix"sv);
+        EF_INSTALLED("LipSync"sv, "installed lip sync fix"sv);
     }
 }

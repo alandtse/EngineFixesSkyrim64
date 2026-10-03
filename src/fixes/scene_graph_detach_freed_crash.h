@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
@@ -182,7 +184,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 0x29D810, 0x29D816, 0x29D823, kTraversal7A0Expected);
             installed += PatchFreedChildTraversalSiteVR(a_moduleBase, a_moduleEnd,
                 0x29D8B0, 0x29D8B6, 0x29D8C7, kTraversal850Expected);
-            logger::info("installed scene-graph child freed-object crash fix ({} site(s))"sv,
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed scene-graph child freed-object crash fix ({} site(s))"sv,
                 installed);
         }
 
@@ -290,7 +292,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             auto& trampoline = SKSE::GetTrampoline();
             first.write_branch<5>(trampoline.allocate(firstPatch));
             second.write_branch<5>(trampoline.allocate(secondPatch));
-            logger::info("installed recursive scene-node freed-object crash fix (2 sites)"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed recursive scene-node freed-object crash fix (2 sites)"sv);
         }
 
         // The multibound/water scene helper is reached from the same teardown traversal, auxiliary object in RDX.
@@ -352,7 +354,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
             p.ready();
             entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed multibound scene helper freed-object crash fix"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed multibound scene helper freed-object crash fix"sv);
         }
 
         // Three multibound callers invoke +0x18 on the caller's own node, which the helper above doesn't validate.
@@ -438,7 +440,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 patch.write_branch<5>(trampoline.allocate(p));
                 ++installed;
             }
-            logger::info("installed multibound caller freed-object crash fix ({} site(s))"sv,
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed multibound caller freed-object crash fix ({} site(s))"sv,
                 installed);
         }
 
@@ -506,7 +508,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
             p.ready();
             entry.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed ObjectLOD recursive visitor freed-object crash fix"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed ObjectLOD recursive visitor freed-object crash fix"sv);
         }
 
         // Two more ObjectLOD readers: a linked-chain walker (+0x10) and a child-array family (+0x38/+0x18).
@@ -638,7 +640,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                     0x136004E, 0x1360057, 0x1360065, kLinkedFirstExpected, false, 0x10);
                 installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
                     0x1360072, 0x136007B, 0x1360065, kLinkedSecondExpected, false, 0x10);
-                logger::info("installed ObjectLOD linked-reader freed-object crash fix ({} site(s))"sv,
+                EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed ObjectLOD linked-reader freed-object crash fix ({} site(s))"sv,
                     installed);
             }
 
@@ -651,7 +653,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 0x12FC0B0, 0x12FC0B9, 0x12FC0F6, kInnerFirstExpected, false, 0x38);
             installed += PatchObjectLODReaderDispatchVR(a_moduleBase, a_moduleEnd,
                 0x12FC0DD, 0x12FC0E6, 0x12FC0F6, kInnerSecondExpected, false, 0x18);
-            logger::info("installed ObjectLOD child-reader freed-object crash fix ({} site(s))"sv,
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed ObjectLOD child-reader freed-object crash fix ({} site(s))"sv,
                 installed);
         }
 
@@ -721,7 +723,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kNextChildOffset } }.address() };
             p.ready();
             patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed NiNode clone child freed-object crash fix"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed NiNode clone child freed-object crash fix"sv);
         }
 
         // NiNode::ProcessClone's own child-array dispatch (vfunc 0xE8); return value unused, so skip is safe.
@@ -775,7 +777,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
             p.ready();
             patch.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed NiNode ProcessClone child freed-object crash fix"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed NiNode ProcessClone child freed-object crash fix"sv);
         }
 
         // BSLight::AttachSubtree dispatches AsNode() (slot 0x18); AE lacks VR/SE's RDI stack-spill.
@@ -911,7 +913,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.resume } }.address(), hasStackSpill };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed BSLight::AttachSubtree AsNode guard"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed BSLight::AttachSubtree AsNode guard"sv);
 
             REL::Relocation<std::uintptr_t> fallbackHook{ REL::Offset{ offsets.fallbackHook } };
             if (!LightAttachSubtreeFallbackSiteMatches(fallbackHook.address())) {
@@ -924,7 +926,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ offsets.fallbackResume } }.address() };
             fp.ready();
             fallbackHook.write_branch<5>(SKSE::GetTrampoline().allocate(fp));
-            logger::info("installed BSLight::AttachSubtree fallback guard"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed BSLight::AttachSubtree fallback guard"sv);
         }
 
         // The children-array pointer ([node+0x140]) is heap data, not code -- reject non-canonical/null.
@@ -982,7 +984,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
             VisitCollisionArrayPatch p{ REL::Relocation<std::uintptr_t>{ REL::Offset{ kResumeOffset } }.address() };
             p.ready();
             hook.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed VisitCollisionObjectTree array guard"sv);
+            EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed VisitCollisionObjectTree array guard"sv);
         }
     }
 
@@ -1046,6 +1048,6 @@ namespace Fixes::SceneGraphDetachFreedCrash
             detail::PatchVisitCollisionArrayVR();
         }
 
-        logger::info("installed scene-graph detach freed-object crash fix"sv);
+        EF_INSTALLED("SceneGraphDetachFreedCrash"sv, "installed scene-graph detach freed-object crash fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // VR-only fix for a shadow scene null-pointer crash at VR offset 0x12F86DD.
 // This is distinct from the SE/AE shadowscenenode_nullptr_crash fix.
 //
@@ -81,6 +83,6 @@ namespace Fixes::ShadowSceneCrash
         // Bytes 5-8 become unreachable dead code (not executed), so no explicit NOP fill needed.
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed shadow scene crash fix (VR)"sv);
+        EF_INSTALLED("ShadowSceneCrash"sv, "installed shadow scene crash fix (VR)"sv);
     }
 }

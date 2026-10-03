@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include "installed_fixes.h"
+
 // VR-only crash: the kUpdate init block in ProcessMessage calls Init3DElements
 // and UpdateAngle every frame until init3DElements==true.  Init3DElements fires
 // async RequestModel2 calls then immediately dereferences the resulting _entry
@@ -104,6 +106,6 @@ namespace Fixes::LockpickingMenuInitCrash
             detail::origUpdateAngle = patchSite.write_call<5>(detail::guardedUpdateAngle);
         }
 
-        logger::info("installed lockpicking menu init crash fix (VR)"sv);
+        EF_INSTALLED("LockpickingMenuInitCrash"sv, "installed lockpicking menu init crash fix (VR)"sv);
     }
 }

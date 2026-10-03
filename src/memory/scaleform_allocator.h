@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Memory::ScaleformAllocator
 {
     namespace detail
@@ -94,7 +96,7 @@ namespace Memory::ScaleformAllocator
             logger::info("skipping scaleform allocator patch as it requires the memory manager patch"sv);
         } else {
             detail::Install();
-            logger::info("installed scaleform allocator patch"sv);
+            EF_INSTALLED("ScaleformAllocator"sv, "installed scaleform allocator patch"sv);
         }
     }
 }

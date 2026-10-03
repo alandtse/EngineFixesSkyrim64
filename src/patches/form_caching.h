@@ -1,5 +1,6 @@
 #pragma once
 
+#include "installed_fixes.h"
 #include "tree_lod_reference_caching.h"
 
 // notes on form caching
@@ -212,6 +213,6 @@ namespace Patches::FormCaching
     {
         detail::ReplaceFormMapFunctions();
 
-        logger::info("installed form caching patch"sv);
+        EF_INSTALLED("FormCaching"sv, "installed form caching patch"sv);
     }
 }

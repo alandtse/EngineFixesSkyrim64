@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::TreeReflections
 {
     namespace detail
@@ -56,6 +58,6 @@ namespace Fixes::TreeReflections
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<6>(trampoline.allocate(p));
 
-        logger::info("installed tree lod reflection fix");
+        EF_INSTALLED("TreeReflections"sv, "installed tree lod reflection fix");
     }
 }

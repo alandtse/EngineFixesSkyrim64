@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::SkyUpdateCloudsNullPtrCrash
 {
     namespace detail
@@ -49,6 +51,6 @@ namespace Fixes::SkyUpdateCloudsNullPtrCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed Sky::UpdateClouds null cloud crash fix"sv);
+        EF_INSTALLED("SkyUpdateCloudsNullPtrCrash"sv, "installed Sky::UpdateClouds null cloud crash fix"sv);
     }
 }

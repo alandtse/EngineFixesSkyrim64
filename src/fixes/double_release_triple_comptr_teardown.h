@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <array>
 #include <cstdint>
 #include <cstring>
@@ -59,6 +61,6 @@ namespace Fixes::DoubleReleaseTripleComPtrTeardown
         std::memcpy(jmp.data() + 1, &rel, sizeof(rel));
         REL::safe_write(target.address(), jmp.data(), jmp.size());
 
-        logger::info("installed double-release triple-COM-ptr teardown fix"sv);
+        EF_INSTALLED("DoubleReleaseTripleComPtrTeardown"sv, "installed double-release triple-COM-ptr teardown fix"sv);
     }
 }

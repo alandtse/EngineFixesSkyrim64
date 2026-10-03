@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::CalendarSkipping
 {
     namespace detail
@@ -44,6 +46,6 @@ namespace Fixes::CalendarSkipping
             detail::Calendar::_Update = target.write_call<5>(detail::Calendar::Update);
         }
 
-        logger::info("installed calendar skipping fix"sv);
+        EF_INSTALLED("CalendarSkipping"sv, "installed calendar skipping fix"sv);
     }
 }

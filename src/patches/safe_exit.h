@@ -1,6 +1,7 @@
 #pragma once
 #include "fixes/precomputed_paths.h"
 #include "fixes/texture_load_crash.h"
+#include "installed_fixes.h"
 
 #include <spdlog/spdlog.h>
 
@@ -32,6 +33,6 @@ namespace Patches::SafeExit
         REL::Relocation target{ RELOCATION_ID(35545, 36544), VAR_NUM(0x35, 0x1AE) };
         target.write_call<5>(detail::Shutdown);
 
-        logger::info("installed safe exit patch"sv);
+        EF_INSTALLED("SafeExit"sv, "installed safe exit patch"sv);
     }
 }

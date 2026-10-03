@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::ActorValueStorageClearRaceCrash
 {
     // ClearBaseValues unlocks before resetting `actorValues`; a racing SetBaseValue can see
@@ -154,6 +156,6 @@ namespace Fixes::ActorValueStorageClearRaceCrash
                 });
         }
 
-        logger::info("installed actor value storage clear race crash fix"sv);
+        EF_INSTALLED("ActorValueStorageClearRaceCrash"sv, "installed actor value storage clear race crash fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::BethesdaNetCrash
 {
     namespace detail
@@ -45,6 +47,6 @@ namespace Fixes::BethesdaNetCrash
     {
         SKSE::PatchIAT(detail::hk_wcsrtombs_s, "API-MS-WIN-CRT-CONVERT-L1-1-0.dll", "wcsrtombs_s");
 
-        logger::info("installed bethesda net crash fix"sv);
+        EF_INSTALLED("BethesdaNetCrash"sv, "installed bethesda net crash fix"sv);
     }
 }

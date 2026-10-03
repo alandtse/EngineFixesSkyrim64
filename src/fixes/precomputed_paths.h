@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::PrecomputedPaths
 {
     namespace detail
@@ -107,6 +109,6 @@ namespace Fixes::PrecomputedPaths
     inline void Install()
     {
         detail::Install();
-        logger::info("installed precomputed paths crash fix"sv);
+        EF_INSTALLED("PrecomputedPaths"sv, "installed precomputed paths crash fix"sv);
     }
 }

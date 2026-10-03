@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -240,7 +242,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             PatchAE p{ a_moduleBase, a_moduleEnd, call + std::size(kExpectedAE), entry + kAEBailDelta };
             p.ready();
             REL::Relocation<std::uintptr_t>{ call }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed batchrenderer shader technique UAF fix (ae)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (ae)"sv);
 
             const std::uintptr_t materialCall = entry + kAEMaterialCallDelta;
             if (!std::equal(std::begin(kExpectedAEMaterial), std::end(kExpectedAEMaterial), reinterpret_cast<const std::uint8_t*>(materialCall))) {
@@ -251,7 +253,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             PatchMaterialAE mp{ a_moduleBase, a_moduleEnd, materialCall + std::size(kExpectedAEMaterial) };
             mp.ready();
             REL::Relocation<std::uintptr_t>{ materialCall }.write_branch<5>(SKSE::GetTrampoline().allocate(mp));
-            logger::info("installed batchrenderer shader technique UAF fix (ae, material)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (ae, material)"sv);
 
             const std::uintptr_t restoreCall = entry + kAERestoreCallDelta;
             if (!std::equal(std::begin(kExpectedAERestore), std::end(kExpectedAERestore), reinterpret_cast<const std::uint8_t*>(restoreCall))) {
@@ -262,7 +264,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             PatchRestoreAE rp{ a_moduleBase, a_moduleEnd, entry + kAERestoreResumeDelta, entry + kAERestoreBailDelta };
             rp.ready();
             REL::Relocation<std::uintptr_t>{ restoreCall }.write_branch<5>(SKSE::GetTrampoline().allocate(rp));
-            logger::info("installed batchrenderer shader technique UAF fix (ae, restore)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (ae, restore)"sv);
         }
 
         inline void InstallSEVR(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
@@ -279,7 +281,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             PatchSEVR p{ a_moduleBase, a_moduleEnd, call + std::size(kExpectedSEVR), bail };
             p.ready();
             REL::Relocation<std::uintptr_t>{ call }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
-            logger::info("installed batchrenderer shader technique UAF fix (se/vr)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (se/vr)"sv);
 
             const std::uintptr_t materialCall = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_materialCallOffset } }.address();
             if (!std::equal(std::begin(kExpectedSEVRMaterial), std::end(kExpectedSEVRMaterial), reinterpret_cast<const std::uint8_t*>(materialCall))) {
@@ -290,7 +292,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             PatchMaterialSEVR mp{ a_moduleBase, a_moduleEnd, materialCall + std::size(kExpectedSEVRMaterial) };
             mp.ready();
             REL::Relocation<std::uintptr_t>{ materialCall }.write_branch<5>(SKSE::GetTrampoline().allocate(mp));
-            logger::info("installed batchrenderer shader technique UAF fix (se/vr, material)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (se/vr, material)"sv);
 
             const std::uintptr_t restoreCall = REL::Relocation<std::uintptr_t>{ REL::Offset{ a_restoreSite.callOffset } }.address();
             if (!std::equal(std::begin(kExpectedSEVRRestore), std::end(kExpectedSEVRRestore), reinterpret_cast<const std::uint8_t*>(restoreCall))) {
@@ -303,7 +305,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 REL::Relocation<std::uintptr_t>{ REL::Offset{ a_restoreSite.bailOffset } }.address() };
             rp.ready();
             REL::Relocation<std::uintptr_t>{ restoreCall }.write_branch<5>(SKSE::GetTrampoline().allocate(rp));
-            logger::info("installed batchrenderer shader technique UAF fix (se/vr, restore)"sv);
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (se/vr, restore)"sv);
         }
     }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::CreateArmorNodeNullPtrCrash
 {
     namespace detail
@@ -39,6 +41,6 @@ namespace Fixes::CreateArmorNodeNullPtrCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed create armor node nullptr crash fix"sv);
+        EF_INSTALLED("CreateArmorNodeNullPtrCrash"sv, "installed create armor node nullptr crash fix"sv);
     }
 }

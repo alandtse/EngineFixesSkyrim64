@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::VerticalLookSensitivity
 {
     namespace detail
@@ -76,6 +78,6 @@ namespace Fixes::VerticalLookSensitivity
             REL::Relocation<std::uintptr_t>{ target.address() + 6 }.write_fill(REL::NOP, VAR_NUM(5u, 2u));
         }
 
-        logger::info("installed vertical look sensitivity fix"sv);
+        EF_INSTALLED("VerticalLookSensitivity"sv, "installed vertical look sensitivity fix"sv);
     }
 }

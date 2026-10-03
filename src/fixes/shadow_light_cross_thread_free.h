@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -240,6 +242,6 @@ namespace Fixes::ShadowLightCrossThreadFree
             return;
         }
 
-        logger::info("installed shadow light cross-thread free fix ({} light classes)"sv, hooked);
+        EF_INSTALLED("ShadowLightCrossThreadFree"sv, "installed shadow light cross-thread free fix ({} light classes)"sv, hooked);
     }
 }

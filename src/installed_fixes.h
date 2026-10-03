@@ -31,9 +31,10 @@ namespace InstalledFixes
 // as a defaulted argument: wrapped in a function, every install line in the log would report
 // installed_fixes.h instead of the fix's own file.
 //
-// Only fixes exposing a contract another plugin can observe need a capability name; internal
-// guards can keep calling logger::info directly. MarkInstalled stays available for a fix that
-// needs to register without logging.
+// Every fix, patch and memory override registers under its namespace's leaf name, so other
+// plugins can query it through EngineFixes_IsFixInstalled. A fix with several independent sites
+// registers on each site that installs, so it reads as installed when at least one did.
+// MarkInstalled stays available for a fix that needs to register without logging.
 #define EF_INSTALLED(a_capability, ...)                \
     do {                                               \
         ::InstalledFixes::MarkInstalled(a_capability); \

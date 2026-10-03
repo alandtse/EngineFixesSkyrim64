@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::SleepWaitTime
 {
     namespace detail
@@ -39,6 +41,6 @@ namespace Patches::SleepWaitTime
     {
         detail::Install();
 
-        logger::info("installed sleep wait timer patch"sv);
+        EF_INSTALLED("SleepWaitTime"sv, "installed sleep wait timer patch"sv);
     }
 }

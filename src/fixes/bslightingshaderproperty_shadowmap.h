@@ -5,6 +5,7 @@
 #include <cstring>
 #include <intrin.h>
 
+#include "installed_fixes.h"
 #include "memory/allocator.h"
 
 namespace BSLightingShaderPropertyShadowMap
@@ -186,6 +187,6 @@ namespace BSLightingShaderPropertyShadowMap
     inline void Install()
     {
         detail::Install();
-        logger::info("installed bslightingshaderproperty shadowmap fix"sv);
+        EF_INSTALLED("BSLightingShaderPropertyShadowMap"sv, "installed bslightingshaderproperty shadowmap fix"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::ConjurationEnchantAbsorbs
 {
     namespace detail
@@ -25,5 +27,6 @@ namespace Fixes::ConjurationEnchantAbsorbs
     {
         REL::Relocation targetVtbl{ RE::EnchantmentItem::VTABLE[0] };
         detail::EnchantmentItem::_GetNoAbsorb = targetVtbl.write_vfunc(0x5E, detail::EnchantmentItem::GetNoAbsorb);
+        EF_INSTALLED("ConjurationEnchantAbsorbs"sv, "installed conjuration enchant absorbs fix"sv);
     }
 }

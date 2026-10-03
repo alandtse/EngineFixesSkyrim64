@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::DoublePerkApply
 {
     namespace detail
@@ -111,6 +113,6 @@ namespace Fixes::DoublePerkApply
         characterVtbl.write_vfunc(slot, detail::ApplyBasePerksActor);
         playerCharacterVtbl.write_vfunc(slot, detail::ApplyBasePerksPlayerCharacter);
 
-        logger::info("installed double perk apply fix"sv);
+        EF_INSTALLED("DoublePerkApply"sv, "installed double perk apply fix"sv);
     }
 }

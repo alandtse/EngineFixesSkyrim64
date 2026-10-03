@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::CellInit
 {
     namespace detail
@@ -28,6 +30,6 @@ namespace Fixes::CellInit
         REL::Relocation target{ RELOCATION_ID(18474, 18905), VAR_NUM(0x110, 0x114) };
         detail::ExtraDataList::_GetLocation = target.write_call<5>(detail::ExtraDataList::GetLocation);
 
-        logger::info("installed cell init fix"sv);
+        EF_INSTALLED("CellInit"sv, "installed cell init fix"sv);
     }
 }

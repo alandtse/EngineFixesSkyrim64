@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::INISettingCollection
 {
     namespace detail
@@ -25,6 +27,6 @@ namespace Patches::INISettingCollection
     inline void Install()
     {
         detail::Install();
-        logger::info("installed INISettingCollection patch"sv);
+        EF_INSTALLED("INISettingCollection"sv, "installed INISettingCollection patch"sv);
     }
 }

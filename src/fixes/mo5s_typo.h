@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::MO5STypo
 {
     inline void Install()
@@ -8,6 +10,6 @@ namespace Fixes::MO5STypo
         REL::Relocation target{ RELOCATION_ID(14653, 14827), VAR_NUM(0x83, 0x8D) };
         target.write(uint8_t{ 0x35 });
 
-        logger::info("installed MO5S typo fix"sv);
+        EF_INSTALLED("MO5STypo"sv, "installed MO5S typo fix"sv);
     }
 }

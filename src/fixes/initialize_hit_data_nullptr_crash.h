@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::InitializeHitDataNullPtrCrash
 {
     namespace detail
@@ -42,6 +44,6 @@ namespace Fixes::InitializeHitDataNullPtrCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<6>(trampoline.allocate(p));
 
-        logger::info("installed initialize hit data nullptr crash"sv);
+        EF_INSTALLED("InitializeHitDataNullPtrCrash"sv, "installed initialize hit data nullptr crash"sv);
     }
 }

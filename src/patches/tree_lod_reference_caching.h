@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Patches::TreeLodReferenceCaching
 {
     namespace detail
@@ -40,6 +42,6 @@ namespace Patches::TreeLodReferenceCaching
     {
         detail::Install();
 
-        logger::info("installed tree lod reference caching patch"sv);
+        EF_INSTALLED("TreeLodReferenceCaching"sv, "installed tree lod reference caching patch"sv);
     }
 }

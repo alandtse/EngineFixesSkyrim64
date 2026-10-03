@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::ShadowSceneNodeNullPtrCrash
 {
     namespace detail
@@ -41,6 +43,6 @@ namespace Fixes::ShadowSceneNodeNullPtrCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<5>(trampoline.allocate(p));
 
-        logger::info("installed shadow scene node nullptr crash fix"sv);
+        EF_INSTALLED("ShadowSceneNodeNullPtrCrash"sv, "installed shadow scene node nullptr crash fix"sv);
     }
 }

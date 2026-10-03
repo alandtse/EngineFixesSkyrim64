@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::NiTimeControllerNoTarget
 {
     namespace detail
@@ -89,6 +91,6 @@ namespace Fixes::NiTimeControllerNoTarget
     inline void Install()
     {
         detail::Install();
-        logger::info("Installed NiTimeController with no target crash fix"sv);
+        EF_INSTALLED("NiTimeControllerNoTarget"sv, "installed NiTimeController with no target crash fix"sv);
     }
 }

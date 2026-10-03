@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::MistMenuVRAvatarNodeNullCrash
 {
     // VR-only: guards hmdNode/leftHandNode/rightHandNode (this+0x20/0x30/0x38), unchecked
@@ -40,6 +42,6 @@ namespace Fixes::MistMenuVRAvatarNodeNullCrash
         auto& trampoline = SKSE::GetTrampoline();
         target.write_branch<6>(trampoline.allocate(p));
 
-        logger::info("installed MistMenu VR avatar node null crash fix (VR)"sv);
+        EF_INSTALLED("MistMenuVRAvatarNodeNullCrash"sv, "installed MistMenu VR avatar node null crash fix (VR)"sv);
     }
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 namespace Fixes::SavedHavokDataLoadInit
 {
     namespace detail
@@ -36,6 +38,6 @@ namespace Fixes::SavedHavokDataLoadInit
     inline void Install()
     {
         detail::Install();
-        logger::info("installed saved havok data load init fix"sv);
+        EF_INSTALLED("SavedHavokDataLoadInit"sv, "installed saved havok data load init fix"sv);
     }
 }

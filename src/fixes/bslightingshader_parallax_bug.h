@@ -1,4 +1,6 @@
 #pragma once
+
+#include "installed_fixes.h"
 namespace Fixes::BSLightingShaderParallaxBug
 {
     namespace detail
@@ -57,6 +59,6 @@ namespace Fixes::BSLightingShaderParallaxBug
         auto&         trampoline = SKSE::GetTrampoline();
         trampoline.write_branch<6>(target.address(), trampoline.allocate(p));
 
-        logger::info("installed bslightingshader parallax bug fix"sv);
+        EF_INSTALLED("BSLightingShaderParallaxBug"sv, "installed bslightingshader parallax bug fix"sv);
     }
 }

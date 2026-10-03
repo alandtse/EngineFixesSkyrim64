@@ -1,5 +1,7 @@
 #pragma once
 
+#include "installed_fixes.h"
+
 // The console SaveGame handler runs BGSSaveLoadManager::Save_Impl synchronously
 // on whatever thread drains the console command queue. When that is not the
 // main thread (programmatic Console::ExecuteCommand commands can drain on a
@@ -49,6 +51,6 @@ namespace Fixes::ConsoleSaveDeadlock
         REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(22465, 22940), 0xC4 };
         detail::orig_SaveImpl = target.write_call<5>(detail::Hook);
 
-        logger::info("installed console save deadlock fix"sv);
+        EF_INSTALLED("ConsoleSaveDeadlock"sv, "installed console save deadlock fix"sv);
     }
 }
