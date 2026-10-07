@@ -4,8 +4,13 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstring>
+#include <format>
 #include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
 
 namespace Memory::RenderPassCache
 {
@@ -55,6 +60,106 @@ namespace Memory::RenderPassCache
         {
             const auto* state = RE::BSGraphics::State::GetSingleton();
             return state ? state->frameCount : 0;
+        }
+
+        // Keep formatting and logging out of the replaced free and the draw hook: the engine can enter them
+        // with an unaligned stack, and an SSE spill there faults.
+        namespace Diagnostics
+        {
+            inline constexpr std::size_t kAgeBins = 8;
+            inline constexpr std::size_t kLastAgeBin = kAgeBins - 1;
+            inline constexpr std::size_t kLoggedHits = 16;
+            inline constexpr DWORD       kReportMs = 60000;
+
+            struct HitRecord
+            {
+                const void*   pass;
+                const void*   shader;
+                std::uint32_t age;
+                bool          freed;
+            };
+
+            inline bool                                             s_enabled = false;
+            inline std::atomic<std::uint64_t>                       s_draws{ 0 };
+            inline std::array<std::atomic<std::uint64_t>, kAgeBins> s_retiredHits{};
+            inline std::atomic<std::uint64_t>                       s_postFreeHits{ 0 };
+            inline std::atomic<std::uint64_t>                       s_valveFrees{ 0 };
+            inline std::atomic<std::size_t>                         s_peakQuarantined{ 0 };
+            inline std::array<HitRecord, kLoggedHits>               s_lockedHits{};
+            inline std::size_t                                      s_lockedHitsWritten = 0;
+            inline std::size_t                                      s_lockedHitsLogged = 0;
+
+            inline void RecordRetiredHitLocked(RE::BSRenderPass* a_renderPass, std::uint32_t a_now)
+            {
+                bool          freed = true;
+                std::uint32_t age = 0;
+                for (std::size_t i = 0; i < s_count; ++i) {
+                    const auto& entry = s_ring[(s_head + kMaxQuarantined - s_count + i) % kMaxQuarantined];
+                    if (entry.pass == a_renderPass) {
+                        age = a_now - entry.frame;
+                        freed = false;
+                        break;
+                    }
+                }
+
+                if (freed)
+                    s_postFreeHits.fetch_add(1, std::memory_order_relaxed);
+                else
+                    s_retiredHits[(std::min)(static_cast<std::size_t>(age), kLastAgeBin)].fetch_add(1, std::memory_order_relaxed);
+
+                if (s_lockedHitsWritten < kLoggedHits)
+                    s_lockedHits[s_lockedHitsWritten++] = { a_renderPass, a_renderPass->shader, age, freed };
+            }
+
+            inline void OnPassDraw(RE::BSRenderPass* a_renderPass)
+            {
+                if (!s_enabled)
+                    return;
+
+                s_draws.fetch_add(1, std::memory_order_relaxed);
+                if (!a_renderPass || a_renderPass->pad44 != kRetiredTag)
+                    return;
+
+                std::scoped_lock lock(s_retireLock);
+                RecordRetiredHitLocked(a_renderPass, CurrentFrame());
+            }
+
+            inline void Report()
+            {
+                std::array<HitRecord, kLoggedHits> pending;
+                std::size_t                        pendingCount = 0;
+                {
+                    std::scoped_lock lock(s_retireLock);
+                    while (s_lockedHitsLogged < s_lockedHitsWritten)
+                        pending[pendingCount++] = s_lockedHits[s_lockedHitsLogged++];
+                }
+
+                for (std::size_t i = 0; i < pendingCount; ++i) {
+                    const auto& hit = pending[i];
+                    if (hit.freed)
+                        logger::warn("draw reached retired render pass {:p} (shader {:p}) after it was freed"sv, hit.pass, hit.shader);
+                    else
+                        logger::warn("draw reached retired render pass {:p} (shader {:p}), {} frames old"sv, hit.pass, hit.shader, hit.age);
+                }
+
+                std::string ages;
+                for (std::size_t i = 0; i < kAgeBins; ++i)
+                    ages += std::format("{}{}", i ? "," : "", s_retiredHits[i].load(std::memory_order_relaxed));
+                logger::info("render pass quarantine: {} draws, retired hits by age in frames [{}], already freed {}, peak held {}/{}, valve frees {}"sv,
+                    s_draws.load(std::memory_order_relaxed), ages, s_postFreeHits.load(std::memory_order_relaxed),
+                    s_peakQuarantined.load(std::memory_order_relaxed), kMaxQuarantined, s_valveFrees.load(std::memory_order_relaxed));
+            }
+
+            inline void Start()
+            {
+                s_enabled = true;
+                std::thread([] {
+                    for (;;) {
+                        ::Sleep(kReportMs);
+                        Report();
+                    }
+                }).detach();
+            }
         }
 
         inline void FreeNow(RE::BSRenderPass* a_renderPass)
@@ -199,16 +304,27 @@ namespace Memory::RenderPassCache
                     logger::warn("render pass quarantine full ({}); force-freeing oldest"sv, kMaxQuarantined);
                 }
                 FreeOldest();
+                Diagnostics::s_valveFrees.fetch_add(1, std::memory_order_relaxed);
             }
 
             a_renderPass->pad44 = kRetiredTag;
             s_ring[s_head] = { a_renderPass, now };
             s_head = (s_head + 1) % kMaxQuarantined;
             ++s_count;
+
+            if (Diagnostics::s_enabled && s_count > Diagnostics::s_peakQuarantined.load(std::memory_order_relaxed))
+                Diagnostics::s_peakQuarantined.store(s_count, std::memory_order_relaxed);
         }
 
         inline void Install()
         {
+            if (Settings::Debug::bRenderPassQuarantineDiagnostics.GetValue()) {
+                Diagnostics::Start();
+                logger::info("render pass quarantine diagnostics enabled; summary every {}s"sv, Diagnostics::kReportMs / 1000);
+            }
+            if (Diagnostics::s_enabled && !Settings::Fixes::bBSLightingShaderForceAlphaTest.GetValue())
+                logger::warn("bRenderPassQuarantineDiagnostics counts draws from the bBSLightingShaderForceAlphaTest hook, which is disabled; no draws will be checked"sv);
+
             REL::Relocation allocate{ RELOCATION_ID(100717, 107497) };
             REL::Relocation deallocate{ RELOCATION_ID(100718, 107498) };
             REL::Relocation setlights{ RELOCATION_ID(100711, 107490) };
