@@ -100,3 +100,4 @@ bDupeAddonNodes = true                          # Warns when duplicate ADDN (Add
 [Debug]
 bPrintDetailedPrecomputedPathInfo = false       # disables the precomputed path crash fix and prints detailed information about broken paths
 bDisableTBB = false                             # use CRT allocator instead of tbb - this can and will cause crashes with broken plugins
+bRenderPassQuarantineDiagnostics = false        # logs how often and how late draws reach a quarantined render pass, for tuning bOverrideRenderPassCache; needs bBSLightingShaderForceAlphaTest

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "installed_fixes.h"
+#include "memory/renderpass_cache.h"
 
 namespace Fixes::BSLightingShaderForceAlphaTest
 {
@@ -10,6 +11,7 @@ namespace Fixes::BSLightingShaderForceAlphaTest
 
         inline void BSBatchRenderer_SetupAndDrawPass(RE::BSRenderPass* a_self, std::uint32_t a_technique, bool a_alphaTest, std::uint32_t a_renderFlags)
         {
+            Memory::RenderPassCache::detail::Diagnostics::OnPassDraw(a_self);
             if (a_alphaTest &&
                 a_self &&
                 a_self->shader &&

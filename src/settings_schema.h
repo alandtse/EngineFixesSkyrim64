@@ -127,4 +127,5 @@
 
 #define EF_SETTINGS_DEBUG(X)                                                                                                                        \
     X(Bool, bPrintDetailedPrecomputedPathInfo, false, "disables the precomputed path crash fix and prints detailed information about broken paths") \
-    X(Bool, bDisableTBB, false, "use CRT allocator instead of tbb - this can and will cause crashes with broken plugins")
+    X(Bool, bDisableTBB, false, "use CRT allocator instead of tbb - this can and will cause crashes with broken plugins")                           \
+    X(Bool, bRenderPassQuarantineDiagnostics, false, "logs how often and how late draws reach a quarantined render pass, for tuning bOverrideRenderPassCache; needs bBSLightingShaderForceAlphaTest")
