@@ -50,7 +50,7 @@ namespace Fixes::ShadowLightCrossThreadFree
             std::size_t                                 count = 0;
         };
 
-        inline std::mutex                 deferredLock;
+        inline util::SpinLock             deferredLock;
         inline DeferredQueue              deferredQueue;
         inline std::atomic_bool           hasDeferredFrees{ false };
         inline std::atomic_bool           capWarningLogged{ false };

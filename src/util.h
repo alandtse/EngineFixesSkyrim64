@@ -1,11 +1,42 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
+#include <cstdint>
 #include <optional>
 #include <span>
 
 namespace util
 {
+    // Waiters spin rather than block: hold only across short, non-blocking sections.
+    class SpinLock
+    {
+    public:
+        void lock() noexcept
+        {
+            constexpr std::uint32_t kPauseSpins = 64;
+            constexpr std::uint32_t kYieldSpins = 256;
+
+            for (std::uint32_t spins = 0; flag_.exchange(true, std::memory_order_acquire); ++spins) {
+                while (flag_.load(std::memory_order_relaxed)) {
+                    if (spins < kPauseSpins) {
+                        _mm_pause();
+                    } else if (spins < kYieldSpins) {
+                        ::SwitchToThread();
+                    } else {
+                        ::Sleep(1);
+                    }
+                    ++spins;
+                }
+            }
+        }
+
+        void unlock() noexcept { flag_.store(false, std::memory_order_release); }
+
+    private:
+        std::atomic_bool flag_{ false };
+    };
+
     // True from 1.7.99 on; AE codegen shifted offsets/ids starting here.
     inline bool IsAE1799()
     {
