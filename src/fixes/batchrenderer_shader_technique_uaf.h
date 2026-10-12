@@ -94,12 +94,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 mov(r14, ptr[rcx + 0x10]);
 
                 mov(rax, ptr[rdi]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 jmp(ptr[rip + resumeAddr]);
 
@@ -124,12 +119,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 movzx(r15d, r8b);
 
                 mov(rax, ptr[r14]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 jmp(ptr[rip + resumeAddr]);
 
@@ -154,12 +144,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 mov(rdx, rbx);
                 mov(rcx, rdi);
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
                 call(ptr[rax + 0x20]);
 
                 L(skipLbl);
@@ -180,12 +165,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 mov(rdx, rdi);
                 mov(rcx, r14);
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
                 call(ptr[rax + 0x20]);
 
                 L(skipLbl);
@@ -208,12 +188,7 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
                 jz(skipLbl);
                 mov(rax, ptr[rcx]);
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 jmp(ptr[rip + resumeAddr]);
 

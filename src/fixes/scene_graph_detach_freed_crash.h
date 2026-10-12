@@ -55,12 +55,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
 
                 // Validate the node's vftable lies inside the main module image.
                 mov(rax, ptr[rcx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(exitLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(exitLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, exitLbl);
 
                 // Live node: resume the original prologue after the displaced bytes.
                 jmp(ptr[rip + resumeAddr]);
@@ -85,12 +80,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 Xbyak::Label skipLbl, postAddr, nextAddr;
 
                 mov(rax, ptr[rcx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 call(ptr[rax + 0x18]);
                 jmp(ptr[rip + postAddr]);
@@ -197,12 +187,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 Xbyak::Label skipLbl, postAddr, exitAddr;
 
                 mov(rax, ptr[rdx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 mov(rcx, rdx);
                 call(ptr[rax + 0x10]);
@@ -226,12 +211,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 Xbyak::Label skipLbl, postAddr, exitAddr;
 
                 mov(rax, ptr[rdi]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 mov(rcx, rdi);
                 call(ptr[rax + 0x18]);
@@ -307,12 +287,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 jz(invalidLbl);
 
                 mov(rax, ptr[rdx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 // Replicate the displaced prologue, then resume at the first body instruction.
                 push(rbx);
@@ -373,12 +348,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                     mov(rax, ptr[rsi]);
                 }
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 if (a_objectInRdi)
                     mov(rcx, rdi);
@@ -456,12 +426,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 jz(invalidLbl);
 
                 mov(rax, ptr[rcx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 // Replicate the displaced pre-prologue home-space store.
                 mov(ptr[rsp + 0x10], rdx);
@@ -525,12 +490,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                     mov(rax, ptr[rdi]);
                 else
                     mov(rax, ptr[rbx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 if (a_objectInRdi)
                     mov(rcx, rdi);
@@ -667,13 +627,8 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 Xbyak::Label invalidLbl, postAddr, nextAddr;
 
                 mov(rax, ptr[rcx]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
                 // [rax + 0xB8] reads eight bytes through vtable + 0xBF.
-                mov(r10, a_moduleEnd - 0xBF);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd - 0xBF, invalidLbl);
 
                 mov(rdx, rbp);
                 call(ptr[rax + 0xB8]);
@@ -737,12 +692,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 mov(rax, qword[rcx]);
                 mov(rdx, rsi);
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 call(ptr[rax + 0xE8]);
 
@@ -794,12 +744,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                     mov(qword[rsp + 0x40], rdi);
                 }
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 util::EmitLoadedSlotGuard(*this, ptr[rax + 0x18], invalidLbl, a_moduleBase, a_moduleEnd);
 
@@ -845,12 +790,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 mov(rax, qword[rbx]);
                 mov(rcx, rbx);
 
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(invalidLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(invalidLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, invalidLbl);
 
                 util::EmitLoadedSlotGuard(*this, ptr[rax + 0x38], invalidLbl, a_moduleBase, a_moduleEnd);
 

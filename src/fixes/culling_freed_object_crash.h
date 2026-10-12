@@ -119,12 +119,7 @@ namespace Fixes::CullingFreedObjectCrash
                 Xbyak::Label skipLbl, postAddr, convAddr;
 
                 // R10/R11 are volatile and not argument registers, so they are safe to clobber here.
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(skipLbl);
-                mov(r10, a_moduleEnd);
-                cmp(rax, r10);
-                jae(skipLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd, skipLbl);
 
                 // Also validate the loaded slot value, not just the vftable base.
                 util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl, a_moduleBase, a_moduleEnd);
@@ -198,13 +193,8 @@ namespace Fixes::CullingFreedObjectCrash
                 Xbyak::Label fallbackLbl, resumeAddr, fallbackAddr;
 
                 mov(rax, ptr[rdi]);
-                mov(r10, a_moduleBase);
-                cmp(rax, r10);
-                jb(fallbackLbl);
                 // The [rax+0x10] slot read must itself land fully inside the module.
-                mov(r10, a_moduleEnd - 0x17);
-                cmp(rax, r10);
-                jae(fallbackLbl);
+                util::EmitModuleRangeCheck(*this, rax, a_moduleBase, a_moduleEnd - 0x17, fallbackLbl);
 
                 util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], fallbackLbl, a_moduleBase, a_moduleEnd);
 
