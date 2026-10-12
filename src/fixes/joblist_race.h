@@ -27,11 +27,6 @@ namespace Fixes::JobListRace
             orig_JobTesAnimation.call<void>();
         }
 
-        inline std::uintptr_t Address(const REL::RelocationID a_id, const std::uintptr_t a_vrOffset)
-        {
-            return REL::Module::IsVR() ? REL::Relocation<std::uintptr_t>{ REL::Offset{ a_vrOffset } }.address() : a_id.address();
-        }
-
         // push rbx; sub rsp,0x30; mov qword [rsp+0x20],-2; mov ecx,7 (job list 7)
         inline constexpr std::uint8_t kJobTesAnimationPrologue[] = { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x30, 0x48, 0xC7, 0x44, 0x24, 0x20, 0xFE, 0xFF, 0xFF, 0xFF, 0xB9, 0x07, 0x00, 0x00, 0x00 };
         // SE/VR: push rsi/rdi/r14; sub rsp,0x50; mov qword [rsp+0x20],-2
@@ -47,8 +42,8 @@ namespace Fixes::JobListRace
 
         inline bool Install()
         {
-            const auto updateAddr = Address(RELOCATION_ID(40291, 41301), 0x6FB570);
-            const auto animAddr = Address(RELOCATION_ID(38090, 39045), 0x649060);
+            const auto updateAddr = RELOCATION_ID(40291, 41301).address();
+            const auto animAddr = RELOCATION_ID(38090, 39045).address();
             const bool updateMatches = REL::Module::IsAE() ? PrologueMatches(updateAddr, kUpdateNonHighActorsPrologueAE) : PrologueMatches(updateAddr, kUpdateNonHighActorsPrologueFlat);
             if (!updateMatches || !PrologueMatches(animAddr, kJobTesAnimationPrologue)) {
                 logger::warn("job list race fix skipped: UpdateNonHighActors or Job_TES_animation prologue does not match"sv);
