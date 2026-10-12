@@ -5,6 +5,7 @@
 #include "enable_achievements.h"
 #include "form_caching.h"
 #include "ini_setting_collection.h"
+#include "joblist_diagnostics.h"
 #include "max_stdio.h"
 #include "regular_quicksaves.h"
 #include "safe_exit.h"
@@ -41,6 +42,9 @@ namespace Patches
 
         if (Settings::Patches::bINISettingCollection.GetValue())
             INISettingCollection::Install();
+
+        if (Settings::Patches::bJobListDiagnostics.GetValue())
+            JobListDiagnostics::Install();
 
         if (Settings::Patches::bMaxStdIO.GetValue())
             MaxStdIO::Install();

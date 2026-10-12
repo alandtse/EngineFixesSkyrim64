@@ -99,6 +99,7 @@
     X(Bool, bEnableAchievementsWithMods, true, "enables achievements with mods active")                                                                                              \
     X(Bool, bFormCaching, true, "attempts to speedup form lookups")                                                                                                                  \
     X(Bool, bINISettingCollection, true, "slightly speeds up startup time for lists with a large number of plugins")                                                                 \
+    X(Bool, bJobListDiagnostics, false, "writes a job list 7 thread trace to EngineFixes_joblist_trace.log for race diagnosis")                                                      \
     X(Bool, bMaxStdIO, true, "sets the maximum number of open file handles to the maximum available on your system (8192 in most cases, 2048 for older versions of windows)")        \
     X(Bool, bRegularQuicksaves, false, "makes quicksaves into regular saves")                                                                                                        \
     X(Bool, bSafeExit, true, "prevent the game from hanging when shutting down")                                                                                                     \
