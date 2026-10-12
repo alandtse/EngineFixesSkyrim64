@@ -127,7 +127,7 @@ namespace Fixes::CullingFreedObjectCrash
                 jae(skipLbl);
 
                 // Also validate the loaded slot value, not just the vftable base.
-                util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl);
+                util::EmitLoadedSlotGuard(*this, ptr[rax + a_slot], skipLbl, a_moduleBase, a_moduleEnd);
 
                 // Valid vftable + valid slot: perform the original call, resume after it.
                 call(r11);
@@ -206,7 +206,7 @@ namespace Fixes::CullingFreedObjectCrash
                 cmp(rax, r10);
                 jae(fallbackLbl);
 
-                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], fallbackLbl);
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x10], fallbackLbl, a_moduleBase, a_moduleEnd);
 
                 mov(rcx, rdi);
                 call(r11);
