@@ -49,12 +49,17 @@ namespace Memory::RenderPassCache
         inline std::array<RetiredPass, kMaxQuarantined> s_ring;
         inline std::size_t                              s_head = 0;   // next write slot
         inline std::size_t                              s_count = 0;  // live entries
-        inline std::mutex                               s_retireMutex;
+        inline util::SpinLock                           s_retireLock;
 
         inline std::uint32_t CurrentFrame()
         {
             const auto* state = RE::BSGraphics::State::GetSingleton();
-            return state ? state->frameCount : 0;
+            if (!state)
+                return 0;
+
+            // AE 1.7.99+ adds two floats ahead of the counter, moving it from State+0x4C to +0x54.
+            const std::size_t offset = util::IsAE1799() ? 0x54 : 0x4C;
+            return *reinterpret_cast<const std::uint32_t*>(reinterpret_cast<std::uintptr_t>(state) + offset);
         }
 
         inline void FreeNow(RE::BSRenderPass* a_renderPass)
@@ -64,7 +69,7 @@ namespace Memory::RenderPassCache
             Allocator::GetAllocator()->DeallocateAligned(a_renderPass);
         }
 
-        // Free and drop the oldest quarantined pass. Caller holds s_retireMutex.
+        // Free and drop the oldest quarantined pass. Caller holds s_retireLock.
         inline void FreeOldest()
         {
             FreeNow(s_ring[(s_head + kMaxQuarantined - s_count) % kMaxQuarantined].pass);
@@ -172,7 +177,7 @@ namespace Memory::RenderPassCache
             // Do NOT touch a_renderPass's payload here: a late/concurrent draw may
             // still dereference it. Park it intact; it is physically freed only once
             // kQuarantineFrames frames have elapsed. See the quarantine note above.
-            std::scoped_lock lock(s_retireMutex);
+            std::scoped_lock lock(s_retireLock);
 
             // Skip a double Deallocate of the same pass (would double-free on drain).
             // Allocate stamps pad44 as 0; we restamp it on retire below.
