@@ -54,7 +54,12 @@ namespace Memory::RenderPassCache
         inline std::uint32_t CurrentFrame()
         {
             const auto* state = RE::BSGraphics::State::GetSingleton();
-            return state ? state->frameCount : 0;
+            if (!state)
+                return 0;
+
+            // AE 1.7.99+ adds two floats ahead of the counter, moving it from State+0x4C to +0x54.
+            const std::size_t offset = util::IsAE1799() ? 0x54 : 0x4C;
+            return *reinterpret_cast<const std::uint32_t*>(reinterpret_cast<std::uintptr_t>(state) + offset);
         }
 
         inline void FreeNow(RE::BSRenderPass* a_renderPass)
