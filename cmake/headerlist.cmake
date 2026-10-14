@@ -29,6 +29,7 @@ set(headers ${headers}
 	src/fixes/global_time.h
 	src/fixes/havok_material_lookup_guard.h
 	src/fixes/initialize_hit_data_nullptr_crash.h
+	src/fixes/joblist_race.h
 	src/fixes/lip_sync.h
 	src/fixes/memory_access_errors.h
 	src/fixes/mo5s_typo.h

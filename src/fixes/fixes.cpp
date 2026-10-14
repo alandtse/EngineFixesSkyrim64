@@ -41,6 +41,7 @@
 #include "havok_material_lookup_guard.h"
 #include "initialize_hit_data_nullptr_crash.h"
 #include "is_player_in_region_parent_cell_check.h"
+#include "joblist_race.h"
 #include "keyboard_poll_scancode_oob_crash.h"
 #include "lighting_shader_landscape_texture_crash.h"
 #include "lighting_shader_null_texture_crash.h"
@@ -166,6 +167,9 @@ namespace Fixes
 
         if (Settings::Fixes::bIsPlayerInRegionParentCellCheck.GetValue())
             IsPlayerInRegionParentCellCheck::Install();
+
+        if (Settings::Fixes::bJobListRace.GetValue())
+            JobListRace::Install();
 
         if (Settings::Fixes::bKeyboardPollScancodeOOBCrash.GetValue())
             KeyboardPollScancodeOOBCrash::Install();
