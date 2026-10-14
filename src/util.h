@@ -99,6 +99,18 @@ namespace util
         return found;
     }
 
+    // Jumps to a_invalid unless a_reg is inside [a_base, a_end); clobbers r10.
+    inline void EmitModuleRangeCheck(Xbyak::CodeGenerator& a_gen, const Xbyak::Reg64& a_reg,
+        std::uintptr_t a_base, std::uintptr_t a_end, const Xbyak::Label& a_invalid)
+    {
+        a_gen.mov(Xbyak::util::r10, a_base);
+        a_gen.cmp(a_reg, Xbyak::util::r10);
+        a_gen.jb(a_invalid);
+        a_gen.mov(Xbyak::util::r10, a_end);
+        a_gen.cmp(a_reg, Xbyak::util::r10);
+        a_gen.jae(a_invalid);
+    }
+
     // Accepts a slot inside the main module, or inside the high loaded-image range for plugin DLLs; result in r11.
     // The main module is checked explicitly because a preferred-base load (Wine/Proton, ASLR off) sits below that range.
     inline void EmitLoadedSlotGuard(Xbyak::CodeGenerator& a_gen, const Xbyak::Address& a_slotAddr,
