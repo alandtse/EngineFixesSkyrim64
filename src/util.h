@@ -99,18 +99,29 @@ namespace util
         return found;
     }
 
-    // Validates a slot against the general loaded-image range (not just this module); result in r11.
+    // Accepts a slot inside the main module, or inside the high loaded-image range for plugin DLLs; result in r11.
+    // The main module is checked explicitly because a preferred-base load (Wine/Proton, ASLR off) sits below that range.
     inline void EmitLoadedSlotGuard(Xbyak::CodeGenerator& a_gen, const Xbyak::Address& a_slotAddr,
-        const Xbyak::Label& a_invalid)
+        const Xbyak::Label& a_invalid, std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
     {
+        Xbyak::Label highRange, valid;
+
         a_gen.mov(Xbyak::util::r11, a_slotAddr);
         a_gen.test(Xbyak::util::r11, Xbyak::util::r11);
         a_gen.jz(a_invalid);
+        a_gen.mov(Xbyak::util::r10, a_moduleBase);
+        a_gen.cmp(Xbyak::util::r11, Xbyak::util::r10);
+        a_gen.jb(highRange);
+        a_gen.mov(Xbyak::util::r10, a_moduleEnd);
+        a_gen.cmp(Xbyak::util::r11, Xbyak::util::r10);
+        a_gen.jb(valid);
+        a_gen.L(highRange);
         a_gen.mov(Xbyak::util::r10, 0x00007ff000000000ULL);
         a_gen.cmp(Xbyak::util::r11, Xbyak::util::r10);
         a_gen.jb(a_invalid);
         a_gen.mov(Xbyak::util::r10, 0x0000800000000000ULL);
         a_gen.cmp(Xbyak::util::r11, Xbyak::util::r10);
         a_gen.jae(a_invalid);
+        a_gen.L(valid);
     }
 }

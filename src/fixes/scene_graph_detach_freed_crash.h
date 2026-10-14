@@ -801,7 +801,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 cmp(rax, r10);
                 jae(invalidLbl);
 
-                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x18], invalidLbl);
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x18], invalidLbl, a_moduleBase, a_moduleEnd);
 
                 call(r11);
                 jmp(ptr[rip + resumeAddr]);
@@ -852,7 +852,7 @@ namespace Fixes::SceneGraphDetachFreedCrash
                 cmp(rax, r10);
                 jae(invalidLbl);
 
-                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x38], invalidLbl);
+                util::EmitLoadedSlotGuard(*this, ptr[rax + 0x38], invalidLbl, a_moduleBase, a_moduleEnd);
 
                 call(r11);
                 jmp(ptr[rip + resumeAddr]);
