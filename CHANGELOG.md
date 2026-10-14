@@ -1,3 +1,26 @@
+## [7.11.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.10.0...v7.11.0) (2026-10-14)
+
+### Features
+
+* serialise job list 7 users ([#95](https://github.com/alandtse/EngineFixesSkyrim64/issues/95)) ([3ba7c3d](https://github.com/alandtse/EngineFixesSkyrim64/commit/3ba7c3d5e8a129b1a9c5b1c96cf4c91c8805a524))
+
+### Bug Fixes
+
+* accept exe vfuncs at the preferred base ([#96](https://github.com/alandtse/EngineFixesSkyrim64/issues/96)) ([538446c](https://github.com/alandtse/EngineFixesSkyrim64/commit/538446c1641e3ade786e282fef0bc1fa8a461b74))
+* **renderpass:** read frame counter on AE 1.7.99+ ([#92](https://github.com/alandtse/EngineFixesSkyrim64/issues/92)) ([ab9518e](https://github.com/alandtse/EngineFixesSkyrim64/commit/ab9518e3c7ba6178636b07f35f95cc9c9d8b14d2))
+* replace std::mutex with a spinlock ([#91](https://github.com/alandtse/EngineFixesSkyrim64/issues/91)) ([4183d19](https://github.com/alandtse/EngineFixesSkyrim64/commit/4183d19228d88bf1aa40866dc9d278b239d90e18))
+
+### Refactors
+
+* share the module range check emitter ([#97](https://github.com/alandtse/EngineFixesSkyrim64/issues/97)) ([ae211fd](https://github.com/alandtse/EngineFixesSkyrim64/commit/ae211fd74c00ac80cb611cf93fd771f4fe17b645))
+
+
+### New Settings
+
+* `[Fixes] bJobListRace` (default `true`) — fixes a crash or hang when the sleep/wait update and a job thread use the same job list at once
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.10.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.9.0...v7.10.0) (2026-10-03)
 
 ### Features

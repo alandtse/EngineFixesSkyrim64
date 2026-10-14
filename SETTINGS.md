@@ -55,6 +55,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bGlobalTime` | `true` | ≤ 7.0.20 | fixes game systems that are affected by game time instead of real time, including old slow time camera movement fix |
 | `bInitializeHitDataNullPtrCrash` | `true` | ≤ 7.0.20 | fixes a crash on melee hit that unequipped the weapon at the same time |
 | `bIsPlayerInRegionParentCellCheck` | `true` | 7.1.0 | (VR-only) fixes a crash in IsPlayerInRegion caused by missing parent-cell null checks that SE added but VR lacks |
+| `bJobListRace` | `true` | 7.11.0 | fixes a crash or hang when the sleep/wait update and a job thread use the same job list at once |
 | `bKeyboardPollScancodeOOBCrash` | `true` | 7.4.9 | fixes a crash in BSWin32KeyboardDevice::Poll caused by an unbounded array index when DirectInput returns a malformed keyboard scancode |
 | `bLightingShaderLandscapeTextureCrash` | `true` | 7.4.9 | (AE-only) fixes a crash in BSLightingShader::SetupMaterial's inlined landscape texture blending caused by binding a null texture pointer without a null check |
 | `bLightingShaderNullTextureCrash` | `true` | 7.4.9 | fixes a crash in BSLightingShader::SetupMaterial caused by binding a null texture pointer without a null check |
@@ -141,6 +142,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.11.0**: `bJobListRace`
 - **7.10.0**: `bCombatGroupStalePointerCrash`
 - **7.9.0**: `bBatchRendererAlphaGeometryGroupOverflow`, `iBatchRendererAlphaGeometryGroupLimit`, `bCullingProcessAppendVirtualPoolGuard`, `bShadowLightCrossThreadFreeCrash`
 - **7.8.0**: `bMapMenuCloseHandlersNullGuard`
