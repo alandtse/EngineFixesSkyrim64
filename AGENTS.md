@@ -110,3 +110,22 @@ this discipline exists to prevent.
 - Semantic-release owns tags and version fields; don't create or edit them.
 - If a fix depends on an unmerged PR (another fix, or an address-library PR in another repo), say
   so in the PR body and sequence the merges so the dependency ships first.
+
+## Upstream sync
+
+Upstream is `aers/EngineFixesSkyrim64` (remote `upstream`). Keep its `master` an ancestor of `main`
+so a later merge only shows new upstream commits.
+
+- **Check:** `git fetch upstream`, then `git merge-base --is-ancestor upstream/master origin/main`
+  (exit 0 means in sync) and `git log --oneline origin/main..upstream/master` for what is new.
+- **Review each new commit** and record a disposition. Port what the fork needs as normal commits
+  (conventional title, `Co-authored-by` for the upstream author, verified per runtime). Discard
+  the rest: build and workflow changes, CommonLibSSE submodule bumps, and offsets the fork
+  already carries. Open upstream PRs are ported the same way and never described as merged.
+- **Record:** on a branch off `origin/main`, `git merge --no-ff -s ours upstream/master`. The
+  message lists every upstream commit as ported (with the local commit), already carried, or
+  discarded (with the reason). `-s ours` takes none of upstream's content, so use it only after
+  that review. Title it `chore(sync): ...` if the PR also carries ported code, plain `chore: ...`
+  if it only records ancestry (the sync scope releases a patch).
+- **Merge the sync PR with "Create a merge commit".** Squash or rebase merging drops the upstream
+  parent and the ancestry with it.
