@@ -6,6 +6,9 @@ namespace Fixes::StuckMouseButtons
 {
     namespace detail
     {
+        // GFx mouse-state bit N is button N: left, right, middle
+        constexpr std::uint32_t kMouseButtonCount = 3;
+
         class MenuOpenCloseEventSink : public RE::BSTEventSink<RE::MenuOpenCloseEvent>
         {
         public:
@@ -20,21 +23,26 @@ namespace Fixes::StuckMouseButtons
             MenuOpenCloseEventSink(const MenuOpenCloseEventSink&) = delete;
             MenuOpenCloseEventSink& operator=(const MenuOpenCloseEventSink&) = delete;
 
-            static void TrySendMouseUp(RE::IMenu* a_menu)
+            static void TrySendMouseUp(RE::IMenu* a_menu, std::uint32_t a_buttonMask)
             {
                 auto* cursor = RE::MenuCursor::GetSingleton();
                 if (!cursor)
                     return;
 
-                RE::GFxMouseEvent mouseUp(
-                    RE::GFxEvent::EventType::kMouseUp,
-                    0,
-                    cursor->cursorPosX,
-                    cursor->cursorPosY,
-                    0.0f,
-                    0);
+                for (std::uint32_t button = 0; button < kMouseButtonCount; ++button) {
+                    if (!(a_buttonMask & (1u << button)))
+                        continue;
 
-                a_menu->uiMovie->HandleEvent(mouseUp);
+                    RE::GFxMouseEvent mouseUp(
+                        RE::GFxEvent::EventType::kMouseUp,
+                        button,
+                        cursor->cursorPosX,
+                        cursor->cursorPosY,
+                        0.0f,
+                        0);
+
+                    a_menu->uiMovie->HandleEvent(mouseUp);
+                }
             }
 
             RE::BSEventNotifyControl ProcessEvent(
@@ -66,7 +74,7 @@ namespace Fixes::StuckMouseButtons
                         if (fButtons == 0)
                             continue;
 
-                        TrySendMouseUp(menu);
+                        TrySendMouseUp(menu, fButtons);
                         return;
                     }
                 });
