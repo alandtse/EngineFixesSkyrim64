@@ -44,6 +44,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bCullingFreedObjectCrash` | `true` | 7.4.9 | guards cull traversal against dispatch through a scene object's freed or reused vftable during cell streaming |
 | `bDoublePerkApply` | `true` | ≤ 7.0.20 | fixes NPC perks applying twice when you load a game |
 | `bDoubleReleaseTripleComPtrTeardown` | `true` | 7.6.4 | (AE-only) fixes a use-after-free crash from a vanilla engine resource wrapper releasing its owned COM pointers twice |
+| `bDynamicDOFNullParentCellCrash` | `true` | 7.12.0 | fixes a crash in PlayerCharacter::UpdateDynamicDOF when the player's parent cell is null, e.g. mid cell transition |
 | `bEffectShaderDataNullTextureCrash` | `true` | 7.6.0 | fixes a crash when an effect shader has a null base or palette texture assigned |
 | `bEquipShoutEventSpam` | `true` | ≤ 7.0.20 | fixes a bug where the "equip shout" procedure will send a "shout equipped" event even if the shout fails to equip |
 | `bESLCELLLoadBug` | `true` | ≤ 7.0.20 | fixes issues with interior cells created in ESL files |
@@ -142,6 +143,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.12.0**: `bDynamicDOFNullParentCellCrash`
 - **7.11.0**: `bJobListRace`
 - **7.10.0**: `bCombatGroupStalePointerCrash`
 - **7.9.0**: `bBatchRendererAlphaGeometryGroupOverflow`, `iBatchRendererAlphaGeometryGroupLimit`, `bCullingProcessAppendVirtualPoolGuard`, `bShadowLightCrossThreadFreeCrash`

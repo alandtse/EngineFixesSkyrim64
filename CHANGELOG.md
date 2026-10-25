@@ -1,3 +1,21 @@
+## [7.12.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.11.0...v7.12.0) (2026-10-25)
+
+### Features
+
+* guard dynamic DOF null parent cell ([#98](https://github.com/alandtse/EngineFixesSkyrim64/issues/98)) ([7935035](https://github.com/alandtse/EngineFixesSkyrim64/commit/7935035c87cd790b1cc1759cb766398d2610bfa4))
+
+### Bug Fixes
+
+* guard all cached-shader restore sites ([#102](https://github.com/alandtse/EngineFixesSkyrim64/issues/102)) ([7f0ef64](https://github.com/alandtse/EngineFixesSkyrim64/commit/7f0ef648d81660cab49bdfbce88efc39150c07d9))
+* release all held mouse buttons on menu open ([#99](https://github.com/alandtse/EngineFixesSkyrim64/issues/99)) ([816d74f](https://github.com/alandtse/EngineFixesSkyrim64/commit/816d74f10846fde1251c36b1ee1171c69e823cc5))
+
+
+### New Settings
+
+* `[Fixes] bDynamicDOFNullParentCellCrash` (default `true`) — fixes a crash in PlayerCharacter::UpdateDynamicDOF when the player's parent cell is null, e.g. mid cell transition
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.11.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.10.0...v7.11.0) (2026-10-14)
 
 ### Features
