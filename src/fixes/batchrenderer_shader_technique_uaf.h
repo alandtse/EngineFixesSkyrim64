@@ -202,6 +202,95 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
             }
         };
 
+        struct PatchRestoreSite final : Xbyak::CodeGenerator
+        {
+            PatchRestoreSite(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd,
+                std::uintptr_t a_resume, std::uintptr_t a_bail)
+            {
+                Xbyak::Label skipLbl, bailLbl, baseAddr, endAddr, resumeAddr, bailAddr;
+
+                test(rcx, rcx);
+                jz(bailLbl);
+                push(rax);
+                mov(rax, ptr[rcx]);
+                cmp(rax, ptr[rip + baseAddr]);
+                jb(skipLbl);
+                cmp(rax, ptr[rip + endAddr]);
+                jae(skipLbl);
+                add(rsp, 8);
+                jmp(ptr[rip + resumeAddr]);
+
+                L(skipLbl);
+                pop(rax);
+                L(bailLbl);
+                jmp(ptr[rip + bailAddr]);
+
+                L(baseAddr);
+                dq(a_moduleBase);
+                L(endAddr);
+                dq(a_moduleEnd);
+                L(resumeAddr);
+                dq(a_resume);
+                L(bailAddr);
+                dq(a_bail);
+            }
+        };
+
+        // Skipping leaves different flags than the null path, which is safe only because every bail target begins with a mov/xor.
+        inline bool SiteMatchesRestoreSite(std::uintptr_t a_addr)
+        {
+            const auto* p = reinterpret_cast<const std::uint8_t*>(a_addr);
+            return p[0] == 0x48 && p[1] == 0x85 && p[2] == 0xC9 && p[3] == 0x74 && p[5] == 0x48 && p[6] == 0x8B && p[7] == 0x01;
+        }
+
+        struct IdSite
+        {
+            std::uint64_t  id;
+            std::ptrdiff_t delta;
+        };
+
+        inline constexpr std::array<IdSite, 6> kRestoreSitesSE{ {
+            { 100852, 0x2F5 },
+            { 100860, 0x0B },
+            { 100871, 0x2C },
+            { 100871, 0x138 },
+            { 100848, 0x351 },
+            { 100848, 0x46B },
+        } };
+
+        inline constexpr std::array<IdSite, 9> kRestoreSitesAE{ {
+            { 107630, 0x43 },
+            { 107630, 0x138 },
+            { 107642, 0x2EC },
+            { 107653, 0x0B },
+            { 453510, 0x16 },
+            { 107638, 0x341 },
+            { 107638, 0x45C },
+            { 107667, 0x2C },
+            { 107667, 0x136 },
+        } };
+
+        inline void InstallRestoreSite(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, std::uintptr_t a_site)
+        {
+            if (!SiteMatchesRestoreSite(a_site)) {
+                logger::warn("batchrenderer shader technique UAF fix: unexpected bytes at restore site {:X}, skipping"sv, a_site);
+                return;
+            }
+
+            const auto       bail = a_site + 5 + *reinterpret_cast<const std::int8_t*>(a_site + 4);
+            PatchRestoreSite p{ a_moduleBase, a_moduleEnd, a_site + 8, bail };
+            p.ready();
+            REL::Relocation<std::uintptr_t>{ a_site }.write_branch<5>(SKSE::GetTrampoline().allocate(p));
+        }
+
+        template <std::size_t N>
+        inline void InstallRestoreSites(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd, const std::array<IdSite, N>& a_sites)
+        {
+            for (const auto& site : a_sites)
+                InstallRestoreSite(a_moduleBase, a_moduleEnd, REL::Relocation<std::uintptr_t>{ REL::ID(site.id), site.delta }.address());
+            EF_INSTALLED("BatchRendererShaderTechniqueUAF"sv, "installed batchrenderer shader technique UAF fix (restore sites)"sv);
+        }
+
         inline void InstallAE(std::uintptr_t a_moduleBase, std::uintptr_t a_moduleEnd)
         {
             const auto&          site = util::SelectForVersion(kSetupAndDrawPassAE_ByVersion);
@@ -290,10 +379,13 @@ namespace Fixes::BatchRendererShaderTechniqueUAF
 
         if (REL::Module::IsVR()) {
             detail::InstallSEVR(moduleBase, moduleEnd, detail::kSetupAndDrawPassVR, detail::kSetupMaterialCallVR, detail::kRestoreCallVR);
+            detail::InstallRestoreSites(moduleBase, moduleEnd, detail::kRestoreSitesSE);
         } else if (REL::Module::IsAE()) {
             detail::InstallAE(moduleBase, moduleEnd);
+            detail::InstallRestoreSites(moduleBase, moduleEnd, detail::kRestoreSitesAE);
         } else {
             detail::InstallSEVR(moduleBase, moduleEnd, detail::kSetupAndDrawPassSE, detail::kSetupMaterialCallSE, detail::kRestoreCallSE);
+            detail::InstallRestoreSites(moduleBase, moduleEnd, detail::kRestoreSitesSE);
         }
     }
 }
