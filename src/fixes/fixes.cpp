@@ -29,6 +29,7 @@
 #include "culling_process_append_virtual_pool_guard.h"
 #include "double_perk_apply.h"
 #include "double_release_triple_comptr_teardown.h"
+#include "dynamic_dof_null_parent_cell_crash.h"
 #include "effectshaderdata_null_texture_crash.h"
 #include "equip_shout_event_spam.h"
 #include "esl_cell_loading_bug.h"
@@ -134,6 +135,9 @@ namespace Fixes
 
         if (Settings::Fixes::bDoubleReleaseTripleComPtrTeardown.GetValue())
             DoubleReleaseTripleComPtrTeardown::Install();
+
+        if (Settings::Fixes::bDynamicDOFNullParentCellCrash.GetValue())
+            DynamicDOFNullParentCellCrash::Install();
 
         if (Settings::Fixes::bEffectShaderDataNullTextureCrash.GetValue())
             EffectShaderDataNullTextureCrash::Install();
