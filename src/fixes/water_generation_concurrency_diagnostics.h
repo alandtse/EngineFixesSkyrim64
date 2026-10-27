@@ -23,7 +23,7 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         inline constexpr std::size_t   kCallInstructionSize = 5;
         inline constexpr std::size_t   kMaxCallSites = 3;
         inline constexpr std::uint32_t kMaxLoggedOverlaps = 64;
-        inline constexpr std::uint32_t kCallSummaryInterval = 100;
+        inline constexpr std::uint32_t kCallSummaryInterval = 20;
 
         struct Site
         {
