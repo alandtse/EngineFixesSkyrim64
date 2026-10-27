@@ -189,10 +189,10 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             const auto total = calls.fetch_add(1, std::memory_order_relaxed) + 1;
 
             if (total == 1 || total % kCallSummaryInterval == 0) {
-                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s), {} null-loadedData entr(ies), {} loadedData change(s), {} waterNode child change(s)"sv,
+                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s), {} null-loadedData entr(ies), {} loadedData change(s), {} waterNode child change(s), {} watched free(s)"sv,
                     total, peak.load(std::memory_order_relaxed), overlaps.load(std::memory_order_relaxed),
                     nullLoadedDataEntries.load(std::memory_order_relaxed), loadedDataChanges.load(std::memory_order_relaxed),
-                    sampleAnomalies.load(std::memory_order_relaxed));
+                    sampleAnomalies.load(std::memory_order_relaxed), Memory::FreeWatch::matched.load(std::memory_order_relaxed));
             }
 
             if (inside > 1) {

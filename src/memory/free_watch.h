@@ -20,6 +20,7 @@ namespace Memory::FreeWatch
         std::array<void*, kFrames> frames{};
     };
 
+    inline std::atomic<std::uint32_t>                      matched{ 0 };
     inline std::atomic<bool>                               enabled{ false };
     inline std::array<std::atomic<std::uintptr_t>, kSlots> addresses{};
     inline std::array<FreeRecord, kSlots>                  records{};
@@ -56,6 +57,7 @@ namespace Memory::FreeWatch
             if (addresses[i].load(std::memory_order_relaxed) != address) {
                 continue;
             }
+            matched.fetch_add(1, std::memory_order_relaxed);
             auto& record = records[i];
             record.threadId = ::GetCurrentThreadId();
             record.tick = ::GetTickCount64();
