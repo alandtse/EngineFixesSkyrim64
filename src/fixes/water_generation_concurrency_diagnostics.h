@@ -43,14 +43,28 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         inline std::atomic<std::uint32_t> calls{ 0 };
         inline std::atomic<std::uint32_t> overlaps{ 0 };
 
+        inline std::atomic<std::uint32_t> nullLoadedDataEntries{ 0 };
+        inline std::atomic<std::uint32_t> loadedDataChanges{ 0 };
+
+        inline void LogLoadedDataEvent(std::atomic<std::uint32_t>& a_counter, std::string_view a_what, const RE::TESObjectCELL* a_cell,
+            const void* a_before, const void* a_after)
+        {
+            const auto count = a_counter.fetch_add(1, std::memory_order_relaxed) + 1;
+            if (count <= kMaxLoggedOverlaps) {
+                logger::warn("water generation: {} #{} (thread {}, cell {:p}, loadedData before {:p} after {:p})"sv,
+                    a_what, count, ::GetCurrentThreadId(), static_cast<const void*>(a_cell), a_before, a_after);
+            }
+        }
+
         inline void Thunk(void* a_this, void* a_cell, bool a_skipFlowMap)
         {
             const auto inside = active.fetch_add(1, std::memory_order_acq_rel) + 1;
             const auto total = calls.fetch_add(1, std::memory_order_relaxed) + 1;
 
             if (total == 1 || total % kCallSummaryInterval == 0) {
-                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s)"sv,
-                    total, peak.load(std::memory_order_relaxed), overlaps.load(std::memory_order_relaxed));
+                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s), {} null-loadedData entr(ies), {} loadedData change(s)"sv,
+                    total, peak.load(std::memory_order_relaxed), overlaps.load(std::memory_order_relaxed),
+                    nullLoadedDataEntries.load(std::memory_order_relaxed), loadedDataChanges.load(std::memory_order_relaxed));
             }
 
             if (inside > 1) {
@@ -65,11 +79,22 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             while (inside > seenPeak && !peak.compare_exchange_weak(seenPeak, inside, std::memory_order_relaxed)) {
             }
 
+            auto* const cell = static_cast<RE::TESObjectCELL*>(a_cell);
+            const auto  dataBefore = cell ? cell->GetRuntimeData().loadedData : nullptr;
+            if (cell && !dataBefore) {
+                LogLoadedDataEvent(nullLoadedDataEntries, "entered with null loadedData"sv, cell, dataBefore, dataBefore);
+            }
+
             if (serialize) {
                 std::scoped_lock lock(serializeLock);
                 original(a_this, a_cell, a_skipFlowMap);
             } else {
                 original(a_this, a_cell, a_skipFlowMap);
+            }
+
+            const auto dataAfter = cell ? cell->GetRuntimeData().loadedData : nullptr;
+            if (cell && dataBefore && dataAfter != dataBefore) {
+                LogLoadedDataEvent(loadedDataChanges, "loadedData changed during generation"sv, cell, dataBefore, dataAfter);
             }
 
             active.fetch_sub(1, std::memory_order_acq_rel);
