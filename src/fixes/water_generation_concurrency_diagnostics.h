@@ -56,15 +56,77 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             }
         }
 
+        struct WaterNodeSample
+        {
+            RE::TESObjectCELL* cell{ nullptr };
+            RE::FormID         formID{ 0 };
+            std::uintptr_t     node{ 0 };
+            std::uintptr_t     child0{ 0 };
+            std::uint32_t      call{ 0 };
+        };
+
+        inline constexpr std::size_t                     kSampleCount = 16;
+        inline std::array<WaterNodeSample, kSampleCount> samples{};
+        inline std::atomic<std::uint32_t>                sampleAnomalies{ 0 };
+        inline util::SpinLock                            sampleLock;
+
+        inline std::uintptr_t FirstChild(std::uintptr_t a_node)
+        {
+            auto& children = reinterpret_cast<RE::NiNode*>(a_node)->GetChildren();
+            return children.empty() ? 0 : reinterpret_cast<std::uintptr_t>(children[0].get());
+        }
+
+        // Read-only: re-reads the first child of each recently generated cell's water node and reports a change.
+        inline void CheckSamples(std::uint32_t a_call)
+        {
+            std::scoped_lock lock(sampleLock);
+            for (auto& sample : samples) {
+                if (!sample.cell || !sample.node) {
+                    continue;
+                }
+                if (RE::TESForm::LookupByID<RE::TESObjectCELL>(sample.formID) != sample.cell) {
+                    sample = {};
+                    continue;
+                }
+                const auto* data = sample.cell->GetRuntimeData().loadedData;
+                if (!data || data->unk028 != sample.node) {
+                    sample = {};
+                    continue;
+                }
+                const auto child0 = FirstChild(sample.node);
+                if (child0 != sample.child0) {
+                    const auto count = sampleAnomalies.fetch_add(1, std::memory_order_relaxed) + 1;
+                    if (count <= kMaxLoggedOverlaps) {
+                        logger::warn("water generation: waterNode {:#x} first child changed {:#x} -> {:#x} (cell {:p}, recorded at call {}, seen at call {})"sv,
+                            sample.node, sample.child0, child0, static_cast<const void*>(sample.cell), sample.call, a_call);
+                    }
+                    sample = {};
+                }
+            }
+        }
+
+        inline void RecordSample(RE::TESObjectCELL* a_cell, std::uint32_t a_call)
+        {
+            const auto* data = a_cell->GetRuntimeData().loadedData;
+            if (!data || !data->unk028) {
+                return;
+            }
+            static std::uint32_t next = 0;
+            std::scoped_lock     lock(sampleLock);
+            samples[next++ % kSampleCount] =
+                WaterNodeSample{ a_cell, a_cell->GetFormID(), static_cast<std::uintptr_t>(data->unk028), FirstChild(data->unk028), a_call };
+        }
+
         inline void Thunk(void* a_this, void* a_cell, bool a_skipFlowMap)
         {
             const auto inside = active.fetch_add(1, std::memory_order_acq_rel) + 1;
             const auto total = calls.fetch_add(1, std::memory_order_relaxed) + 1;
 
             if (total == 1 || total % kCallSummaryInterval == 0) {
-                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s), {} null-loadedData entr(ies), {} loadedData change(s)"sv,
+                logger::info("water generation: {} call(s) so far, peak concurrency {}, {} overlap(s), {} null-loadedData entr(ies), {} loadedData change(s), {} waterNode child change(s)"sv,
                     total, peak.load(std::memory_order_relaxed), overlaps.load(std::memory_order_relaxed),
-                    nullLoadedDataEntries.load(std::memory_order_relaxed), loadedDataChanges.load(std::memory_order_relaxed));
+                    nullLoadedDataEntries.load(std::memory_order_relaxed), loadedDataChanges.load(std::memory_order_relaxed),
+                    sampleAnomalies.load(std::memory_order_relaxed));
             }
 
             if (inside > 1) {
@@ -79,6 +141,7 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             while (inside > seenPeak && !peak.compare_exchange_weak(seenPeak, inside, std::memory_order_relaxed)) {
             }
 
+            CheckSamples(total);
             auto* const cell = static_cast<RE::TESObjectCELL*>(a_cell);
             const auto  dataBefore = cell ? cell->GetRuntimeData().loadedData : nullptr;
             if (cell && !dataBefore) {
@@ -95,6 +158,10 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             const auto dataAfter = cell ? cell->GetRuntimeData().loadedData : nullptr;
             if (cell && dataBefore && dataAfter != dataBefore) {
                 LogLoadedDataEvent(loadedDataChanges, "loadedData changed during generation"sv, cell, dataBefore, dataAfter);
+            }
+
+            if (cell) {
+                RecordSample(cell, total);
             }
 
             active.fetch_sub(1, std::memory_order_acq_rel);
