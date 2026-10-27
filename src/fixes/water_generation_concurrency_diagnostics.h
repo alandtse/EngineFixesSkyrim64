@@ -62,6 +62,8 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             RE::FormID         formID{ 0 };
             std::uintptr_t     node{ 0 };
             std::uintptr_t     child0{ 0 };
+            std::uintptr_t     nodeVtable{ 0 };
+            std::uintptr_t     childVtable{ 0 };
             std::uint32_t      call{ 0 };
         };
 
@@ -69,6 +71,17 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         inline std::array<WaterNodeSample, kSampleCount> samples{};
         inline std::atomic<std::uint32_t>                sampleAnomalies{ 0 };
         inline util::SpinLock                            sampleLock;
+
+        inline std::uintptr_t VtableOf(std::uintptr_t a_object)
+        {
+            return a_object ? *reinterpret_cast<const std::uintptr_t*>(a_object) : 0;
+        }
+
+        inline std::uint32_t RefCountOf(std::uintptr_t a_object)
+        {
+            constexpr std::size_t kRefCountOffset = 0x8;
+            return a_object ? *reinterpret_cast<const std::uint32_t*>(a_object + kRefCountOffset) : 0;
+        }
 
         inline std::uintptr_t FirstChild(std::uintptr_t a_node)
         {
@@ -94,11 +107,15 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
                     continue;
                 }
                 const auto child0 = FirstChild(sample.node);
-                if (child0 != sample.child0) {
+                const auto nodeVtable = VtableOf(sample.node);
+                const auto childVtable = VtableOf(child0);
+                const auto childRefs = RefCountOf(child0);
+                if (child0 != sample.child0 || nodeVtable != sample.nodeVtable || childVtable != sample.childVtable || (child0 && childRefs == 0)) {
                     const auto count = sampleAnomalies.fetch_add(1, std::memory_order_relaxed) + 1;
                     if (count <= kMaxLoggedOverlaps) {
-                        logger::warn("water generation: waterNode {:#x} first child changed {:#x} -> {:#x} (cell {:p}, recorded at call {}, seen at call {})"sv,
-                            sample.node, sample.child0, child0, static_cast<const void*>(sample.cell), sample.call, a_call);
+                        logger::warn("water generation: waterNode {:#x} anomaly: first child {:#x} -> {:#x}, node vtable {:#x} -> {:#x}, child vtable {:#x} -> {:#x}, child refcount {} (cell {:p}, recorded at call {}, seen at call {})"sv,
+                            sample.node, sample.child0, child0, sample.nodeVtable, nodeVtable, sample.childVtable, childVtable, childRefs,
+                            static_cast<const void*>(sample.cell), sample.call, a_call);
                     }
                     sample = {};
                 }
@@ -114,7 +131,8 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             static std::uint32_t next = 0;
             std::scoped_lock     lock(sampleLock);
             samples[next++ % kSampleCount] =
-                WaterNodeSample{ a_cell, a_cell->GetFormID(), static_cast<std::uintptr_t>(data->unk028), FirstChild(data->unk028), a_call };
+                WaterNodeSample{ a_cell, a_cell->GetFormID(), static_cast<std::uintptr_t>(data->unk028), FirstChild(data->unk028),
+                    VtableOf(data->unk028), VtableOf(FirstChild(data->unk028)), a_call };
         }
 
         inline void Thunk(void* a_this, void* a_cell, bool a_skipFlowMap)
