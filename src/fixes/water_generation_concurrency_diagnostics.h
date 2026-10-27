@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <utility>
 
 // BGSAutoWater::GeneratePlaceableWaterForCell shares the singleton's multiBounds array and default
 // water object between callers, and is entered from both cell-loader tasks and the main thread.
@@ -36,10 +37,13 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         inline constexpr Site kSiteAE1170{ 0x5193B0, { 0x1A5950, 0x29BBC9, 0x29CFF5 } };
         inline constexpr Site kSiteAE1104{ 0x5210D0, { 0x1AAD70, 0x2A1429, 0x2A2875 } };
 
-        inline GenerateForCell_t          original = nullptr;
-        inline util::SpinLock             serializeLock;
-        inline bool                       serialize = false;
-        inline std::uint32_t              debugDelayMs = 0;
+        inline GenerateForCell_t original = nullptr;
+        inline util::SpinLock    serializeLock;
+        inline bool              serialize = false;
+        inline std::uint32_t     debugDelayMs = 0;
+        inline std::uint32_t     setNodeDelayMs = 0;
+        using SetWaterNode_t = void (*)(void*, void*);
+        inline SetWaterNode_t             originalSetWaterNode = nullptr;
         inline DWORD                      mainThreadId = 0;
         inline std::atomic<std::int32_t>  active{ 0 };
         inline std::atomic<std::int32_t>  peak{ 0 };
@@ -183,6 +187,14 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
                     Memory::FreeWatch::Watch(reinterpret_cast<const void*>(data->unk028)), child ? Memory::FreeWatch::Watch(reinterpret_cast<const void*>(child)) : Memory::FreeWatch::kSlots, a_call };
         }
 
+        inline void SetWaterNodeThunk(void* a_cell, void* a_water)
+        {
+            if (setNodeDelayMs > 0 && ::GetCurrentThreadId() != mainThreadId) {
+                ::Sleep(setNodeDelayMs);
+            }
+            originalSetWaterNode(a_cell, a_water);
+        }
+
         inline void Thunk(void* a_this, void* a_cell, bool a_skipFlowMap)
         {
             const auto inside = active.fetch_add(1, std::memory_order_acq_rel) + 1;
@@ -237,6 +249,23 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             active.fetch_sub(1, std::memory_order_acq_rel);
         }
 
+        inline bool HookSetWaterNodeSite(std::uintptr_t a_callSiteRva, std::uintptr_t a_functionRva)
+        {
+            REL::Relocation<std::uintptr_t> callSite{ REL::Offset{ a_callSiteRva } };
+            const auto*                     bytes = reinterpret_cast<const std::uint8_t*>(callSite.address());
+
+            std::int32_t rel32;
+            std::memcpy(&rel32, bytes + 1, sizeof(rel32));
+            const auto target = callSite.address() + kCallInstructionSize + rel32;
+            if (bytes[0] != kCallOpcode || target != REL::Module::get().base() + a_functionRva) {
+                logger::warn("water generation diagnostics: unexpected SetWaterNode call site at +{:X}, skipping"sv, a_callSiteRva);
+                return false;
+            }
+
+            originalSetWaterNode = reinterpret_cast<SetWaterNode_t>(callSite.write_call<5>(SetWaterNodeThunk));
+            return true;
+        }
+
         inline bool HookCallSite(std::uintptr_t a_callSiteRva, std::uintptr_t a_functionRva)
         {
             REL::Relocation<std::uintptr_t> callSite{ REL::Offset{ a_callSiteRva } };
@@ -263,6 +292,16 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
 
         detail::serialize = Settings::Fixes::bWaterGenerationSerialize.GetValue();
         detail::debugDelayMs = Settings::Fixes::uWaterGenerationDebugDelayMs.GetValue();
+        detail::setNodeDelayMs = Settings::Fixes::uWaterGenerationSetNodeDelayMs.GetValue();
+        if (detail::setNodeDelayMs > 0) {
+            // SetWaterNode call inside GeneratePlaceableWaterForCell: {call site, SetWaterNode} RVAs
+            const auto [setNodeSite, setNodeFunction] = REL::Module::IsVR() ? std::pair<std::uintptr_t, std::uintptr_t>{ 0x4CCD30, 0x277730 } :
+                                                        REL::Module::IsAE() ? (util::IsAE1799() ? std::pair<std::uintptr_t, std::uintptr_t>{ 0x5212B0, 0x2BF710 } : std::pair<std::uintptr_t, std::uintptr_t>{ 0, 0 }) :
+                                                                              std::pair<std::uintptr_t, std::uintptr_t>{ 0x4BCBE0, 0x266160 };
+            if (setNodeSite == 0 || !detail::HookSetWaterNodeSite(setNodeSite, setNodeFunction)) {
+                detail::setNodeDelayMs = 0;
+            }
+        }
         detail::mainThreadId = ::GetCurrentThreadId();
 
         std::size_t hooked = 0;
