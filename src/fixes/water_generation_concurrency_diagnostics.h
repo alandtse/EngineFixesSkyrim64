@@ -1,6 +1,7 @@
 #pragma once
 
 #include "installed_fixes.h"
+#include "memory/free_watch.h"
 
 #include <array>
 #include <atomic>
@@ -38,6 +39,8 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         inline GenerateForCell_t          original = nullptr;
         inline util::SpinLock             serializeLock;
         inline bool                       serialize = false;
+        inline std::uint32_t              debugDelayMs = 0;
+        inline DWORD                      mainThreadId = 0;
         inline std::atomic<std::int32_t>  active{ 0 };
         inline std::atomic<std::int32_t>  peak{ 0 };
         inline std::atomic<std::uint32_t> calls{ 0 };
@@ -64,6 +67,8 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             std::uintptr_t     child0{ 0 };
             std::uintptr_t     nodeVtable{ 0 };
             std::uintptr_t     childVtable{ 0 };
+            std::size_t        nodeSlot{ Memory::FreeWatch::kSlots };
+            std::size_t        childSlot{ Memory::FreeWatch::kSlots };
             std::uint32_t      call{ 0 };
         };
 
@@ -89,6 +94,25 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             return children.empty() ? 0 : reinterpret_cast<std::uintptr_t>(children[0].get());
         }
 
+        inline void LogFreeRecord(std::string_view a_what, std::size_t a_slot, std::uintptr_t a_block, const RE::TESObjectCELL* a_cell, std::uint32_t a_recordedCall, std::uint32_t a_nowCall)
+        {
+            const auto& record = Memory::FreeWatch::records[a_slot];
+            std::string frames;
+            for (std::uint32_t i = 0; i < record.frameCount; ++i) {
+                HMODULE    module = nullptr;
+                char       name[MAX_PATH]{};
+                const auto address = reinterpret_cast<std::uintptr_t>(record.frames[i]);
+                if (::GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCSTR>(record.frames[i]), &module)) {
+                    ::GetModuleFileNameA(module, name, MAX_PATH);
+                }
+                const std::string_view path{ name };
+                const auto             base = path.substr(path.find_last_of("\\/") + 1);
+                frames += std::format(" {}+{:X}"sv, base.empty() ? "?"sv : base, address - reinterpret_cast<std::uintptr_t>(module));
+            }
+            logger::warn("water generation: {} {:#x} was FREED while loadedData still referenced it (thread {}, cell {:p}, recorded at call {}, seen at call {}), stack:{}"sv,
+                a_what, a_block, record.threadId, static_cast<const void*>(a_cell), a_recordedCall, a_nowCall, frames);
+        }
+
         // Read-only: re-reads the first child of each recently generated cell's water node and reports a change.
         inline void CheckSamples(std::uint32_t a_call)
         {
@@ -98,11 +122,31 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
                     continue;
                 }
                 if (RE::TESForm::LookupByID<RE::TESObjectCELL>(sample.formID) != sample.cell) {
+                    Memory::FreeWatch::Unwatch(sample.nodeSlot);
+                    Memory::FreeWatch::Unwatch(sample.childSlot);
                     sample = {};
                     continue;
                 }
                 const auto* data = sample.cell->GetRuntimeData().loadedData;
                 if (!data || data->unk028 != sample.node) {
+                    Memory::FreeWatch::Unwatch(sample.nodeSlot);
+                    Memory::FreeWatch::Unwatch(sample.childSlot);
+                    sample = {};
+                    continue;
+                }
+                if (sample.nodeSlot < Memory::FreeWatch::kSlots && Memory::FreeWatch::records[sample.nodeSlot].freed.load(std::memory_order_acquire)) {
+                    sampleAnomalies.fetch_add(1, std::memory_order_relaxed);
+                    LogFreeRecord("waterNode"sv, sample.nodeSlot, sample.node, sample.cell, sample.call, a_call);
+                    Memory::FreeWatch::Unwatch(sample.nodeSlot);
+                    Memory::FreeWatch::Unwatch(sample.childSlot);
+                    sample = {};
+                    continue;
+                }
+                if (sample.childSlot < Memory::FreeWatch::kSlots && Memory::FreeWatch::records[sample.childSlot].freed.load(std::memory_order_acquire)) {
+                    sampleAnomalies.fetch_add(1, std::memory_order_relaxed);
+                    LogFreeRecord("water geometry child"sv, sample.childSlot, sample.child0, sample.cell, sample.call, a_call);
+                    Memory::FreeWatch::Unwatch(sample.nodeSlot);
+                    Memory::FreeWatch::Unwatch(sample.childSlot);
                     sample = {};
                     continue;
                 }
@@ -130,9 +174,13 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             }
             static std::uint32_t next = 0;
             std::scoped_lock     lock(sampleLock);
-            samples[next++ % kSampleCount] =
-                WaterNodeSample{ a_cell, a_cell->GetFormID(), static_cast<std::uintptr_t>(data->unk028), FirstChild(data->unk028),
-                    VtableOf(data->unk028), VtableOf(FirstChild(data->unk028)), a_call };
+            auto&                slot = samples[next++ % kSampleCount];
+            Memory::FreeWatch::Unwatch(slot.nodeSlot);
+            Memory::FreeWatch::Unwatch(slot.childSlot);
+            const auto child = FirstChild(data->unk028);
+            slot =
+                WaterNodeSample{ a_cell, a_cell->GetFormID(), static_cast<std::uintptr_t>(data->unk028), child, VtableOf(data->unk028), VtableOf(child),
+                    Memory::FreeWatch::Watch(reinterpret_cast<const void*>(data->unk028)), child ? Memory::FreeWatch::Watch(reinterpret_cast<const void*>(child)) : Memory::FreeWatch::kSlots, a_call };
         }
 
         inline void Thunk(void* a_this, void* a_cell, bool a_skipFlowMap)
@@ -160,6 +208,10 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
             }
 
             CheckSamples(total);
+            if (debugDelayMs > 0 && ::GetCurrentThreadId() != mainThreadId) {
+                ::Sleep(debugDelayMs);
+            }
+
             auto* const cell = static_cast<RE::TESObjectCELL*>(a_cell);
             const auto  dataBefore = cell ? cell->GetRuntimeData().loadedData : nullptr;
             if (cell && !dataBefore) {
@@ -210,6 +262,8 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
                                                  detail::kSiteSE;
 
         detail::serialize = Settings::Fixes::bWaterGenerationSerialize.GetValue();
+        detail::debugDelayMs = Settings::Fixes::uWaterGenerationDebugDelayMs.GetValue();
+        detail::mainThreadId = ::GetCurrentThreadId();
 
         std::size_t hooked = 0;
         for (const auto callSite : site.callSites) {
