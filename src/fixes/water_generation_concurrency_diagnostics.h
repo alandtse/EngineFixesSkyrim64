@@ -296,7 +296,7 @@ namespace Fixes::WaterGenerationConcurrencyDiagnostics
         if (detail::setNodeDelayMs > 0) {
             // SetWaterNode call inside GeneratePlaceableWaterForCell: {call site, SetWaterNode} RVAs
             const auto [setNodeSite, setNodeFunction] = REL::Module::IsVR() ? std::pair<std::uintptr_t, std::uintptr_t>{ 0x4CCD30, 0x277730 } :
-                                                        REL::Module::IsAE() ? (util::IsAE1799() ? std::pair<std::uintptr_t, std::uintptr_t>{ 0x5212B0, 0x2BF710 } : std::pair<std::uintptr_t, std::uintptr_t>{ 0, 0 }) :
+                                                        REL::Module::IsAE() ? (util::IsAE1799() ? std::pair<std::uintptr_t, std::uintptr_t>{ 0x5212B0, 0x2BF710 } : std::pair<std::uintptr_t, std::uintptr_t>{ 0x519590, 0x2B9A90 }) :
                                                                               std::pair<std::uintptr_t, std::uintptr_t>{ 0x4BCBE0, 0x266160 };
             if (setNodeSite == 0 || !detail::HookSetWaterNodeSite(setNodeSite, setNodeFunction)) {
                 detail::setNodeDelayMs = 0;
