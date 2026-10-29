@@ -32,7 +32,10 @@ namespace Fixes::AlphaGroupOrderedNodeNullCrash
             }
 
             if (fallbacks.fetch_add(1, std::memory_order_relaxed) == 0) {
-                logger::warn("alpha group geometry has no BSOrderedNode ancestor; using its own bound (logged once)"sv);
+                const char*         name = a_object ? a_object->name.c_str() : "<null>";
+                const void*         parent = a_object ? a_object->parent : nullptr;
+                const std::uint32_t refs = a_object ? a_object->GetRefCount() : 0;
+                logger::warn("alpha group geometry '{}' has no BSOrderedNode ancestor (parent {}, refs {}); using its own bound (logged once)"sv, name, parent, refs);
             }
 
             // The caller only reads worldBound as the group's depth sort key.
