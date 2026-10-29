@@ -3,6 +3,7 @@
 #include "ability_condition_bug.h"
 #include "acoustic_space_listener_null_rigidbody_crash.h"
 #include "actorvaluestorage_clear_race_crash.h"
+#include "alpha_group_ordered_node_null_crash.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "batchrenderer_alphageometrygroup_overflow.h"
@@ -249,6 +250,9 @@ namespace Fixes
 
         if (Settings::Fixes::bCullingProcessAppendVirtualPoolGuard.GetValue())
             CullingProcessAppendVirtualPoolGuard::Install();
+
+        if (Settings::Fixes::bAlphaGroupOrderedNodeNullCrash.GetValue())
+            AlphaGroupOrderedNodeNullCrash::Install();
 
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();
