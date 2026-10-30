@@ -152,7 +152,7 @@ extern "C" __declspec(dllexport) constinit auto SKSEPlugin_Version = []() {
 }();
 
 // SE 1.5.97 still requires SKSEPlugin_Query for the preloader path
-extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(const SKSE::QueryInterface*, SKSE::PluginInfo* a_info)
+SKSE_PLUGIN_QUERY(const SKSE::QueryInterface*, SKSE::PluginInfo* a_info)
 {
     if (!g_isPreloaded) {
         OpenLog();
@@ -181,7 +181,7 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Query(const SKSE::Query
 // VR's, if it hasn't picked up this feature) simply never calls it, and the third-party
 // d3dx9_42.dll path below remains the fallback. The g_isPreloaded guard means whichever path
 // fires first wins; the other becomes a harmless no-op.
-extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Preload(const SKSE::LoadInterface*)
+SKSE_PLUGIN_PRELOAD(const SKSE::LoadInterface*)
 {
     if (!g_isPreloaded)
         Initialize();
@@ -189,7 +189,7 @@ extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Preload(const SKSE::Loa
     return true;
 }
 
-extern "C" __declspec(dllexport) bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_skse)
+SKSE_PLUGIN_LOAD(const SKSE::LoadInterface* a_skse)
 {
     if (!g_isPreloaded) {
         // init with log

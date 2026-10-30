@@ -11,8 +11,8 @@ namespace Fixes::MessageBoxMainMenu
         inline constexpr std::ptrdiff_t kBodyOffset = 0x250;
         inline constexpr std::ptrdiff_t kNextOffset = 0x345;
         inline constexpr std::ptrdiff_t kLoopOffset = 0x214;
-        inline constexpr auto           kProjectedTarget = static_cast<int>(RE::RENDER_TARGET::kPROJECTEDMENU);
-        inline constexpr std::size_t    kRenderTargetOffset = 0x30;
+        inline constexpr auto           kProjectedTarget = static_cast<std::int32_t>(RE::VRMenuRenderTarget::kProjectedMenu);
+        inline constexpr auto           kNoRenderTarget = static_cast<std::int32_t>(RE::VRMenuRenderTarget::kNone);
         inline constexpr std::size_t    kIteratorScratchOffset = 0x50;
         inline std::uintptr_t           mainVtable;
         inline std::uintptr_t           mistVtable;
@@ -34,11 +34,9 @@ namespace Fixes::MessageBoxMainMenu
             if (vtable == faderVtable)
                 return MenuRole::kBlocked;
 
-            int target;
-            // CommonLib's VR accessor currently addresses +0, not the native +0x30 field.
-            std::memcpy(&target, reinterpret_cast<const std::byte*>(a_menu) + kRenderTargetOffset, sizeof(target));
+            const auto target = a_menu->GetVRRuntimeData()->renderTarget.underlying();
             // Native draw begins at the last topmost menu; never rotate across that boundary.
-            if ((target != -1 && target != kProjectedTarget) ||
+            if ((target != kNoRenderTarget && target != kProjectedTarget) ||
                 a_menu->menuFlags.any(
                     RE::IMenu::Flag::kTopmostRenderedMenu,
                     RE::IMenu::Flag::kRendersOffscreenTargets,
