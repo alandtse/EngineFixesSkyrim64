@@ -6,6 +6,7 @@
 #include "fixes/bslightingshader_parallax_bug.h"
 #include "fixes/fixes.h"
 #include "fixes/havok_material_lookup_guard.h"
+#include "fixes/messagebox_mainmenu.h"
 #include "fixes/save_screenshots.h"
 #include "fixes/stuck_mouse_buttons.h"
 #include "fixes/tree_reflections.h"
@@ -45,6 +46,7 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_msg)
                 Warnings::WarnActiveRefrHandleCount(Settings::Warnings::uRefrMainMenuLimit.GetValue());
             }
             Patches::InstallDelayed();
+            Fixes::MessageBoxMainMenu::OnDataLoaded();
             Fixes::HavokMaterialLookupGuard::ReportRecoveries();
 
             auto timeElapsed = std::chrono::high_resolution_clock::now() - start;

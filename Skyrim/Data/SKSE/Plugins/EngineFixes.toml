@@ -61,6 +61,8 @@ bAbilityConditionBug = true                     # (VR-only) fixes ability condit
 bBuySellStackSpeechGain = true                  # (VR-only) fixes buying/selling a stack of items only granting speech XP for a single item
 bCopyBoneTransformNullCrash = true              # (VR-only) fixes a null-pointer crash when an actor's animation references a bone name absent from its skeleton (modded/mismatched skeleton)
 bShadowSceneCrash = true                        # (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix
+bMessageBoxMainMenu = true                      # (VR-only) fixes MessageBox dialogs not being drawn on the main-menu VR UI quad; preserves modal and input order
+bMessageBoxMainMenuTest = false                 # (VR-only) shows one main-menu MessageBox per launch for testing; independent of bMessageBoxMainMenu
 bLockpickingMenuInitCrash = true                # (VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame
 
 # contains optional game patches
