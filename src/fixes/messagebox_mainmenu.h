@@ -84,6 +84,11 @@ namespace Fixes::MessageBoxMainMenu
             }
 
         private:
+            // Match RE::DebugMessageBox; CommonLib exposes integer parameters, not enums.
+            static constexpr std::uint8_t kButtonPressOffset = 0;
+            static constexpr std::int32_t kDebugMessageBoxWarningType = 4;
+            static constexpr std::int32_t kDebugMessageBoxDepth = 10;
+
             TestPopup() = default;
             TestPopup(const TestPopup&) = delete;
             TestPopup& operator=(const TestPopup&) = delete;
@@ -109,7 +114,7 @@ namespace Fixes::MessageBoxMainMenu
                     queued_ = RE::MessageBoxMenu::Create(
                         "Engine Fixes: main-menu MessageBox test. Select OK to dismiss. "
                         "Disable bMessageBoxMainMenuTest in EngineFixes.toml to stop this startup test.",
-                        Answered, 0, 4, 10, "OK");
+                        Answered, kButtonPressOffset, kDebugMessageBoxWarningType, kDebugMessageBoxDepth, "OK");
                     if (queued_) {
                         ui->RemoveEventSink(this);
                         logger::info("MessageBox main-menu test queued (render fix setting: {})"sv,
