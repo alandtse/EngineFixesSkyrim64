@@ -72,6 +72,7 @@
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
 #include "vertical_look_sensitivity.h"
+#include "water_generation_concurrency_diagnostics.h"
 #include "weapon_block_scaling.h"
 
 namespace Fixes
@@ -263,6 +264,9 @@ namespace Fixes
 
         if (Settings::Fixes::bShadowLightCrossThreadFreeCrash.GetValue())
             ShadowLightCrossThreadFree::Install();
+
+        if (Settings::Fixes::bWaterGenerationConcurrencyDiagnostics.GetValue())
+            WaterGenerationConcurrencyDiagnostics::Install();
 
         // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
