@@ -51,6 +51,7 @@
 #include "lockpicking_menu_init_crash.h"
 #include "mapmenu_closehandlers_null_guard.h"
 #include "memory_access_errors.h"
+#include "messagebox_mainmenu.h"
 #include "mistmenu_vr_avatar_node_null_crash.h"
 #include "mo5s_typo.h"
 #include "music_overlap.h"
@@ -278,6 +279,9 @@ namespace Fixes
 
         if (Settings::Fixes::bBSOpenVRHandIndexNullCrash.GetValue())
             BSOpenVRHandIndexNullCrash::Install();
+
+        if (Settings::Fixes::bMessageBoxMainMenu.GetValue())
+            MessageBoxMainMenu::Install();
 
         if (Settings::Fixes::bMistMenuVRAvatarNodeNullCrash.GetValue())
             MistMenuVRAvatarNodeNullCrash::Install();

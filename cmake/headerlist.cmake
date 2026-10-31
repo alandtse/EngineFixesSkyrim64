@@ -32,6 +32,8 @@ set(headers ${headers}
 	src/fixes/joblist_race.h
 	src/fixes/lip_sync.h
 	src/fixes/memory_access_errors.h
+	src/fixes/messagebox_mainmenu.h
+	src/fixes/detail/projected_menu_order.h
 	src/fixes/mo5s_typo.h
 	src/fixes/music_overlap.h
 	src/fixes/nitimecontroller_no_target.h
