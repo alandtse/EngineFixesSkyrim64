@@ -1,3 +1,22 @@
+## [7.13.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.12.0...v7.13.0) (2026-10-31)
+
+### Features
+
+* **vr:** fix main-menu MessageBox render order ([#105](https://github.com/alandtse/EngineFixesSkyrim64/issues/105)) ([0fa7f26](https://github.com/alandtse/EngineFixesSkyrim64/commit/0fa7f26071fe34b861f5220a51355dfecea271cb))
+
+### Bug Fixes
+
+* guard alpha group ordered node null ([#104](https://github.com/alandtse/EngineFixesSkyrim64/issues/104)) ([fcbe026](https://github.com/alandtse/EngineFixesSkyrim64/commit/fcbe0265afd2ea69d7f4cda18a39988c34b4d0d6))
+
+
+### New Settings
+
+* `[Fixes] bAlphaGroupOrderedNodeNullCrash` (default `true`) — guards the alpha-group accumulate step against a null-pointer crash when a queued geometry has lost its BSOrderedNode ancestor; the geometry's own bound is used instead
+* `[Fixes] bMessageBoxMainMenu` (default `true`) — (VR-only) fixes MessageBox dialogs not being drawn on the main-menu VR UI quad; preserves modal and input order
+* `[Fixes] bMessageBoxMainMenuTest` (default `false`) — (VR-only) shows one main-menu MessageBox per launch for testing; independent of bMessageBoxMainMenu
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.12.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.11.0...v7.12.0) (2026-10-25)
 
 ### Features
