@@ -48,6 +48,7 @@
 #include "lighting_shader_landscape_texture_crash.h"
 #include "lighting_shader_null_texture_crash.h"
 #include "lip_sync.h"
+#include "loadformdata_stale_form_crash.h"
 #include "lockpicking_menu_init_crash.h"
 #include "mapmenu_closehandlers_null_guard.h"
 #include "memory_access_errors.h"
@@ -57,6 +58,7 @@
 #include "music_overlap.h"
 #include "nitimecontroller_no_target.h"
 #include "null_process_crash.h"
+#include "packagedata_target_type_mismatch_crash.h"
 #include "perk_fragment_is_running.h"
 #include "precomputed_paths.h"
 #include "removed_spellbook.h"
@@ -294,5 +296,11 @@ namespace Fixes
 
         if (Settings::Fixes::bMapMenuCloseHandlersNullGuard.GetValue())
             MapMenuCloseHandlersNullGuard::Install();
+
+        if (Settings::Fixes::bLoadFormDataStaleFormCrash.GetValue())
+            LoadFormDataStaleFormCrash::Install();
+
+        if (Settings::Fixes::bPackageDataTargetTypeMismatchCrash.GetValue())
+            PackageDataTargetTypeMismatchCrash::Install();
     }
 }
