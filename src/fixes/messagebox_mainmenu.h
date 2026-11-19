@@ -37,11 +37,11 @@ namespace Fixes::MessageBoxMainMenu
 
             const auto target = a_menu->GetVRRuntimeData()->renderTarget.underlying();
             // Native draw begins at the last topmost menu; never rotate across that boundary.
-            if ((target != kNoRenderTarget && target != kProjectedTarget) ||
-                a_menu->menuFlags.any(
-                    RE::IMenu::Flag::kTopmostRenderedMenu,
-                    RE::IMenu::Flag::kRendersOffscreenTargets,
-                    RE::IMenu::Flag::kCustomRendering) ||
+            // Console's PreDisplay is a no-op, so its offscreen-target flag does not affect draw order.
+            const auto flags = a_menu->menuFlags;
+            const auto barrier = flags.any(RE::IMenu::Flag::kTopmostRenderedMenu, RE::IMenu::Flag::kCustomRendering) ||
+                                 (vtable != consoleVtable && flags.any(RE::IMenu::Flag::kRendersOffscreenTargets));
+            if ((target != kNoRenderTarget && target != kProjectedTarget) || barrier ||
                 reinterpret_cast<const std::uintptr_t*>(vtable)[6] != baseDisplay)
                 return MenuRole::kBlocked;
             return vtable == messageVtable ? MenuRole::kMessageBox :
@@ -240,6 +240,7 @@ namespace Fixes::MessageBoxMainMenu
             reinterpret_cast<const std::uintptr_t*>(main.address())[6] != display.address() ||
             reinterpret_cast<const std::uintptr_t*>(message.address())[6] != display.address() ||
             reinterpret_cast<const std::uintptr_t*>(console.address())[6] != display.address() ||
+            reinterpret_cast<const std::uintptr_t*>(console.address())[7] != reinterpret_cast<const std::uintptr_t*>(main.address())[7] ||
             reinterpret_cast<const std::uintptr_t*>(mist.address())[6] != mistDisplay.address()) {
             logger::warn("skipping MessageBox main-menu fix: draw-loop signature or display target mismatch"sv);
             return;
