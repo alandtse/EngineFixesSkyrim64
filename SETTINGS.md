@@ -24,6 +24,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `iBatchRendererAlphaGeometryGroupLimit` | `0` | 7.9.0 | max live alpha-sorted render groups per frame before new ones are dropped; 0 = array capacity (512, VR 1024) minus a margin, larger values are clamped |
 | `bCullingProcessAppendVirtualPoolGuard` | `true` | 7.9.0 | guards BSCullingProcess::AppendVirtual against a null write when its shadow-caster free pool is exhausted; the append is dropped |
 | `bAlphaGroupOrderedNodeNullCrash` | `true` | 7.13.0 | guards the alpha-group accumulate step against a null-pointer crash when a queued geometry has lost its BSOrderedNode ancestor; the geometry's own bound is used instead |
+| `bAlphaPassListDuplicatePush` | `true` | 7.14.0 | drops a re-push of a render pass that is still queued in a linked alpha geometry group, which would otherwise truncate the queue and make other transparent geometry vanish |
 | `bAnimationLoadSignedCrash` | `true` | ≤ 7.0.20 | fixes a misplaced used of a signed value in animation loading |
 | `bBethesdaNetCrash` | `true` | ≤ 7.0.20 | fixes the game crashing on startup if you live somewhere with special characters in the name |
 | `bBGSKeywordFormLoadCrash` | `true` | ≤ 7.0.20 | fixes a crash when malformed BGSKeywordForms are loaded by the game |
@@ -91,10 +92,12 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bShadowSceneCrash` | `true` | 7.1.0 | (VR-only) fixes a null-pointer crash in shadow scene light processing distinct from the SE/AE shadowscenenode fix |
 | `bLockpickingMenuInitCrash` | `true` | 7.4.4 | (VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame |
 | `bBSOpenVRHandIndexNullCrash` | `true` | 7.4.7 | (VR-only) guards BSOpenVR::GetTrackedDeviceIndexForHand against a null-pointer crash when the VR hand-device API is queried while the HMD is asleep / OpenVR is not initialized (no SteamVR null driver loaded) |
-| `bMessageBoxMainMenu` | `true` | 7.13.0 | (VR-only) fixes MessageBox dialogs not being drawn on the main-menu VR UI quad; preserves modal and input order |
+| `bMessageBoxMainMenu` | `true` | 7.13.0 | (VR-only) fixes MessageBox dialogs and the Console not being drawn on the main-menu VR UI quad; preserves modal and input order |
 | `bMessageBoxMainMenuTest` | `false` | 7.13.0 | (VR-only) shows one main-menu MessageBox per launch for testing; independent of bMessageBoxMainMenu |
 | `bMistMenuVRAvatarNodeNullCrash` | `true` | 7.6.3 | (VR-only) guards MistMenu's per-frame HMD/hand avatar-node transform update against a null-pointer crash when a cached node pointer isn't populated |
 | `bMapMenuCloseHandlersNullGuard` | `true` | 7.8.0 | (VR-only) guards MapMenu::CloseHandlers' 5-slot input-handler teardown loop against a null or torn/not-yet-constructed handler pointer |
+| `bLoadFormDataStaleFormCrash` | `true` | 7.14.0 | fixes a crash when a queued load entry caches a form pointer that is freed before use |
+| `bPackageDataTargetTypeMismatchCrash` | `true` | 7.14.0 | fixes a crash when a package procedure reads a non-target package data input as a target |
 
 ## [Patches]
 
@@ -146,6 +149,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.14.0**: `bAlphaPassListDuplicatePush`, `bLoadFormDataStaleFormCrash`, `bPackageDataTargetTypeMismatchCrash`
 - **7.13.0**: `bAlphaGroupOrderedNodeNullCrash`, `bMessageBoxMainMenu`, `bMessageBoxMainMenuTest`
 - **7.12.0**: `bDynamicDOFNullParentCellCrash`
 - **7.11.0**: `bJobListRace`

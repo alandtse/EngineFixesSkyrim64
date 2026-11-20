@@ -1,3 +1,23 @@
+## [7.14.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.13.0...v7.14.0) (2026-11-20)
+
+### Features
+
+* guard duplicate alpha pass-list pushes ([b351c5f](https://github.com/alandtse/EngineFixesSkyrim64/commit/b351c5fdbc75b6868987b84a8e83f5bbea6dfba8))
+
+### Bug Fixes
+
+* guard stale load form and package data ([893ac91](https://github.com/alandtse/EngineFixesSkyrim64/commit/893ac91818bb0fa6ebe6395302c5113a10f82695))
+* **vr:** draw Console in main-menu render order ([6d9f81c](https://github.com/alandtse/EngineFixesSkyrim64/commit/6d9f81c8b39c40502c349e5c7d74f49578288eb0))
+
+
+### New Settings
+
+* `[Fixes] bAlphaPassListDuplicatePush` (default `true`) — drops a re-push of a render pass that is still queued in a linked alpha geometry group, which would otherwise truncate the queue and make other transparent geometry vanish
+* `[Fixes] bLoadFormDataStaleFormCrash` (default `true`) — fixes a crash when a queued load entry caches a form pointer that is freed before use
+* `[Fixes] bPackageDataTargetTypeMismatchCrash` (default `true`) — fixes a crash when a package procedure reads a non-target package data input as a target
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.13.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.12.0...v7.13.0) (2026-10-31)
 
 ### Features
