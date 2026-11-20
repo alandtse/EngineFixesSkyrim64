@@ -1,5 +1,6 @@
 #pragma once
 
+#include "free_watch.h"
 #include "installed_fixes.h"
 
 namespace Memory::MemoryManager
@@ -63,6 +64,7 @@ namespace Memory::MemoryManager
         inline void Deallocate(RE::MemoryManager*, void* a_mem, const bool a_alignmentRequired)
         {
             if (a_mem != g_ZeroAddress && (a_mem != nullptr || !REL::Module::IsVR())) {
+                FreeWatch::OnFree(a_mem);
                 if (a_alignmentRequired)
                     Allocator::GetAllocator()->DeallocateAligned(a_mem);
                 else
