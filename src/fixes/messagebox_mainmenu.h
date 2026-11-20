@@ -17,6 +17,7 @@ namespace Fixes::MessageBoxMainMenu
         inline std::uintptr_t           mainVtable;
         inline std::uintptr_t           mistVtable;
         inline std::uintptr_t           messageVtable;
+        inline std::uintptr_t           consoleVtable;
         inline std::uintptr_t           faderVtable;
         inline std::uintptr_t           baseDisplay;
         using Slot = RE::GPtr<RE::IMenu>;
@@ -36,14 +37,16 @@ namespace Fixes::MessageBoxMainMenu
 
             const auto target = a_menu->GetVRRuntimeData()->renderTarget.underlying();
             // Native draw begins at the last topmost menu; never rotate across that boundary.
-            if ((target != kNoRenderTarget && target != kProjectedTarget) ||
-                a_menu->menuFlags.any(
-                    RE::IMenu::Flag::kTopmostRenderedMenu,
-                    RE::IMenu::Flag::kRendersOffscreenTargets,
-                    RE::IMenu::Flag::kCustomRendering) ||
+            // Console's PreDisplay is a no-op, so its offscreen-target flag does not affect draw order.
+            const auto flags = a_menu->menuFlags;
+            const auto barrier = flags.any(RE::IMenu::Flag::kTopmostRenderedMenu, RE::IMenu::Flag::kCustomRendering) ||
+                                 (vtable != consoleVtable && flags.any(RE::IMenu::Flag::kRendersOffscreenTargets));
+            if ((target != kNoRenderTarget && target != kProjectedTarget) || barrier ||
                 reinterpret_cast<const std::uintptr_t*>(vtable)[6] != baseDisplay)
                 return MenuRole::kBlocked;
-            return vtable == messageVtable ? MenuRole::kMessageBox : MenuRole::kProjected;
+            return vtable == messageVtable ? MenuRole::kMessageBox :
+                   vtable == consoleVtable ? MenuRole::kConsole :
+                                             MenuRole::kProjected;
         }
 
         inline Slot* SelectSlot(RE::UI* a_ui, Slot* a_iterator) noexcept
@@ -216,6 +219,7 @@ namespace Fixes::MessageBoxMainMenu
         REL::Relocation<std::uintptr_t> main{ RE::VTABLE_MainMenu[0] };
         REL::Relocation<std::uintptr_t> mist{ RE::VTABLE_MistMenu[0] };
         REL::Relocation<std::uintptr_t> message{ RE::VTABLE_MessageBoxMenu[0] };
+        REL::Relocation<std::uintptr_t> console{ RE::VTABLE_Console[0] };
         REL::Relocation<std::uintptr_t> fader{ RE::VTABLE_FaderMenu[0] };
         // ID51449 is verified but not released yet; this is a target guard, not a hook anchor.
         REL::Relocation<std::uintptr_t> mistDisplay{ REL::Offset(0x8DA710) };
@@ -235,6 +239,8 @@ namespace Fixes::MessageBoxMainMenu
             !detail::Matches(draw.address() + 0x342, kDisplayCall) ||
             reinterpret_cast<const std::uintptr_t*>(main.address())[6] != display.address() ||
             reinterpret_cast<const std::uintptr_t*>(message.address())[6] != display.address() ||
+            reinterpret_cast<const std::uintptr_t*>(console.address())[6] != display.address() ||
+            reinterpret_cast<const std::uintptr_t*>(console.address())[7] != reinterpret_cast<const std::uintptr_t*>(main.address())[7] ||
             reinterpret_cast<const std::uintptr_t*>(mist.address())[6] != mistDisplay.address()) {
             logger::warn("skipping MessageBox main-menu fix: draw-loop signature or display target mismatch"sv);
             return;
@@ -243,6 +249,7 @@ namespace Fixes::MessageBoxMainMenu
         detail::mainVtable = main.address();
         detail::mistVtable = mist.address();
         detail::messageVtable = message.address();
+        detail::consoleVtable = console.address();
         detail::faderVtable = fader.address();
         detail::baseDisplay = display.address();
         detail::SelectPatch select(body.address() + kBody.size());
@@ -256,6 +263,6 @@ namespace Fixes::MessageBoxMainMenu
         next.write_branch<6>(advanceCode);
         REL::safe_fill(next.address() + 6, REL::NOP, kNext.size() - 6);
 
-        EF_INSTALLED("MessageBoxMainMenu"sv, "installed MessageBox main-menu projected render-order fix (VR)"sv);
+        EF_INSTALLED("MessageBoxMainMenu"sv, "installed MessageBox and Console main-menu projected render-order fix (VR)"sv);
     }
 }
