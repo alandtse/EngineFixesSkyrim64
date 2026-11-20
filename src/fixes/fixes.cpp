@@ -4,6 +4,7 @@
 #include "acoustic_space_listener_null_rigidbody_crash.h"
 #include "actorvaluestorage_clear_race_crash.h"
 #include "alpha_group_ordered_node_null_crash.h"
+#include "alpha_pass_list_duplicate_push.h"
 #include "animation_load_signed_crash.h"
 #include "archery_downward_aiming.h"
 #include "batchrenderer_alphageometrygroup_overflow.h"
@@ -254,6 +255,9 @@ namespace Fixes
 
         if (Settings::Fixes::bAlphaGroupOrderedNodeNullCrash.GetValue())
             AlphaGroupOrderedNodeNullCrash::Install();
+
+        if (Settings::Fixes::bAlphaPassListDuplicatePush.GetValue())
+            AlphaPassListDuplicatePush::Install();
 
         if (Settings::Fixes::bBatchRendererRenderPassArrayUAF.GetValue())
             BatchRendererRenderPassArrayUAF::Install();
