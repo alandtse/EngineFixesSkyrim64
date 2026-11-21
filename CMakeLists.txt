@@ -235,6 +235,17 @@ if(MSVC)
     )
 endif()
 
+include(CTest)
+if(BUILD_TESTING)
+    find_package(xbyak CONFIG REQUIRED)
+    add_executable(alpha_distance_sort_test tests/alpha_distance_sort.cpp)
+    target_compile_features(alpha_distance_sort_test PRIVATE cxx_std_23)
+    target_compile_definitions(alpha_distance_sort_test PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(alpha_distance_sort_test PRIVATE xbyak::xbyak)
+    add_test(NAME AlphaDistanceSort COMMAND alpha_distance_sort_test)
+    set_tests_properties(AlphaDistanceSort PROPERTIES TIMEOUT 30)
+endif()
+
 # ---- Post build ----
 
 if(COPY_BUILD)

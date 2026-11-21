@@ -26,6 +26,18 @@ namespace Fixes::VRAlphaDistanceSort::policy
         return IsFinite(position.x) && IsFinite(position.y) && IsFinite(position.z);
     }
 
+    inline float ProjectedDepth(Position centre, Position direction) noexcept
+    {
+        return centre.y * direction.y + centre.x * direction.x + centre.z * direction.z;
+    }
+
+    inline float ProjectedGroupKey(Position centre, float radius, Position direction, bool closest) noexcept
+    {
+        const auto depth = ProjectedDepth(centre, direction);
+        // The native group site does not read radius when closest is false.
+        return closest ? depth - radius : depth;
+    }
+
     // Zero and subnormal keys form one stable tie with either denormal-handling mode.
     inline std::uint32_t SortKeyBits(float value) noexcept
     {

@@ -7,6 +7,7 @@ on:
       - 'src/**/*.cpp'
       - 'src/**/*.h'
       - 'src/**/*.hpp'
+      - 'tests/**'
       # Build configuration
       - 'CMakeLists.txt'
       - 'cmake/**'

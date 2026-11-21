@@ -78,6 +78,9 @@ jobs:
           configurePreset: vs2026-windows-vcpkg
           buildPreset: release
 
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure --no-tests=error
+
       - name: Extract and validate version
         id: version
         shell: pwsh

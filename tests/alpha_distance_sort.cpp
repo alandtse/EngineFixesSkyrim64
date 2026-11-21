@@ -33,6 +33,47 @@ namespace
         std::size_t      ordinal{};
     };
 
+    void CheckProjectedGroupFallback()
+    {
+        struct Bound
+        {
+            policy::Position centre;
+            float            radius;
+        } bound{ { 3, 4, 2 }, 0 };
+        const policy::Position direction{ 2, 3, 1 };
+        for (const bool closest : { false, true }) {
+            Xbyak::CodeGenerator native;
+            Xbyak::Label         done;
+            native.mov(native.rax, reinterpret_cast<std::uintptr_t>(&bound));
+            native.mov(native.rdx, reinterpret_cast<std::uintptr_t>(&direction));
+            // Preserve the native group's scalar operation order and conditional radius subtraction.
+            native.movss(native.xmm0, native.ptr[native.rdx]);
+            native.movss(native.xmm2, native.ptr[native.rdx + 4]);
+            native.movss(native.xmm1, native.ptr[native.rdx + 8]);
+            native.mulss(native.xmm0, native.ptr[native.rax]);
+            native.mulss(native.xmm2, native.ptr[native.rax + 4]);
+            native.mulss(native.xmm1, native.ptr[native.rax + 8]);
+            native.addss(native.xmm2, native.xmm0);
+            native.addss(native.xmm2, native.xmm1);
+            native.mov(native.r8d, closest);
+            native.test(native.r8b, native.r8b);
+            native.jz(done);
+            native.subss(native.xmm2, native.ptr[native.rax + 12]);
+            native.L(done);
+            native.movaps(native.xmm0, native.xmm2);
+            native.ret();
+            native.readyRE();
+            for (const auto bits : { 0u, 0x80000000u, 0x3F800000u, 0xBF800000u, 0x7F7FFFFFu,
+                     0x7F800000u, 0xFF800000u, 0x7FC00001u, 0xFFC00001u }) {
+                volatile auto runtimeBits = bits;
+                bound.radius = std::bit_cast<float>(std::uint32_t(runtimeBits));
+                const auto expected = std::bit_cast<std::uint32_t>(native.getCode<float (*)()>()());
+                const auto actual = std::bit_cast<std::uint32_t>(policy::ProjectedGroupKey(bound.centre, bound.radius, direction, closest));
+                Check(actual == expected);
+            }
+        }
+    }
+
     void CheckPolicy()
     {
         using namespace policy;
@@ -159,6 +200,7 @@ namespace
         constexpr unsigned int denormalFlags = (1u << 6) | (1u << 15);
         for (const auto mode : { 0u, denormalFlags }) {
             _mm_setcsr((restore.original & ~denormalFlags) | mode);
+            CheckProjectedGroupFallback();
             CheckPolicy();
             CheckStableTies();
             CheckFloatOrdering();

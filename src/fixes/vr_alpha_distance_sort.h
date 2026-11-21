@@ -61,7 +61,7 @@ namespace Fixes::VRAlphaDistanceSort
 
         inline float ProjectedKey(const RE::NiBound& a_bound, const RE::NiPoint3& a_direction, float a_closest) noexcept
         {
-            return (a_bound.center.y * a_direction.y + a_bound.center.x * a_direction.x + a_bound.center.z * a_direction.z) - a_closest * a_bound.radius;
+            return policy::ProjectedDepth(Position(a_bound.center), Position(a_direction)) - a_closest * a_bound.radius;
         }
 
         inline float GroupKey(const RE::NiBound* a_bound, const RE::NiCamera* a_camera, bool a_closest) noexcept
@@ -71,7 +71,8 @@ namespace Fixes::VRAlphaDistanceSort
                     return DistanceKey(*a_bound, *origin, a_closest ? 1.0f : 0.0f);
             }
             const auto& rotation = a_camera->world.rotate.entry;
-            return ProjectedKey(*a_bound, { rotation[0][0], rotation[1][0], rotation[2][0] }, a_closest ? 1.0f : 0.0f);
+            return policy::ProjectedGroupKey(Position(a_bound->center), a_bound->radius,
+                { rotation[0][0], rotation[1][0], rotation[2][0] }, a_closest);
         }
 
         inline float QueueKey(const RE::NiBound* a_bound, const RE::NiPoint3* a_direction, float a_closest) noexcept
@@ -85,15 +86,16 @@ namespace Fixes::VRAlphaDistanceSort
         {
             if (!a_head || !*a_head || !(*a_head)->passGroupNext)
                 return;
-            const auto origin = Origin(a_camera);
             // The shared helper also sorts opaque batches in the opposite direction.
-            if (!active.load(std::memory_order_acquire) || a_reverse || !origin) {
-                originalSort(a_head, a_camera, a_closest, a_reverse);
-                return;
+            if (!a_reverse && active.load(std::memory_order_acquire)) {
+                if (const auto origin = Origin(a_camera)) {
+                    policy::Sort(*a_head, [&](const RE::BSRenderPass* a_pass) noexcept {
+                        return a_pass->geometry ? DistanceKey(a_pass->geometry->worldBound, *origin, a_closest ? 1.0f : 0.0f) : 0.0f;
+                    });
+                    return;
+                }
             }
-            policy::Sort(*a_head, [&](const RE::BSRenderPass* a_pass) noexcept {
-                return a_pass->geometry ? DistanceKey(a_pass->geometry->worldBound, *origin, a_closest ? 1.0f : 0.0f) : 0.0f;
-            });
+            originalSort(a_head, a_camera, a_closest, a_reverse);
         }
 
         inline void Render(RE::NiAccumulator* a_accumulator, std::uint32_t a_flags)
