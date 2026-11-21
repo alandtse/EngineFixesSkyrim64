@@ -23,10 +23,14 @@ namespace InstalledFixes::Public
     // BSRenderPass sceneLights storage holds 64 slots per pass.
     inline constexpr auto kRenderPassCacheSceneLights64 = "RenderPassCacheSceneLights64"sv;
 
+    // VR alpha lists, groups, peeking and consumption all use signed squared camera-distance keys.
+    inline constexpr auto kVRAlphaDistanceSort = "VRAlphaDistanceSort"sv;
+
     inline constexpr std::array kAll{
         kBatchRendererAlphaGeometryGroupOverflow,
         kCullingProcessAppendVirtualPoolGuard,
         kRenderPassCacheSceneLights64,
+        kVRAlphaDistanceSort,
     };
 
     inline constexpr bool IsPublic(std::string_view a_name)

@@ -75,6 +75,7 @@
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
 #include "vertical_look_sensitivity.h"
+#include "vr_alpha_distance_sort.h"
 #include "weapon_block_scaling.h"
 
 namespace Fixes
@@ -271,6 +272,9 @@ namespace Fixes
             ShadowLightCrossThreadFree::Install();
 
         // VR-only fixes (runtime-gated inside each Install())
+        if (Settings::Fixes::bVRAlphaDistanceSort.GetValue())
+            VRAlphaDistanceSort::Install();
+
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
             AbilityConditionBug::Install();
 

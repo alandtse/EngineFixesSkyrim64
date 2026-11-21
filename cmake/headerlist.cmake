@@ -50,6 +50,9 @@ set(headers ${headers}
 	src/fixes/torch_landscape.h
 	src/fixes/tree_reflections.h
 	src/fixes/vertical_look_sensitivity.h
+	src/fixes/vr_alpha_distance_sort.h
+	src/fixes/detail/alpha_distance_sort.h
+	src/fixes/detail/alpha_distance_sort_code.h
 	src/fixes/weapon_block_scaling.h
 	src/memory/allocator.h
 	src/memory/havok_memory_system.h
