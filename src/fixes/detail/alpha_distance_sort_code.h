@@ -10,7 +10,7 @@ namespace Fixes::AlphaDistanceSort::detail
         Group,
         Peek,
         Consume,
-        GroupAe  // Group site on AE: bound in rbp, camera in r14, closest flag in r13b
+        GroupAe
     };
 
     /** Preserve each native site's register ABI while replacing only its depth arithmetic. */
