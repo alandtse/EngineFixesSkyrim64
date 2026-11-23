@@ -1,6 +1,7 @@
 #include "../src/fixes/detail/alpha_distance_sort.h"
 #include "../src/fixes/detail/alpha_distance_sort_code.h"
 #include <array>
+#include <barrier>
 #include <bit>
 #include <cstdlib>
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <source_location>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <xmmintrin.h>
@@ -19,8 +21,8 @@ namespace detail = Fixes::AlphaDistanceSort::detail;
 
 namespace
 {
-    bool        failArrayAllocation = false;
-    std::size_t arrayAllocations = 0;
+    thread_local bool        failArrayAllocation = false;
+    thread_local std::size_t arrayAllocations = 0;
 }
 
 void* operator new[](std::size_t size)
@@ -323,6 +325,75 @@ namespace
         failArrayAllocation = false;
         Check(evaluations == larger.size() && arrayAllocations == grownAllocations);
         verifyLarger(largerHead);
+
+        reset(1);
+        head = passes.data();
+        resetLarger();
+        invoked = false;
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(head, [&](const Pass* pass) {
+            if (!invoked) {
+                invoked = true;
+                auto* inner = larger.data();
+                policy::Sort(inner, key);
+                verifyLarger(inner);
+            }
+            return pass->radius;
+        });
+        failArrayAllocation = false;
+        Check(invoked && evaluations == 4 * larger.size() && arrayAllocations == grownAllocations);
+        verify(head, true);
+        resetLarger();
+        largerHead = larger.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(largerHead, key);
+        failArrayAllocation = false;
+        Check(evaluations == larger.size() && arrayAllocations == grownAllocations);
+        verifyLarger(largerHead);
+    }
+
+    void CheckConcurrentScratch()
+    {
+        std::barrier        ready(2);
+        std::array<bool, 2> success{};
+        const auto          worker = [&](std::size_t lane) {
+            bool                  valid = true;
+            std::array<Pass, 257> passes{};
+            const std::size_t     count = lane ? passes.size() : 128;
+            for (std::size_t round = 0; round < 16; ++round) {
+                const bool ascending = (lane + round) % 2 == 0;
+                for (std::size_t i = 0; i < count; ++i)
+                    passes[i] = { i + 1 < count ? &passes[i + 1] : nullptr, {}, (ascending ? -1.0f : 1.0f) * float(i), i };
+                auto*       head = passes.data();
+                std::size_t evaluations = 0;
+                failArrayAllocation = round != 0;
+                policy::Sort(head, [&](const Pass* pass) {
+                    // Both threads hold live scratch while the other enters its key callback.
+                    if (++evaluations == 1)
+                        ready.arrive_and_wait();
+                    return pass->radius;
+                });
+                failArrayAllocation = false;
+                valid &= evaluations == count && arrayAllocations == 1;
+                for (std::size_t i = 0; i < count; ++i) {
+                    auto* expected = &passes[ascending ? i : count - 1 - i];
+                    if (head != expected) {
+                        valid = false;
+                        break;
+                    }
+                    head = head->passGroupNext;
+                }
+                valid &= head == nullptr;
+            }
+            success[lane] = valid;
+        };
+        {
+            std::jthread first(worker, 0);
+            std::jthread second(worker, 1);
+        }
+        Check(success[0] && success[1]);
     }
 
     void CheckOrderingModes()
@@ -340,6 +411,7 @@ namespace
             CheckStableTies();
             CheckFloatOrdering();
             CheckScratchFailureAndReuse();
+            CheckConcurrentScratch();
         }
     }
 

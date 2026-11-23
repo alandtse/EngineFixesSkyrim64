@@ -128,10 +128,9 @@ namespace Fixes::AlphaDistanceSort::policy
         }
 
         template <class Pass, class Key>
-        bool SortCached(Pass*& head, Key key) noexcept
+        bool SortCached(Pass*& head, Key key, std::size_t count, Pass* remaining) noexcept
         {
-            std::size_t count = 0;
-            auto*       remaining = head;
+            // Continue the small-list probe instead of walking its prefix twice.
             while (remaining && count < kMaximumCachedPasses) {
                 ++count;
                 remaining = remaining->passGroupNext;
@@ -210,7 +209,7 @@ namespace Fixes::AlphaDistanceSort::policy
             entries[count - 1].pass->passGroupNext = nullptr;
             return;
         }
-        if (!detail::SortCached(head, key))
+        if (!detail::SortCached(head, key, count, remaining))
             detail::RadixSort(head, [&](Pass* pass) { return detail::DescendingKey(key(pass)); });
     }
 }
