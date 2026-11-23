@@ -25,6 +25,7 @@ a regression, disable the settings introduced at or after the first broken relea
 | `bCullingProcessAppendVirtualPoolGuard` | `true` | 7.9.0 | guards BSCullingProcess::AppendVirtual against a null write when its shadow-caster free pool is exhausted; the append is dropped |
 | `bAlphaGroupOrderedNodeNullCrash` | `true` | 7.13.0 | guards the alpha-group accumulate step against a null-pointer crash when a queued geometry has lost its BSOrderedNode ancestor; the geometry's own bound is used instead |
 | `bAlphaPassListDuplicatePush` | `true` | 7.14.0 | drops a re-push of a render pass that is still queued in a linked alpha geometry group, which would otherwise truncate the queue and make other transparent geometry vanish |
+| `bAlphaDistanceSort` | `true` | 7.15.0 | stabilizes overlapping transparent bounds during camera turns using camera-distance sorting; changes require a restart |
 | `bAnimationLoadSignedCrash` | `true` | ≤ 7.0.20 | fixes a misplaced used of a signed value in animation loading |
 | `bBethesdaNetCrash` | `true` | ≤ 7.0.20 | fixes the game crashing on startup if you live somewhere with special characters in the name |
 | `bBGSKeywordFormLoadCrash` | `true` | ≤ 7.0.20 | fixes a crash when malformed BGSKeywordForms are loaded by the game |
@@ -149,6 +150,7 @@ a regression, disable the settings introduced at or after the first broken relea
 
 ## Settings by release
 
+- **7.15.0**: `bAlphaDistanceSort`
 - **7.14.0**: `bAlphaPassListDuplicatePush`, `bLoadFormDataStaleFormCrash`, `bPackageDataTargetTypeMismatchCrash`
 - **7.13.0**: `bAlphaGroupOrderedNodeNullCrash`, `bMessageBoxMainMenu`, `bMessageBoxMainMenuTest`
 - **7.12.0**: `bDynamicDOFNullParentCellCrash`

@@ -1,3 +1,16 @@
+## [7.15.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.14.0...v7.15.0) (2026-11-23)
+
+### Features
+
+* stabilize alpha ordering ([#110](https://github.com/alandtse/EngineFixesSkyrim64/issues/110)) ([3ab9740](https://github.com/alandtse/EngineFixesSkyrim64/commit/3ab974016e90ef37d2aa444e39fc035ac5405913))
+
+
+### New Settings
+
+* `[Fixes] bAlphaDistanceSort` (default `true`) — stabilizes overlapping transparent bounds during camera turns using camera-distance sorting; changes require a restart
+
+The full settings reference, including the release each setting first appeared in, is in [SETTINGS.md](SETTINGS.md).
+
 ## [7.14.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.13.0...v7.14.0) (2026-11-20)
 
 ### Features
