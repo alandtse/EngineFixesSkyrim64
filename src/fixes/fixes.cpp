@@ -3,6 +3,7 @@
 #include "ability_condition_bug.h"
 #include "acoustic_space_listener_null_rigidbody_crash.h"
 #include "actorvaluestorage_clear_race_crash.h"
+#include "alpha_distance_sort.h"
 #include "alpha_group_ordered_node_null_crash.h"
 #include "alpha_pass_list_duplicate_push.h"
 #include "animation_load_signed_crash.h"
@@ -75,7 +76,6 @@
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
 #include "vertical_look_sensitivity.h"
-#include "vr_alpha_distance_sort.h"
 #include "weapon_block_scaling.h"
 
 namespace Fixes
@@ -271,10 +271,10 @@ namespace Fixes
         if (Settings::Fixes::bShadowLightCrossThreadFreeCrash.GetValue())
             ShadowLightCrossThreadFree::Install();
 
-        // VR-only fixes (runtime-gated inside each Install())
-        if (Settings::Fixes::bVRAlphaDistanceSort.GetValue())
-            VRAlphaDistanceSort::Install();
+        if (Settings::Fixes::bAlphaDistanceSort.GetValue())
+            AlphaDistanceSort::Install();
 
+        // VR-only fixes (runtime-gated inside each Install())
         if (Settings::Fixes::bAbilityConditionBug.GetValue())
             AbilityConditionBug::Install();
 

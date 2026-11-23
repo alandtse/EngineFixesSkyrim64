@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace Fixes::VRAlphaDistanceSort::policy
+namespace Fixes::AlphaDistanceSort::policy
 {
     struct Position
     {
@@ -59,7 +59,7 @@ namespace Fixes::VRAlphaDistanceSort::policy
             key = std::copysign(distance * distance, distance);
         }
         // Keep every key above the native empty-queue sentinel, including extreme bounds.
-        constexpr double limit = std::numeric_limits<float>::max() / 4.0;
+        constexpr double limit = (std::numeric_limits<float>::max)() / 4.0;
         return std::bit_cast<float>(SortKeyBits(static_cast<float>(std::clamp(key, -limit, limit))));
     }
 

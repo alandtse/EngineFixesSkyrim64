@@ -3,13 +3,14 @@
 #include <cstdint>
 #include <xbyak/xbyak.h>
 
-namespace Fixes::VRAlphaDistanceSort::detail
+namespace Fixes::AlphaDistanceSort::detail
 {
     enum class KeySite
     {
         Group,
         Peek,
-        Consume
+        Consume,
+        GroupAe  // Group site on AE: bound in rbp, camera in r14, closest flag in r13b
     };
 
     /** Preserve each native site's register ABI while replacing only its depth arithmetic. */
@@ -27,7 +28,12 @@ namespace Fixes::VRAlphaDistanceSort::detail
             sub(rsp, stack);
             for (int i = 0; i < 6; ++i)
                 movdqu(ptr[rsp + 0x20 + i * 16], Xbyak::Xmm(i));
-            if (site == KeySite::Group) {
+            const bool group = site == KeySite::Group || site == KeySite::GroupAe;
+            if (site == KeySite::GroupAe) {
+                mov(rcx, rbp);
+                mov(rdx, r14);
+                movzx(r8d, r13b);
+            } else if (site == KeySite::Group) {
                 mov(rcx, rsi);
                 mov(rdx, rdi);
                 movzx(r8d, r15b);
@@ -47,8 +53,8 @@ namespace Fixes::VRAlphaDistanceSort::detail
             for (auto reg : { r11, r10, r9, r8, rdx, rcx, rax })
                 pop(reg);
             popfq();
-            if (site == KeySite::Group)
-                test(r15b, r15b);
+            if (group)
+                test(site == KeySite::GroupAe ? r13b : r15b, site == KeySite::GroupAe ? r13b : r15b);
             if (site == KeySite::Peek) {
                 mov(rax, groupCount);
                 mov(eax, dword[rax]);

@@ -12,8 +12,8 @@
 #include <vector>
 #include <xmmintrin.h>
 
-namespace policy = Fixes::VRAlphaDistanceSort::policy;
-namespace detail = Fixes::VRAlphaDistanceSort::detail;
+namespace policy = Fixes::AlphaDistanceSort::policy;
+namespace detail = Fixes::AlphaDistanceSort::detail;
 
 namespace
 {
@@ -207,10 +207,16 @@ namespace
         }
     }
 
+    constexpr bool IsGroup(detail::KeySite site)
+    {
+        return site == detail::KeySite::Group || site == detail::KeySite::GroupAe;
+    }
+
     struct Invocation
     {
         std::uintptr_t                              stub{};
         std::array<std::uintptr_t, 7>               registers{};
+        std::array<std::uintptr_t, 6>               preserved{};  // rsi, rdi, r15, rbp, r13, r14
         std::array<std::array<std::uint32_t, 4>, 6> vectors{};
         float                                       key{};
         std::uint64_t                               flags{};
@@ -226,7 +232,7 @@ namespace
             mov(r11, reinterpret_cast<std::uintptr_t>(&state));
             mov(ptr[r11 + offsetof(Invocation, bound)], rcx);
             mov(ptr[r11 + offsetof(Invocation, cameraOrDirection)], rdx);
-            if (site == detail::KeySite::Group)
+            if (IsGroup(site))
                 mov(ptr[r11 + offsetof(Invocation, closest)], r8);
             else
                 movss(ptr[r11 + offsetof(Invocation, closest)], xmm2);
@@ -252,7 +258,7 @@ namespace
         Invoke(Invocation& state, detail::KeySite site, bool closest) :
             CodeGenerator(2048)
         {
-            for (auto reg : { rsi, rdi, r15, r12 })
+            for (auto reg : { rsi, rdi, r15, r12, rbp, r13, r14, rbx })
                 push(reg);
             sub(rsp, 0x38);
             movdqu(ptr[rsp + 0x10], xmm6);
@@ -267,9 +273,21 @@ namespace
             movd(xmm8, eax);
             if (site == detail::KeySite::Peek)
                 movss(xmm3, xmm8);
-            mov(rsi, 0x1000);
-            mov(rdi, 0x2000);
-            mov(r15, site == detail::KeySite::Group ? closest : 0x3000);
+            if (site == detail::KeySite::GroupAe) {
+                mov(rbp, 0x1000);
+                mov(r14, 0x2000);
+                mov(r13, closest);
+                mov(rsi, 0x5000);
+                mov(rdi, 0x5001);
+                mov(r15, 0x5002);
+            } else {
+                mov(rsi, 0x1000);
+                mov(rdi, 0x2000);
+                mov(r15, site == detail::KeySite::Group ? closest : 0x3000);
+                mov(rbp, 0x5000);
+                mov(r13, 0x5001);
+                mov(r14, 0x5002);
+            }
             mov(rax, 0x1000 - 0xE4);
             mov(rcx, 0xCC);
             mov(rdx, 0x3000);
@@ -286,6 +304,9 @@ namespace
             int index = 0;
             for (auto reg : { rax, rcx, rdx, r8, r9, r10, r11 })
                 mov(ptr[r12 + offsetof(Invocation, registers) + index++ * 8], reg);
+            index = 0;
+            for (auto reg : { rsi, rdi, r15, rbp, r13, r14 })
+                mov(ptr[r12 + offsetof(Invocation, preserved) + index++ * 8], reg);
             for (int i = 0; i < 6; ++i)
                 movdqu(ptr[r12 + offsetof(Invocation, vectors) + i * 16], Xbyak::Xmm(i));
             movss(ptr[r12 + offsetof(Invocation, key)], site == detail::KeySite::Consume ? xmm6 : xmm2);
@@ -297,7 +318,7 @@ namespace
             movdqu(xmm6, ptr[rsp + 0x10]);
             movdqu(xmm8, ptr[rsp + 0x20]);
             add(rsp, 0x38);
-            for (auto reg : { r12, r15, rdi, rsi })
+            for (auto reg : { rbx, r14, r13, rbp, r12, r15, rdi, rsi })
                 pop(reg);
             ret();
             readyRE();
@@ -309,6 +330,7 @@ namespace
         using namespace detail;
         constexpr std::array cases{
             std::pair{ KeySite::Group, false }, std::pair{ KeySite::Group, true },
+            std::pair{ KeySite::GroupAe, false }, std::pair{ KeySite::GroupAe, true },
             std::pair{ KeySite::Peek, false }, std::pair{ KeySite::Consume, false }
         };
         for (const auto& [site, closest] : cases) {
@@ -320,15 +342,20 @@ namespace
             state.stub = reinterpret_cast<std::uintptr_t>(code.getCode());
             invoke.getCode<void (*)()>()();
             Check(state.bound == 0x1000);
-            Check(state.cameraOrDirection == (site == KeySite::Group ? 0x2000u : 0x3000u));
-            Check(state.closest == (site == KeySite::Group ? std::uint32_t(closest) : std::bit_cast<std::uint32_t>(3.0f)));
+            Check(state.cameraOrDirection == (IsGroup(site) ? 0x2000u : 0x3000u));
+            Check(state.closest == (IsGroup(site) ? std::uint32_t(closest) : std::bit_cast<std::uint32_t>(3.0f)));
             Check(state.alignment == 8);
             Check(state.key == 42.25f);
             constexpr std::uint64_t statusMask = 0x8C5;  // CF, PF, ZF, SF and OF; TEST leaves AF undefined.
-            const std::uint64_t     expectedFlags = site == KeySite::Group ? (closest ? 0 : 0x44) : 0x45;
+            const std::uint64_t     expectedFlags = IsGroup(site) ? (closest ? 0 : 0x44) : 0x45;
             Check((state.flags & statusMask) == expectedFlags);
             const std::array<std::uintptr_t, 7> expected{ site == KeySite::Peek ? 17u : 0x1000u - 0xE4u, 0xCC, 0x3000, 0x88, 0x99, 0xAA, 0xBB };
             Check(state.registers == expected);
+            const std::uintptr_t                group = closest ? 1 : 0;
+            const std::array<std::uintptr_t, 6> expectedPreserved = site == KeySite::GroupAe ?
+                                                                        std::array<std::uintptr_t, 6>{ 0x5000, 0x5001, 0x5002, 0x1000, group, 0x2000 } :
+                                                                        std::array<std::uintptr_t, 6>{ 0x1000, 0x2000, site == KeySite::Group ? group : 0x3000, 0x5000, 0x5001, 0x5002 };
+            Check(state.preserved == expectedPreserved);
             for (std::size_t i = 0; i < state.vectors.size(); ++i) {
                 if (i == 2 && site != KeySite::Consume)
                     continue;

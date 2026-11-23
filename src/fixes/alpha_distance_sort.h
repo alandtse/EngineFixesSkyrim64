@@ -2,6 +2,7 @@
 
 #include "detail/alpha_distance_sort.h"
 #include "detail/alpha_distance_sort_code.h"
+#include "detail/alpha_distance_sort_sites.h"
 #include "installed_fixes.h"
 
 #include <algorithm>
@@ -17,7 +18,7 @@
 #include <string>
 #include <utility>
 
-namespace Fixes::VRAlphaDistanceSort
+namespace Fixes::AlphaDistanceSort
 {
     namespace detail
     {
@@ -36,7 +37,7 @@ namespace Fixes::VRAlphaDistanceSort
         inline void Warn(spdlog::format_string_t<Args...> a_format, Args&&... a_args) noexcept
         {
             try {
-                logger::warn(a_format, std::forward<Args>(a_args)...);
+                logger::warn{ a_format, std::forward<Args>(a_args)... };
             } catch (...) {
             }
         }
@@ -138,25 +139,51 @@ namespace Fixes::VRAlphaDistanceSort
                     continue;
                 try {
                     if (const auto result = hook.disable(); !result)
-                        Warn("VR alpha distance sort: could not remove hook at {:X}; retaining native-key fallback"sv, hook.target_address());
+                        Warn("alpha distance sort: could not remove hook at {:X}; retaining native-key fallback"sv, hook.target_address());
                 } catch (const std::exception& error) {
-                    Warn("VR alpha distance sort: rollback at {:X} failed ({}); retaining native-key fallback"sv, hook.target_address(), error.what());
+                    Warn("alpha distance sort: rollback at {:X} failed ({}); retaining native-key fallback"sv, hook.target_address(), error.what());
                 } catch (...) {
-                    Warn("VR alpha distance sort: rollback at {:X} failed; retaining native-key fallback"sv, hook.target_address());
+                    Warn("alpha distance sort: rollback at {:X} failed; retaining native-key fallback"sv, hook.target_address());
                 }
             }
             // A hook that could not be removed still needs its bridge and original trampoline.
         }
     }
 
+    namespace detail
+    {
+        struct Runtime
+        {
+            REL::Version                  version;
+            bool                          ae;
+            std::span<const std::uint8_t> peek;
+            std::span<const std::uint8_t> drain;
+        };
+
+        inline std::optional<Runtime> FindRuntime()
+        {
+            const auto version = REL::Module::get().version();
+            if (REL::Module::IsVR())
+                return version == SKSE::RUNTIME_VR_1_4_15 ? std::optional{ Runtime{ version, false, sites::kPeekVr, sites::kDrainVr } } : std::nullopt;
+            if (!REL::Module::IsAE())
+                return version == SKSE::RUNTIME_SSE_1_5_97 ? std::optional{ Runtime{ version, false, sites::kPeekSe, sites::kDrainSe } } : std::nullopt;
+            if (version == SKSE::RUNTIME_SSE_1_6_1170)
+                return Runtime{ version, true, sites::kPeekAe_1_6_1170, sites::kDrainAe_1_6_1170 };
+            if (version == SKSE::RUNTIME_SSE_1_7_104)
+                return Runtime{ version, true, sites::kPeekAe_1_7_104, sites::kDrainAe_1_7_104 };
+            return std::nullopt;
+        }
+    }
+
     inline void Install()
     {
         using namespace detail;
-        if (attempted || !REL::Module::IsVR())
+        if (attempted)
             return;
         attempted = true;
-        if (REL::Module::get().version() != SKSE::RUNTIME_VR_1_4_15) {
-            Warn("VR alpha distance sort: unsupported runtime, skipping"sv);
+        const auto runtime = FindRuntime();
+        if (!runtime) {
+            Warn("alpha distance sort: unsupported runtime, skipping"sv);
             return;
         }
 
@@ -164,52 +191,48 @@ namespace Fixes::VRAlphaDistanceSort
         static_assert(offsetof(RE::NiTransform, translate) == 0x24 && offsetof(RE::NiAccumulator, camera) == 0x10);
         static_assert(offsetof(RE::BSRenderPass, geometry) == 0x10 && offsetof(RE::BSRenderPass, passGroupNext) == 0x30);
 
-        const auto base = REL::Module::get().base();
-        const auto render = REL::ID(99940).address();
-        const auto group = REL::ID(100874).address() + 0x82;
-        const auto consume = REL::ID(100877).address() + 0xAB;
-        const auto groupCount = REL::ID(528319).address();
-        // These two functions have no released VR Address Library IDs yet; keep the exact-runtime byte guards.
-        constexpr std::uintptr_t kSortRVA = 0x133FF00;
-        constexpr std::uintptr_t kPeekKeyRVA = 0x134A64C;
+        const bool     ae = runtime->ae;
+        const auto     base = REL::Module::get().base();
+        const auto     render = RELOCATION_ID(99940, 106585).address();
+        const auto     group = RELOCATION_ID(100874, 107670).address() + (ae ? 0xB7 : 0x82);
+        const auto     consume = RELOCATION_ID(100877, 107673).address() + (ae ? 0xAE : 0xAB);
+        const auto     groupCount = RELOCATION_ID(528319, 415271).address();
+        std::uintptr_t sort{}, peekKey{};
+        if (REL::Module::IsVR()) {
+            // These two functions have no released VR Address Library IDs yet; keep the exact-runtime byte guards.
+            sort = base + 0x133FF00;
+            peekKey = base + 0x134A64C;
+        } else {
+            sort = RELOCATION_ID(100715, 107494).address();
+            peekKey = RELOCATION_ID(100876, 107672).address() + 0x1C;
+        }
 
         constexpr std::array<std::uint8_t, 14> sortBytes{ 0x48, 0x89, 0x6C, 0x24, 0x18, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57 };
         constexpr std::array<std::uint8_t, 15> renderBytes{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18 };
-        constexpr std::array<std::uint8_t, 53> groupBytes{
-            0xF3, 0x0F, 0x10, 0x47, 0x7C, 0xF3, 0x0F, 0x10, 0x97, 0x88, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x10, 0x8F, 0x94, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x59, 0x06, 0xF3, 0x0F, 0x59, 0x56, 0x04, 0xF3, 0x0F, 0x59, 0x4E, 0x08, 0xF3, 0x0F, 0x58, 0xD0, 0xF3, 0x0F, 0x58, 0xD1, 0x45, 0x84, 0xFF, 0x74, 0x05, 0xF3, 0x0F, 0x5C, 0x56, 0x0C
-        };
-        constexpr std::array<std::uint8_t, 64> peekBytes{
-            0xF3, 0x0F, 0x10, 0x90, 0xE8, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x59, 0x52, 0x04, 0xF3, 0x0F, 0x10, 0x88, 0xEC, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x59, 0x98, 0xF0, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x10, 0x02, 0xF3, 0x0F, 0x59, 0x80, 0xE4, 0x00, 0x00, 0x00, 0x8B, 0x05, 0xD5, 0xBB, 0x18, 0x02, 0xF3, 0x0F, 0x59, 0x4A, 0x08, 0xF3, 0x0F, 0x58, 0xD0, 0xF3, 0x0F, 0x58, 0xD1, 0xF3, 0x0F, 0x5C, 0xD3
-        };
-        constexpr std::array<std::uint8_t, 65> consumeBytes{
-            0xF3, 0x0F, 0x10, 0x80, 0xE4, 0x00, 0x00, 0x00, 0xF3, 0x41, 0x0F, 0x59, 0x07, 0xF3, 0x0F, 0x10, 0xB0, 0xE8, 0x00, 0x00, 0x00, 0xF3, 0x41, 0x0F, 0x59, 0x77, 0x04, 0xF3, 0x0F, 0x10, 0x88, 0xEC, 0x00, 0x00, 0x00, 0xF3, 0x41, 0x0F, 0x59, 0x4F, 0x08, 0xF3, 0x0F, 0x58, 0xF0, 0x41, 0x0F, 0x28, 0xC0, 0xF3, 0x0F, 0x59, 0x80, 0xF0, 0x00, 0x00, 0x00, 0xF3, 0x0F, 0x58, 0xF1, 0xF3, 0x0F, 0x5C, 0xF0
-        };
-        // The final drain compares against an empty sentinel, not a projected-depth cutoff.
-        constexpr std::array<std::uint8_t, 40> drainBytes{
-            0xF3, 0x0F, 0x10, 0x35, 0x9B, 0x3C, 0x2A, 0x00, 0x0F, 0x2F, 0xC6, 0x48, 0x8B, 0x8B, 0x58, 0x01, 0x00, 0x00, 0x76, 0x2A, 0x0F, 0x28, 0xDE, 0x89, 0x7C, 0x24, 0x20, 0x0F, 0x28, 0xD7, 0x48, 0x8D, 0x54, 0x24, 0x30, 0xE8, 0x6F, 0x03, 0x04, 0x00
-        };
-        constexpr std::array<std::uint8_t, 4> emptyBytes{ 0xFF, 0xFF, 0x7F, 0xFF };
-        std::int32_t                          sentinelDisplacement{}, countDisplacement{};
-        std::memcpy(&sentinelDisplacement, drainBytes.data() + 4, sizeof(sentinelDisplacement));
-        std::memcpy(&countDisplacement, peekBytes.data() + 43, sizeof(countDisplacement));
-        const auto drain = render + 0x119;
+        constexpr std::array<std::uint8_t, 4>  emptyBytes{ 0xFF, 0xFF, 0x7F, 0xFF };
+        std::int32_t                           sentinelDisplacement{}, countDisplacement{};
+        std::memcpy(&sentinelDisplacement, runtime->drain.data() + 4, sizeof(sentinelDisplacement));
+        std::memcpy(&countDisplacement, runtime->peek.data() + 43, sizeof(countDisplacement));
+        const auto drain = render + (ae ? 0x10A : 0x119);
         const auto sentinel = drain + 8 + sentinelDisplacement;
-        if (groupCount != base + kPeekKeyRVA + 47 + countDisplacement) {
-            Warn("VR alpha distance sort: group-count relocation mismatch, skipping"sv);
+        // The count global is read by the peek's RIP-relative load; both resolutions must agree.
+        if (groupCount != peekKey + 47 + countDisplacement) {
+            Warn("alpha distance sort: group-count relocation mismatch, skipping"sv);
             return;
         }
-        std::array sites{
-            Site{ base + kSortRVA, sortBytes, reinterpret_cast<void*>(&Sort) },
+        const auto groupSite = ae ? KeySite::GroupAe : KeySite::Group;
+        std::array targets{
+            Site{ sort, sortBytes, reinterpret_cast<void*>(&Sort) },
             Site{ render, renderBytes, reinterpret_cast<void*>(&Render) },
-            Site{ group, groupBytes },
-            Site{ base + kPeekKeyRVA, peekBytes },
-            Site{ consume, consumeBytes },
-            Site{ drain, drainBytes },
+            Site{ group, ae ? std::span<const std::uint8_t>{ sites::kGroupAe } : std::span<const std::uint8_t>{ sites::kGroupSeVr } },
+            Site{ peekKey, runtime->peek },
+            Site{ consume, sites::kConsume },
+            Site{ drain, runtime->drain },
             Site{ sentinel, emptyBytes }
         };
-        for (const auto& site : sites) {
+        for (const auto& site : targets) {
             if (!Matches(site)) {
-                Warn("VR alpha distance sort: unexpected bytes at {:X}, skipping"sv, site.address);
+                Warn("alpha distance sort: unexpected bytes at {:X}, skipping"sv, site.address);
                 return;
             }
         }
@@ -217,17 +240,17 @@ namespace Fixes::VRAlphaDistanceSort
         std::string capability;
         auto&       registry = InstalledFixes::Registry();
         try {
-            capability = InstalledFixes::Public::kVRAlphaDistanceSort;
+            capability = InstalledFixes::Public::kAlphaDistanceSort;
             for (std::size_t i = 0; i < keyCode.size(); ++i) {
-                auto&      site = sites[i + 2];
+                auto&      site = targets[i + 2];
                 const auto helper = i == 0 ? reinterpret_cast<std::uintptr_t>(&GroupKey) : reinterpret_cast<std::uintptr_t>(&QueueKey);
-                keyCode[i] = std::make_unique<KeyCode>(static_cast<KeySite>(i), helper, site.address + site.expected.size(), groupCount);
+                keyCode[i] = std::make_unique<KeyCode>(i == 0 ? groupSite : static_cast<KeySite>(i), helper, site.address + site.expected.size(), groupCount);
                 site.replacement = const_cast<std::uint8_t*>(keyCode[i]->getCode());
             }
             for (std::size_t i = 0; i < hooks.size(); ++i) {
-                auto created = safetyhook::InlineHook::create(reinterpret_cast<void*>(sites[i].address), sites[i].replacement, safetyhook::InlineHook::StartDisabled);
+                auto created = safetyhook::InlineHook::create(reinterpret_cast<void*>(targets[i].address), targets[i].replacement, safetyhook::InlineHook::StartDisabled);
                 if (!created) {
-                    Warn("VR alpha distance sort: could not prepare hook at {:X} ({}), skipping"sv, sites[i].address, static_cast<unsigned>(created.error().type));
+                    Warn("alpha distance sort: could not prepare hook at {:X} ({}), skipping"sv, targets[i].address, static_cast<unsigned>(created.error().type));
                     return;
                 }
                 hooks[i] = std::move(*created);
@@ -238,28 +261,28 @@ namespace Fixes::VRAlphaDistanceSort
             for (auto& hook : hooks) {
                 if (const auto result = hook.enable(); !result) {
                     RollBack();
-                    Warn("VR alpha distance sort: could not enable hook at {:X} ({}), skipping"sv, hook.target_address(), static_cast<unsigned>(result.error().type));
+                    Warn("alpha distance sort: could not enable hook at {:X} ({}), skipping"sv, hook.target_address(), static_cast<unsigned>(result.error().type));
                     return;
                 }
             }
         } catch (const std::exception& error) {
             RollBack();
-            Warn("VR alpha distance sort: installation failed ({}), skipping"sv, error.what());
+            Warn("alpha distance sort: installation failed ({}), skipping"sv, error.what());
             return;
         } catch (...) {
             RollBack();
-            Warn("VR alpha distance sort: installation failed, skipping"sv);
+            Warn("alpha distance sort: installation failed, skipping"sv);
             return;
         }
 
         active.store(true, std::memory_order_release);
         try {
-            EF_INSTALLED(InstalledFixes::Public::kVRAlphaDistanceSort, "installed VR alpha distance sort"sv);
+            EF_INSTALLED(InstalledFixes::Public::kAlphaDistanceSort, "installed alpha distance sort"sv);
         } catch (...) {
             // A logging failure after registration must not invalidate a published capability.
             if (!registry.contains(capability)) {
                 RollBack();
-                Warn("VR alpha distance sort: capability registration failed, skipping"sv);
+                Warn("alpha distance sort: capability registration failed, skipping"sv);
             }
         }
     }
