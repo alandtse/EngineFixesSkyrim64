@@ -191,21 +191,13 @@ namespace Fixes::AlphaDistanceSort
         static_assert(offsetof(RE::NiTransform, translate) == 0x24 && offsetof(RE::NiAccumulator, camera) == 0x10);
         static_assert(offsetof(RE::BSRenderPass, geometry) == 0x10 && offsetof(RE::BSRenderPass, passGroupNext) == 0x30);
 
-        const bool     ae = runtime->ae;
-        const auto     base = REL::Module::get().base();
-        const auto     render = RELOCATION_ID(99940, 106585).address();
-        const auto     group = RELOCATION_ID(100874, 107670).address() + (ae ? 0xB7 : 0x82);
-        const auto     consume = RELOCATION_ID(100877, 107673).address() + (ae ? 0xAE : 0xAB);
-        const auto     groupCount = RELOCATION_ID(528319, 415271).address();
-        std::uintptr_t sort{}, peekKey{};
-        if (REL::Module::IsVR()) {
-            // These two functions have no released VR Address Library IDs yet; keep the exact-runtime byte guards.
-            sort = base + 0x133FF00;
-            peekKey = base + 0x134A64C;
-        } else {
-            sort = RELOCATION_ID(100715, 107494).address();
-            peekKey = RELOCATION_ID(100876, 107672).address() + 0x1C;
-        }
+        const bool ae = runtime->ae;
+        const auto render = RELOCATION_ID(99940, 106585).address();
+        const auto group = RELOCATION_ID(100874, 107670).address() + (ae ? 0xB7 : 0x82);
+        const auto consume = RELOCATION_ID(100877, 107673).address() + (ae ? 0xAE : 0xAB);
+        const auto groupCount = RELOCATION_ID(528319, 415271).address();
+        const auto sort = RELOCATION_ID(100715, 107494).address();
+        const auto peekKey = RELOCATION_ID(100876, 107672).address() + 0x1C;
 
         constexpr std::array<std::uint8_t, 14> sortBytes{ 0x48, 0x89, 0x6C, 0x24, 0x18, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57 };
         constexpr std::array<std::uint8_t, 15> renderBytes{ 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18 };
