@@ -4,9 +4,9 @@
 
 namespace Fixes::NavMeshObstacleNullGuard
 {
-    // NavMeshObstacleManager's obstacle-task processor looks a navmesh record up by form id and
-    // checks `triangleIndex < record->navmesh->triangles.size` before testing record->navmesh for
-    // null, so two of its three inlined lookups fault when the record's navmesh data isn't loaded.
+    // NavMeshObstacleManager::RelinkPortalEdges reads each neighbouring ObstacleTaskData's working
+    // clone (task+0x38) for `clone->triangles.size` before testing the clone for null, so two of its
+    // three inlined lookups fault when the clone has not been created yet.
     namespace detail
     {
         struct Patch final : Xbyak::CodeGenerator
