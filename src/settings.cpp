@@ -12,9 +12,11 @@ namespace Settings
 {
     namespace
     {
-        constexpr auto        kBaseFile = "Data/skse/plugins/EngineFixes.toml";
-        constexpr auto        kUserFile = "Data/skse/plugins/EngineFixesCustom.toml";
-        constexpr std::size_t kCommentColumn = 48;  // column the "# comment" is aligned to
+        constexpr auto             kBaseFile = "Data/skse/plugins/EngineFixes.toml";
+        constexpr auto             kUserFile = "Data/skse/plugins/EngineFixesCustom.toml";
+        constexpr std::size_t      kCommentColumn = 48;  // column the "# comment" is aligned to
+        constexpr char             kUtf8BomBytes[] = { static_cast<char>(0xEF), static_cast<char>(0xBB), static_cast<char>(0xBF) };
+        constexpr std::string_view kUtf8Bom{ kUtf8BomBytes, sizeof(kUtf8BomBytes) };
 
         // Format a default literal as it should appear in the TOML.
         std::string DefToml(bool a_v) { return a_v ? "true" : "false"; }
@@ -141,6 +143,92 @@ namespace Settings
             return m;
         }
 
+        std::unordered_map<std::string, std::string> LoadedValues()
+        {
+            std::unordered_map<std::string, std::string> out;
+#define X(type, key, def, comment) out.emplace("General." #key, DefToml(General::key.GetValue()));
+            EF_SETTINGS_GENERAL(X)
+#undef X
+#define X(type, key, def, comment) out.emplace("Fixes." #key, DefToml(Fixes::key.GetValue()));
+            EF_SETTINGS_FIXES(X)
+#undef X
+#define X(type, key, def, comment) out.emplace("Patches." #key, DefToml(Patches::key.GetValue()));
+            EF_SETTINGS_PATCHES(X)
+#undef X
+#define X(type, key, def, comment) out.emplace("MemoryManager." #key, DefToml(MemoryManager::key.GetValue()));
+            EF_SETTINGS_MEMORYMANAGER(X)
+#undef X
+#define X(type, key, def, comment) out.emplace("Warnings." #key, DefToml(Warnings::key.GetValue()));
+            EF_SETTINGS_WARNINGS(X)
+#undef X
+#define X(type, key, def, comment) out.emplace("Debug." #key, DefToml(Debug::key.GetValue()));
+            EF_SETTINGS_DEBUG(X)
+#undef X
+            return out;
+        }
+
+        void LogCustomOverrides()
+        {
+            std::ifstream in(kUserFile);
+            if (!in) {
+                logger::info("{} not found; using {} only"sv, kUserFile, kBaseFile);
+                return;
+            }
+
+            const auto  loaded = LoadedValues();
+            std::string line;
+            std::string section;
+            std::size_t lineNo = 0;
+            std::size_t applied = 0;
+            std::size_t ignored = 0;
+            while (std::getline(in, line)) {
+                if (++lineNo == 1 && line.starts_with(kUtf8Bom)) {
+                    line.erase(0, kUtf8Bom.size());
+                }
+                const auto a = line.find_first_not_of(" \t");
+                if (a == std::string::npos || line[a] == '#') {
+                    continue;
+                }
+                if (line[a] == '[') {
+                    if (const auto e = line.find(']', a); e != std::string::npos) {
+                        section = Trim(line.substr(a + 1, e - a - 1));
+                    }
+                    continue;
+                }
+                const auto eq = line.find('=', a);
+                if (eq == std::string::npos) {
+                    continue;
+                }
+                const auto key = Trim(line.substr(a, eq - a));
+                auto       val = line.substr(eq + 1);
+                if (const auto h = val.find('#'); h != std::string::npos) {
+                    val = val.substr(0, h);
+                }
+                val = Trim(val);
+
+                if (section.empty()) {
+                    logger::warn("{}:{}: '{}' is outside any [Section] header and is ignored"sv, kUserFile, lineNo, key);
+                    ++ignored;
+                    continue;
+                }
+                const auto it = loaded.find(section + "." + key);
+                if (it == loaded.end()) {
+                    logger::warn("{}:{}: [{}] {} is not a known setting and is ignored"sv, kUserFile, lineNo, section, key);
+                    ++ignored;
+                    continue;
+                }
+                if ((val == "true" || val == "false") && it->second != val) {
+                    logger::warn("{}:{}: [{}] {} = {} was not applied (loaded {}); the file may contain a syntax error"sv,
+                        kUserFile, lineNo, section, key, val, it->second);
+                    ++ignored;
+                    continue;
+                }
+                logger::info("custom override: [{}] {} = {}"sv, section, key, it->second);
+                ++applied;
+            }
+            logger::info("{}: {} override(s) applied, {} ignored"sv, kUserFile, applied, ignored);
+        }
+
         std::string Render(const std::vector<Section>& a_sections, const ExistingMap& a_existing)
         {
             std::string out;
@@ -244,5 +332,11 @@ namespace Settings
         const auto toml = REX::TOML::SettingStore::GetSingleton();
         toml->Init(kBaseFile, kUserFile);
         toml->Load();
+
+        try {
+            LogCustomOverrides();
+        } catch (const std::exception& e) {
+            logger::warn("could not audit {}: {}"sv, kUserFile, e.what());
+        }
     }
 }
