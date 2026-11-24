@@ -58,6 +58,7 @@
 #include "mistmenu_vr_avatar_node_null_crash.h"
 #include "mo5s_typo.h"
 #include "music_overlap.h"
+#include "navmesh_obstacle_null_guard.h"
 #include "nitimecontroller_no_target.h"
 #include "null_process_crash.h"
 #include "packagedata_target_type_mismatch_crash.h"
@@ -295,6 +296,9 @@ namespace Fixes
 
         if (Settings::Fixes::bMistMenuVRAvatarNodeNullCrash.GetValue())
             MistMenuVRAvatarNodeNullCrash::Install();
+
+        if (Settings::Fixes::bNavMeshObstacleNullGuard.GetValue())
+            NavMeshObstacleNullGuard::Install();
 
         if (Settings::Fixes::bShadowSceneCrash.GetValue())
             ShadowSceneCrash::Install();
