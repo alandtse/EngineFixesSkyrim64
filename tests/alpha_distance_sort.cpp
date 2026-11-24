@@ -1,19 +1,41 @@
 #include "../src/fixes/detail/alpha_distance_sort.h"
 #include "../src/fixes/detail/alpha_distance_sort_code.h"
 #include <array>
+#include <barrier>
 #include <bit>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <new>
 #include <random>
 #include <source_location>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 #include <xmmintrin.h>
 
 namespace policy = Fixes::AlphaDistanceSort::policy;
 namespace detail = Fixes::AlphaDistanceSort::detail;
+
+namespace
+{
+    thread_local bool        failArrayAllocation = false;
+    thread_local std::size_t arrayAllocations = 0;
+}
+
+void* operator new[](std::size_t size)
+{
+    if (failArrayAllocation)
+        throw std::bad_alloc{};
+    ++arrayAllocations;
+    if (auto* memory = std::malloc(size ? size : 1))
+        return memory;
+    throw std::bad_alloc{};
+}
+void operator delete[](void* memory) noexcept { std::free(memory); }
+void operator delete[](void* memory, std::size_t) noexcept { std::free(memory); }
 
 namespace
 {
@@ -141,7 +163,7 @@ namespace
 
     void CheckStableTies()
     {
-        for (const std::size_t count : { 32u, 33u }) {
+        for (const std::size_t count : { 32u, 33u, 65537u }) {
             std::vector<Pass>    passes(count);
             constexpr std::array tieBits{ 0u, 0x80000000u, 1u, 0x80000001u, 0x007FFFFFu, 0x807FFFFFu };
             for (std::size_t i = 0; i < count; ++i) {
@@ -161,7 +183,7 @@ namespace
     void CheckFloatOrdering()
     {
         std::mt19937 random(74);
-        for (const std::size_t count : { 2u, 17u, 31u, 32u, 33u, 64u, 10000u }) {
+        for (const std::size_t count : { 2u, 17u, 31u, 32u, 33u, 64u, 10000u, 65536u, 65537u }) {
             std::vector<Pass>  passes(count);
             std::vector<Pass*> expected;
             for (std::size_t i = 0; i < count; ++i) {
@@ -181,13 +203,197 @@ namespace
             auto*       head = passes.data();
             std::size_t evaluations = 0;
             policy::Sort(head, [&](auto* pass) { ++evaluations; return pass->radius; });
-            Check(evaluations <= 4 * count);
+            Check(evaluations == (count <= policy::detail::kMaximumCachedPasses ? count : 4 * count));
             for (auto* pass : expected) {
                 Check(head == pass);
                 head = head->passGroupNext;
             }
             Check(head == nullptr);
         }
+    }
+
+    void CheckScratchFailureAndReuse()
+    {
+        policy::detail::GetScratch<Pass>() = {};
+        std::array<Pass, 128> passes{};
+        const auto            reset = [&](float direction) {
+            for (std::size_t i = 0; i < passes.size(); ++i)
+                passes[i] = { i + 1 < passes.size() ? &passes[i + 1] : nullptr, {}, direction * float(i), i };
+        };
+        const auto verify = [&](Pass* head, bool descending) {
+            for (std::size_t i = 0; i < passes.size(); ++i) {
+                Check(head == &passes[descending ? passes.size() - 1 - i : i]);
+                head = head->passGroupNext;
+            }
+            Check(!head);
+        };
+        std::size_t evaluations = 0;
+        const auto  key = [&](const Pass* pass) { ++evaluations; return pass->radius; };
+        reset(1);
+        auto* head = passes.data();
+        failArrayAllocation = true;
+        policy::Sort(head, key);
+        failArrayAllocation = false;
+        Check(evaluations == 4 * passes.size());
+        verify(head, true);
+        reset(1);
+        head = passes.data();
+        evaluations = 0;
+        policy::Sort(head, key);
+        Check(evaluations == passes.size());
+        verify(head, true);
+        const auto allocations = arrayAllocations;
+        reset(-1);
+        head = passes.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(head, key);
+        failArrayAllocation = false;
+        Check(evaluations == passes.size() && arrayAllocations == allocations);
+        verify(head, false);
+
+        std::array<Pass, 257> larger{};
+        const auto            resetLarger = [&] {
+            for (std::size_t i = 0; i < larger.size(); ++i)
+                larger[i] = { i + 1 < larger.size() ? &larger[i + 1] : nullptr, {}, float(i), i };
+        };
+        const auto verifyLarger = [&](Pass* sorted) {
+            for (std::size_t i = larger.size(); i > 0; --i) {
+                Check(sorted == &larger[i - 1]);
+                sorted = sorted->passGroupNext;
+            }
+            Check(!sorted);
+        };
+        resetLarger();
+        auto* largerHead = larger.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(largerHead, key);
+        failArrayAllocation = false;
+        Check(evaluations == 4 * larger.size() && arrayAllocations == allocations);
+        verifyLarger(largerHead);
+        reset(1);
+        head = passes.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(head, key);
+        failArrayAllocation = false;
+        Check(evaluations == passes.size() && arrayAllocations == allocations);
+        verify(head, true);
+
+        reset(1);
+        head = passes.data();
+        std::array<Pass, 64> nested{};
+        for (std::size_t i = 0; i < nested.size(); ++i)
+            nested[i] = { i + 1 < nested.size() ? &nested[i + 1] : nullptr, {}, float(i), i };
+        bool invoked = false;
+        policy::Sort(head, [&](const Pass* pass) {
+            if (!invoked) {
+                invoked = true;
+                auto* inner = nested.data();
+                policy::Sort(inner, [](const Pass* value) { return value->radius; });
+                for (std::size_t i = nested.size(); i > 0; --i) {
+                    Check(inner == &nested[i - 1]);
+                    inner = inner->passGroupNext;
+                }
+                Check(!inner);
+            }
+            return pass->radius;
+        });
+        verify(head, true);
+
+        reset(1);
+        head = passes.data();
+        resetLarger();
+        invoked = false;
+        policy::Sort(head, [&](const Pass* pass) {
+            if (!invoked) {
+                invoked = true;
+                auto* inner = larger.data();
+                policy::Sort(inner, key);
+                verifyLarger(inner);
+            }
+            return pass->radius;
+        });
+        verify(head, true);
+        const auto grownAllocations = arrayAllocations;
+        resetLarger();
+        largerHead = larger.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(largerHead, key);
+        failArrayAllocation = false;
+        Check(evaluations == larger.size() && arrayAllocations == grownAllocations);
+        verifyLarger(largerHead);
+
+        reset(1);
+        head = passes.data();
+        resetLarger();
+        invoked = false;
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(head, [&](const Pass* pass) {
+            if (!invoked) {
+                invoked = true;
+                auto* inner = larger.data();
+                policy::Sort(inner, key);
+                verifyLarger(inner);
+            }
+            return pass->radius;
+        });
+        failArrayAllocation = false;
+        Check(invoked && evaluations == 4 * larger.size() && arrayAllocations == grownAllocations);
+        verify(head, true);
+        resetLarger();
+        largerHead = larger.data();
+        evaluations = 0;
+        failArrayAllocation = true;
+        policy::Sort(largerHead, key);
+        failArrayAllocation = false;
+        Check(evaluations == larger.size() && arrayAllocations == grownAllocations);
+        verifyLarger(largerHead);
+    }
+
+    void CheckConcurrentScratch()
+    {
+        std::barrier        ready(2);
+        std::array<bool, 2> success{};
+        const auto          worker = [&](std::size_t lane) {
+            bool                  valid = true;
+            std::array<Pass, 257> passes{};
+            const std::size_t     count = lane ? passes.size() : 128;
+            for (std::size_t round = 0; round < 16; ++round) {
+                const bool ascending = (lane + round) % 2 == 0;
+                for (std::size_t i = 0; i < count; ++i)
+                    passes[i] = { i + 1 < count ? &passes[i + 1] : nullptr, {}, (ascending ? -1.0f : 1.0f) * float(i), i };
+                auto*       head = passes.data();
+                std::size_t evaluations = 0;
+                failArrayAllocation = round != 0;
+                policy::Sort(head, [&](const Pass* pass) {
+                    // Both threads hold live scratch while the other enters its key callback.
+                    if (++evaluations == 1)
+                        ready.arrive_and_wait();
+                    return pass->radius;
+                });
+                failArrayAllocation = false;
+                valid &= evaluations == count && arrayAllocations == 1;
+                for (std::size_t i = 0; i < count; ++i) {
+                    auto* expected = &passes[ascending ? i : count - 1 - i];
+                    if (head != expected) {
+                        valid = false;
+                        break;
+                    }
+                    head = head->passGroupNext;
+                }
+                valid &= head == nullptr;
+            }
+            success[lane] = valid;
+        };
+        {
+            std::jthread first(worker, 0);
+            std::jthread second(worker, 1);
+        }
+        Check(success[0] && success[1]);
     }
 
     void CheckOrderingModes()
@@ -204,6 +410,8 @@ namespace
             CheckPolicy();
             CheckStableTies();
             CheckFloatOrdering();
+            CheckScratchFailureAndReuse();
+            CheckConcurrentScratch();
         }
     }
 
