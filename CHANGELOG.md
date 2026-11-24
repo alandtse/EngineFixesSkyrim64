@@ -1,3 +1,9 @@
+## [7.15.1](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.15.0...v7.15.1) (2026-11-24)
+
+### Bug Fixes
+
+* log ignored custom toml overrides ([#111](https://github.com/alandtse/EngineFixesSkyrim64/issues/111)) ([c774ac6](https://github.com/alandtse/EngineFixesSkyrim64/commit/c774ac6eaaa7a92d93497908e872feedcc0587d6))
+
 ## [7.15.0](https://github.com/alandtse/EngineFixesSkyrim64/compare/v7.14.0...v7.15.0) (2026-11-23)
 
 ### Features
