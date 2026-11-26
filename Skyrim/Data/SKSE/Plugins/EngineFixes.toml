@@ -67,6 +67,7 @@ bShadowSceneCrash = true                        # (VR-only) fixes a null-pointer
 bMessageBoxMainMenu = true                      # (VR-only) fixes MessageBox dialogs and the Console not being drawn on the main-menu VR UI quad; preserves modal and input order
 bMessageBoxMainMenuTest = false                 # (VR-only) shows one main-menu MessageBox per launch for testing; independent of bMessageBoxMainMenu
 bLockpickingMenuInitCrash = true                # (VR-only) guards the LockpickingMenu against a null-pointer crash when its lock/pick 3D models aren't loaded yet on the first frame
+bTangentSpaceSignedIndexCrash = true            # (VR-only) fixes the tangent-space builder reading 16-bit vertex indices as signed, which corrupts memory on models with more than 32768 vertices
 
 # contains optional game patches
 [Patches]

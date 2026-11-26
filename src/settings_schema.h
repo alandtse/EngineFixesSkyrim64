@@ -99,6 +99,7 @@
     X(Bool, bMessageBoxMainMenuTest, false, "(VR-only) shows one main-menu MessageBox per launch for testing; independent of bMessageBoxMainMenu")                                                                                                                \
     X(Bool, bMistMenuVRAvatarNodeNullCrash, true, "(VR-only) guards MistMenu's per-frame HMD/hand avatar-node transform update against a null-pointer crash when a cached node pointer isn't populated")                                                          \
     X(Bool, bMapMenuCloseHandlersNullGuard, true, "(VR-only) guards MapMenu::CloseHandlers' 5-slot input-handler teardown loop against a null or torn/not-yet-constructed handler pointer")                                                                       \
+    X(Bool, bTangentSpaceSignedIndexCrash, true, "(VR-only) fixes the tangent-space builder reading 16-bit vertex indices as signed, which corrupts memory on models with more than 32768 vertices")                                                              \
     X(Bool, bLoadFormDataStaleFormCrash, true, "fixes a crash when a queued load entry caches a form pointer that is freed before use")                                                                                                                           \
     X(Bool, bPackageDataTargetTypeMismatchCrash, true, "fixes a crash when a package procedure reads a non-target package data input as a target")
 

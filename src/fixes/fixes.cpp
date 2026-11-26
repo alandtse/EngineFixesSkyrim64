@@ -72,6 +72,7 @@
 #include "sky_update_clouds_nullptr_crash.h"
 #include "stuck_mouse_buttons.h"
 #include "subindextrishape_create_null_crash.h"
+#include "tangent_space_signed_index_crash.h"
 #include "texture_load_crash.h"
 #include "torch_landscape.h"
 #include "trishape_release_buffer_guard.h"
@@ -304,6 +305,9 @@ namespace Fixes
 
         if (Settings::Fixes::bMapMenuCloseHandlersNullGuard.GetValue())
             MapMenuCloseHandlersNullGuard::Install();
+
+        if (Settings::Fixes::bTangentSpaceSignedIndexCrash.GetValue())
+            TangentSpaceSignedIndexCrash::Install();
 
         if (Settings::Fixes::bLoadFormDataStaleFormCrash.GetValue())
             LoadFormDataStaleFormCrash::Install();
